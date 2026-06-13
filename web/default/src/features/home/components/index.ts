@@ -19,5 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 export { CTA } from './sections/cta'
 export { Features } from './sections/features'
 export { Hero } from './sections/hero'
+export { Highlights } from './sections/highlights'
 export { HowItWorks } from './sections/how-it-works'
+export { ProductTools } from './sections/product-tools'
+export { ProviderLogos } from './sections/provider-logos'
 export { Stats } from './sections/stats'

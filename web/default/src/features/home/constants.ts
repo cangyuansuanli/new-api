@@ -43,6 +43,30 @@ export const AI_MODELS = [
   'Gemini.Color',
 ] as const
 
+/** Provider logos shown on the marketing home (aligned with classic home) */
+export const PROVIDER_ICONS = [
+  'Moonshot',
+  'OpenAI',
+  'XAI',
+  'Zhipu.Color',
+  'Volcengine.Color',
+  'Cohere.Color',
+  'Claude.Color',
+  'Gemini.Color',
+  'Suno',
+  'Minimax.Color',
+  'Wenxin.Color',
+  'Spark.Color',
+  'Qingyan.Color',
+  'DeepSeek.Color',
+  'Qwen.Color',
+  'Midjourney',
+  'Grok',
+  'AzureAI.Color',
+  'Hunyuan.Color',
+  'Xinference.Color',
+] as const
+
 // Hero section - Gateway Features
 export const GATEWAY_FEATURES = [
   'Cost Tracking',

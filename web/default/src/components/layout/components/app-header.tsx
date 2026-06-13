@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useNotifications } from '@/hooks/use-notifications'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
+import { CanvasTopNavLink } from '@/features/canvas/components/canvas-top-nav-link'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
@@ -121,8 +122,9 @@ export function AppHeader({
         {rightContent ?? (
           <div className='ms-auto flex items-center gap-1 sm:gap-2'>
             {showTopNav && (
-              <div className='me-1 hidden lg:block'>
+              <div className='me-1 hidden items-center gap-4 lg:flex'>
                 <TopNav links={links} />
+                <CanvasTopNavLink />
               </div>
             )}
             {showSearch && <Search />}

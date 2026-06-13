@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { Loader2, MessageCircleWarning } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +26,8 @@ import { useActiveChatKey } from '@/features/chat/hooks/use-active-chat-key'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import {
   chatLinkRequiresApiKey,
-  resolveChatUrl,
+  chatLinkRequiresTrustToken,
+  resolveChatUrlAsync,
 } from '@/features/chat/lib/chat-links'
 
 export const Route = createFileRoute('/_authenticated/chat/$chatId')({
@@ -52,7 +53,13 @@ function ChatRouteComponent() {
 
   const requiresActiveKey = useMemo(() => {
     if (!preset || !isWebLink) return false
-    return chatLinkRequiresApiKey(preset.url ?? '')
+    const template = preset.url ?? ''
+    return chatLinkRequiresApiKey(template) && !chatLinkRequiresTrustToken(template)
+  }, [isWebLink, preset])
+
+  const requiresTrustToken = useMemo(() => {
+    if (!preset || !isWebLink) return false
+    return chatLinkRequiresTrustToken(preset.url ?? '')
   }, [isWebLink, preset])
 
   const {
@@ -62,14 +69,30 @@ function ChatRouteComponent() {
     error,
   } = useActiveChatKey(Boolean(preset && requiresActiveKey))
 
-  const iframeSrc = useMemo(() => {
-    if (!preset || !isWebLink) return ''
-    if (requiresActiveKey && !activeKey) return ''
-    return resolveChatUrl({
+  const [iframeSrc, setIframeSrc] = useState('')
+
+  useEffect(() => {
+    if (!preset || !isWebLink) {
+      setIframeSrc('')
+      return
+    }
+    if (requiresActiveKey && !activeKey) {
+      setIframeSrc('')
+      return
+    }
+
+    let cancelled = false
+    void resolveChatUrlAsync({
       template: preset.url,
       apiKey: requiresActiveKey ? activeKey : undefined,
       serverAddress,
+    }).then((url) => {
+      if (!cancelled) setIframeSrc(url)
     })
+
+    return () => {
+      cancelled = true
+    }
   }, [activeKey, isWebLink, preset, requiresActiveKey, serverAddress])
 
   if (!preset) {
@@ -111,7 +134,7 @@ function ChatRouteComponent() {
     )
   }
 
-  if (requiresActiveKey && isPending) {
+  if ((requiresActiveKey && isPending) || (requiresTrustToken && !iframeSrc && preset)) {
     return (
       <div className='flex h-full flex-col items-center justify-center gap-4'>
         <Loader2 className='text-muted-foreground h-8 w-8 animate-spin' />

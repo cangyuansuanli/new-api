@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { API_KEY_STATUS } from '@/features/keys/constants'
+import { fetchCanvasTrustToken } from '@/features/canvas/api'
 
 export type ChatLinkType = 'web' | 'custom-protocol' | 'fluent'
 
@@ -38,6 +39,7 @@ export type ResolveChatUrlParams = {
   template: string
   apiKey?: string
   serverAddress: string
+  trustToken?: string
 }
 
 export type ActiveApiKey = {
@@ -91,6 +93,10 @@ export function chatLinkRequiresApiKey(url: string): boolean {
     url.includes('{aionuiConfig}') ||
     url.includes('{deepchatConfig}')
   )
+}
+
+export function chatLinkRequiresTrustToken(url: string): boolean {
+  return url.includes('{trustToken}')
 }
 
 export function parseChatConfig(raw: RawChatConfig): ChatPreset[] {
@@ -153,11 +159,13 @@ export function resolveChatUrl({
   template,
   apiKey,
   serverAddress,
+  trustToken,
 }: ResolveChatUrlParams): string {
   let url = template
   const safeServerAddress = serverAddress || ''
 
   const safeApiKey = normalizeApiKey(apiKey || '')
+  const safeTrustToken = (trustToken || '').trim()
 
   if (url.includes('{cherryConfig}')) {
     const payload = {
@@ -198,7 +206,26 @@ export function resolveChatUrl({
     url = replaceToken(url, '{key}', safeApiKey)
   }
 
+  if (url.includes('{trustToken}')) {
+    url = replaceToken(url, '{trustToken}', encodeURIComponent(safeTrustToken))
+  }
+
   return url
+}
+
+export async function resolveChatUrlAsync(
+  params: ResolveChatUrlParams
+): Promise<string> {
+  let trustToken = params.trustToken
+  if (chatLinkRequiresTrustToken(params.template) && !trustToken) {
+    try {
+      const result = await fetchCanvasTrustToken()
+      trustToken = result.token
+    } catch {
+      trustToken = ''
+    }
+  }
+  return resolveChatUrl({ ...params, trustToken })
 }
 
 export function getFirstActiveKey(

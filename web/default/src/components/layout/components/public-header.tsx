@@ -31,6 +31,8 @@ import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { CanvasTopNavLink } from '@/features/canvas/components/canvas-top-nav-link'
+import { mktLayout } from '@/features/home/lib/marketing-theme'
 import { defaultTopNavLinks } from '../config/top-nav.config'
 import type { TopNavLink } from '../types'
 import { HeaderLogo } from './header-logo'
@@ -57,6 +59,7 @@ export interface PublicHeaderProps {
   showAuthButtons?: boolean
   showNotifications?: boolean
   className?: string
+  variant?: 'default' | 'marketing'
 }
 
 export function PublicHeader(props: PublicHeaderProps) {
@@ -69,7 +72,10 @@ export function PublicHeader(props: PublicHeaderProps) {
     homeUrl = '/',
     showAuthButtons = true,
     showNotifications = true,
+    variant = 'default',
   } = props
+
+  const isMarketing = variant === 'marketing'
 
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -184,7 +190,9 @@ export function PublicHeader(props: PublicHeaderProps) {
             className={cn(
               'flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
               scrolled
-                ? 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)]'
+                ? isMarketing
+                  ? cn('h-12 rounded-2xl pr-1.5 pl-4', mktLayout.headerScrolled)
+                  : 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)]'
                 : 'h-16 px-2'
             )}
           >
@@ -207,7 +215,12 @@ export function PublicHeader(props: PublicHeaderProps) {
                   />
                 )}
               </div>
-              <span className='text-sm font-semibold tracking-tight'>
+              <span
+                className={cn(
+                  'text-sm font-semibold tracking-tight',
+                  isMarketing && mktLayout.siteName
+                )}
+              >
                 {loading ? <Skeleton className='h-4 w-16' /> : displaySiteName}
               </span>
             </Link>
@@ -227,7 +240,10 @@ export function PublicHeader(props: PublicHeaderProps) {
                       tabIndex={link.disabled ? -1 : undefined}
                       onClick={(event) => handleNavLinkClick(event, link)}
                       className={cn(
-                        'text-muted-foreground hover:text-foreground rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
+                        'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
+                        isMarketing
+                          ? mktLayout.navLink
+                          : 'text-muted-foreground hover:text-foreground',
                         link.disabled && 'pointer-events-none opacity-50'
                       )}
                     >
@@ -244,8 +260,12 @@ export function PublicHeader(props: PublicHeaderProps) {
                     className={cn(
                       'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
                       isActive
-                        ? 'text-foreground'
-                        : 'text-muted-foreground hover:text-foreground',
+                        ? isMarketing
+                          ? mktLayout.navLinkActive
+                          : 'text-foreground'
+                        : isMarketing
+                          ? mktLayout.navLink
+                          : 'text-muted-foreground hover:text-foreground',
                       link.disabled && 'pointer-events-none opacity-50'
                     )}
                   >
@@ -253,6 +273,13 @@ export function PublicHeader(props: PublicHeaderProps) {
                   </Link>
                 )
               })}
+
+              <CanvasTopNavLink
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
+                  isMarketing ? mktLayout.navLink : 'text-muted-foreground hover:text-foreground'
+                )}
+              />
 
               {(showLanguageSwitcher ||
                 showThemeSwitch ||
@@ -338,7 +365,8 @@ export function PublicHeader(props: PublicHeaderProps) {
       {/* Mobile full-screen overlay */}
       <div
         className={cn(
-          'bg-background/98 fixed inset-0 z-40 backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:pointer-events-none sm:hidden',
+          'fixed inset-0 z-40 backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:pointer-events-none sm:hidden',
+          isMarketing ? mktLayout.mobileOverlay : 'bg-background/98',
           mobileOpen
             ? 'pointer-events-auto opacity-100'
             : 'pointer-events-none opacity-0'
@@ -353,7 +381,13 @@ export function PublicHeader(props: PublicHeaderProps) {
                 mobileOpen
                   ? 'translate-y-0 opacity-100'
                   : 'translate-y-4 opacity-0',
-                isActive ? 'text-foreground' : 'text-muted-foreground',
+                isMarketing
+                  ? isActive
+                    ? mktLayout.navLinkActive
+                    : mktLayout.navLink
+                  : isActive
+                    ? 'text-foreground'
+                    : 'text-muted-foreground',
                 link.disabled && 'pointer-events-none opacity-50'
               )
               const transitionStyle = {
@@ -389,6 +423,21 @@ export function PublicHeader(props: PublicHeaderProps) {
                 </Link>
               )
             })}
+            <CanvasTopNavLink
+              className={cn(
+                'flex items-center gap-3 py-3 text-base font-medium tracking-tight transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                mobileOpen
+                  ? 'translate-y-0 opacity-100'
+                  : 'translate-y-4 opacity-0',
+                isMarketing ? mktLayout.navLink : 'text-muted-foreground'
+              )}
+              style={{
+                transitionDelay: mobileOpen
+                  ? `${100 + links.length * 50}ms`
+                  : '0ms',
+              }}
+              onClick={() => setMobileOpen(false)}
+            />
           </nav>
 
           <div

@@ -5,22 +5,14 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { AnimateInView } from '@/components/animate-in-view'
+import { cn } from '@/lib/utils'
+import { mkt } from '../../lib/marketing-theme'
 
 interface CTAProps {
   className?: string
@@ -36,15 +28,20 @@ export function CTA(props: CTAProps) {
 
   return (
     <section className='relative z-10 overflow-hidden px-6 py-24 md:py-32'>
-      {/* Gradient mesh background */}
       <div
         aria-hidden
-        className='absolute inset-0 -z-10 opacity-20 dark:opacity-[0.08]'
+        className='absolute inset-0 -z-10 opacity-80 dark:hidden'
         style={{
-          background: [
-            'radial-gradient(ellipse 50% 50% at 30% 50%, oklch(0.7 0.15 250 / 70%) 0%, transparent 70%)',
-            'radial-gradient(ellipse 40% 40% at 70% 40%, oklch(0.65 0.12 200 / 50%) 0%, transparent 70%)',
-          ].join(', '),
+          background:
+            'radial-gradient(ellipse 50% 50% at 30% 50%, rgba(6,182,212,0.14) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 70% 40%, rgba(99,102,241,0.1) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        aria-hidden
+        className='absolute inset-0 -z-10 hidden opacity-60 dark:block'
+        style={{
+          background:
+            'radial-gradient(ellipse 50% 50% at 30% 50%, rgba(37,232,255,0.12) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 70% 40%, rgba(33,255,200,0.1) 0%, transparent 70%)',
         }}
       />
 
@@ -52,14 +49,14 @@ export function CTA(props: CTAProps) {
         className='mx-auto max-w-2xl text-center'
         animation='scale-in'
       >
-        <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-4xl'>
+        <h2 className={cn('text-2xl leading-tight font-bold tracking-tight md:text-4xl', mkt.heading)}>
           {t('Ready to simplify')}
           <br />
-          <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
+          <span className='bg-gradient-to-r from-cyan-600 via-emerald-600 to-violet-600 bg-clip-text text-transparent dark:from-cyan-300 dark:via-emerald-300 dark:to-violet-300'>
             {t('your AI integration?')}
           </span>
         </h2>
-        <p className='text-muted-foreground/80 mx-auto mt-5 max-w-md text-sm leading-relaxed md:text-base'>
+        <p className={cn('mx-auto mt-5 max-w-md text-sm leading-relaxed md:text-base', mkt.muted)}>
           {t(
             'Deploy your own gateway and start routing requests through your configured upstream services.'
           )}
@@ -71,7 +68,7 @@ export function CTA(props: CTAProps) {
           </Button>
           <Button
             variant='outline'
-            className='border-border/50 hover:border-border hover:bg-muted/50 rounded-lg'
+            className={cn('rounded-lg', mkt.btnGhost)}
             render={<Link to='/pricing' />}
           >
             {t('View Pricing')}

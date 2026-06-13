@@ -51,7 +51,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
-import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
+import { resolveChatUrlAsync, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
 import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
@@ -140,7 +140,7 @@ export function DataTableRowActions<TData>({
         return
       }
 
-      const resolvedUrl = resolveChatUrl({
+      const resolvedUrl = await resolveChatUrlAsync({
         template: preset.url,
         apiKey: realKey,
         serverAddress,

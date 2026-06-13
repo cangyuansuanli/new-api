@@ -44,7 +44,8 @@ import { fetchActiveChatKey } from '@/features/chat/hooks/use-active-chat-key'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import {
   chatLinkRequiresApiKey,
-  resolveChatUrl,
+  chatLinkRequiresTrustToken,
+  resolveChatUrlAsync,
   type ChatPreset,
 } from '@/features/chat/lib/chat-links'
 import { normalizeHref } from '../lib/url-utils'
@@ -169,7 +170,9 @@ export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
     async (preset: ChatPreset) => {
       if (preset.type === 'web') return
 
-      const needsKey = chatLinkRequiresApiKey(preset.url)
+      const needsKey =
+        chatLinkRequiresApiKey(preset.url) &&
+        !chatLinkRequiresTrustToken(preset.url)
       let activeKey: string | undefined
 
       if (needsKey && loadingPresetIdRef.current) {
@@ -197,7 +200,7 @@ export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
         }
       }
 
-      const url = resolveChatUrl({
+      const url = await resolveChatUrlAsync({
         template: preset.url,
         apiKey: needsKey ? activeKey : undefined,
         serverAddress,

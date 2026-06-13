@@ -177,15 +177,19 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (mq.matches) return
 
+    let mounted = true
+
     intervalRef.current = setInterval(() => {
       setTransitioning(true)
       timeoutRef.current = setTimeout(() => {
+        if (!mounted) return
         setActiveIndex((prev) => (prev + 1) % API_DEMOS.length)
         setTransitioning(false)
       }, TRANSITION_MS)
     }, CYCLE_INTERVAL)
 
     return () => {
+      mounted = false
       if (intervalRef.current) clearInterval(intervalRef.current)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }

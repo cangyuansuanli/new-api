@@ -5,24 +5,41 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { Markdown } from '@/components/ui/markdown'
 import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
-import { CTA, Features, Hero, HowItWorks, Stats } from './components'
+import { mkt } from './lib/marketing-theme'
+import { SITE_BRAND } from './lib/site-assets'
+import { HomeBackground } from './components/home-background'
+import {
+  CTA,
+  Features,
+  Hero,
+  Highlights,
+  HowItWorks,
+  ProductTools,
+  ProviderLogos,
+  Stats,
+} from './components'
 import { useHomePageContent } from './hooks'
+
+const marketingLogo = (
+  <img
+    src={SITE_BRAND.logo}
+    alt={SITE_BRAND.name}
+    className='size-full rounded-lg object-contain'
+  />
+)
+
+const homeLayoutProps = {
+  showMainContainer: false as const,
+  variant: 'marketing' as const,
+  siteName: SITE_BRAND.name,
+  logo: marketingLogo,
+}
 
 export function Home() {
   const { t } = useTranslation()
@@ -32,9 +49,9 @@ export function Home() {
 
   if (!isLoaded) {
     return (
-      <PublicLayout showMainContainer={false}>
+      <PublicLayout {...homeLayoutProps}>
         <main className='flex min-h-screen items-center justify-center'>
-          <div className='text-muted-foreground'>{t('Loading...')}</div>
+          <div className={mkt.muted}>{t('Loading...')}</div>
         </main>
       </PublicLayout>
     )
@@ -42,7 +59,7 @@ export function Home() {
 
   if (content) {
     return (
-      <PublicLayout showMainContainer={false}>
+      <PublicLayout {...homeLayoutProps}>
         <main className='overflow-x-hidden'>
           {isUrl ? (
             <iframe
@@ -61,13 +78,19 @@ export function Home() {
   }
 
   return (
-    <PublicLayout showMainContainer={false}>
-      <Hero isAuthenticated={isAuthenticated} />
-      <Stats />
-      <Features />
-      <HowItWorks />
-      <CTA isAuthenticated={isAuthenticated} />
-      <Footer />
+    <PublicLayout {...homeLayoutProps}>
+      <div className={`marketing-home relative min-h-svh ${mkt.page}`}>
+        <HomeBackground />
+        <Hero isAuthenticated={isAuthenticated} />
+        <ProviderLogos />
+        <Highlights />
+        <ProductTools />
+        <Stats />
+        <Features />
+        <HowItWorks />
+        <CTA isAuthenticated={isAuthenticated} />
+        <Footer className={mkt.footer} />
+      </div>
     </PublicLayout>
   )
 }

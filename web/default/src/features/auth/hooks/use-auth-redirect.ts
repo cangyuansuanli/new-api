@@ -19,6 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { useNavigate } from '@tanstack/react-router'
 import i18n from 'i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import {
+  isCanvasRedirectUrl,
+  isExternalRedirect,
+  resolveCanvasRedirectUrl,
+} from '@/features/canvas/lib/post-auth-redirect'
 import { getSelf } from '@/lib/api'
 import type { User } from '@/features/users/types'
 import { saveUserId } from '../lib/storage'
@@ -87,6 +92,19 @@ export function useAuthRedirect() {
 
     // Navigate to target page
     const targetPath = redirectTo || '/dashboard'
+    if (redirectTo && isCanvasRedirectUrl(redirectTo)) {
+      try {
+        window.location.href = await resolveCanvasRedirectUrl(redirectTo)
+        return
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to create canvas trust redirect:', error)
+      }
+    }
+    if (redirectTo && isExternalRedirect(redirectTo)) {
+      window.location.href = redirectTo
+      return
+    }
     navigate({ to: targetPath, replace: true })
   }
 
@@ -100,8 +118,12 @@ export function useAuthRedirect() {
   /**
    * Redirect to login page
    */
-  const redirectToLogin = () => {
-    navigate({ to: '/sign-in', replace: true })
+  const redirectToLogin = (redirect?: string) => {
+    navigate({
+      to: '/sign-in',
+      search: redirect ? { redirect } : undefined,
+      replace: true,
+    })
   }
 
   /**

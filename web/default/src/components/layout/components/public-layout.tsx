@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TopNavLink } from '../types'
+import { cn } from '@/lib/utils'
+import { mktLayout } from '@/features/home/lib/marketing-theme'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 
 type PublicLayoutProps = {
@@ -30,11 +32,20 @@ type PublicLayoutProps = {
   showNotifications?: boolean
   logo?: React.ReactNode
   siteName?: string
+  variant?: 'default' | 'marketing'
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
+  const variant = props.variant ?? props.headerProps?.variant ?? 'default'
+  const isMarketing = variant === 'marketing'
+
   return (
-    <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
+    <div
+      className={cn(
+        'relative min-h-svh overflow-x-clip',
+        isMarketing ? mktLayout.shell : 'bg-background text-foreground'
+      )}
+    >
       <PublicHeader
         navContent={props.navContent}
         navLinks={props.navLinks}
@@ -43,6 +54,7 @@ export function PublicLayout(props: PublicLayoutProps) {
         showNotifications={props.showNotifications}
         logo={props.logo}
         siteName={props.siteName}
+        variant={variant}
         {...props.headerProps}
       />
 

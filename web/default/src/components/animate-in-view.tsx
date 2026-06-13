@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useRef, useEffect, type ReactNode } from 'react'
+import { useRef, useEffect, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface AnimateInViewProps {
@@ -39,6 +39,7 @@ export function AnimateInView(props: AnimateInViewProps) {
   } = props
 
   const ref = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(false)
 
   useEffect(() => {
     const el = ref.current
@@ -46,20 +47,17 @@ export function AnimateInView(props: AnimateInViewProps) {
 
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (mq.matches) {
-      el.classList.remove('opacity-0')
-      el.classList.add(`landing-animate-${animation}`)
+      setActive(true)
       return
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          el.classList.remove('opacity-0')
-          el.classList.add(`landing-animate-${animation}`)
-          if (once) observer.unobserve(el)
+          setActive(true)
+          if (once) observer.disconnect()
         } else if (!once) {
-          el.classList.add('opacity-0')
-          el.classList.remove(`landing-animate-${animation}`)
+          setActive(false)
         }
       },
       { threshold, rootMargin: '0px 0px -40px 0px' }
@@ -67,16 +65,18 @@ export function AnimateInView(props: AnimateInViewProps) {
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [threshold, once, animation])
+  }, [threshold, once])
 
   return (
     <Tag
       ref={ref as never}
       className={cn(
-        'opacity-0 will-change-[transform,opacity]',
+        'will-change-[transform,opacity]',
+        !active && 'opacity-0',
+        active && `landing-animate-${animation}`,
         props.className
       )}
-      style={{ animationDelay: delay ? `${delay}ms` : undefined }}
+      style={{ animationDelay: active && delay ? `${delay}ms` : undefined }}
     >
       {props.children}
     </Tag>

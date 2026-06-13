@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
+import { mkt } from '../../lib/marketing-theme'
 
 interface CounterProps {
   end: number
@@ -105,7 +107,7 @@ export function Stats(_props: StatsProps) {
   ]
 
   return (
-    <div className='border-border/40 bg-muted/10 relative z-10 border-y'>
+    <div className={cn('relative z-10', mkt.statsBand)}>
       <div className='mx-auto max-w-6xl px-6 py-10 md:py-12'>
         <div className='grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12'>
           {stats.map((s) => (
@@ -113,10 +115,10 @@ export function Stats(_props: StatsProps) {
               key={s.label}
               className='flex flex-col items-center text-center'
             >
-              <span className='text-2xl font-bold tracking-tight md:text-3xl'>
+              <span className={cn('text-2xl font-bold tracking-tight md:text-3xl', mkt.heading)}>
                 <Counter end={s.end} suffix={s.suffix} decimals={s.decimals} />
               </span>
-              <span className='text-muted-foreground mt-1.5 text-xs'>
+              <span className={cn('mt-1.5 text-xs', mkt.muted)}>
                 {s.label}
               </span>
             </div>
