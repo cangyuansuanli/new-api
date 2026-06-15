@@ -58,6 +58,9 @@ func SetApiRouter(router *gin.Engine) {
 		canvasTrustRoute.Use(middleware.CanvasTrustSecretAuth())
 		{
 			canvasTrustRoute.POST("/verify", anonymousRequestBodyLimit, controller.VerifyCanvasTrustToken)
+			canvasTrustRoute.POST("/user-self", anonymousRequestBodyLimit, controller.GetCanvasTrustUserSelf)
+			canvasTrustRoute.POST("/tokens", anonymousRequestBodyLimit, controller.ListCanvasTrustTokens)
+			canvasTrustRoute.POST("/token-key", anonymousRequestBodyLimit, controller.GetCanvasTrustTokenKey)
 		}
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)

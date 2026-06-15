@@ -29,19 +29,39 @@ type canvasTrustMemoryEntry struct {
 }
 
 type CanvasTrustUser struct {
-	ID            int    `json:"id"`
-	Username      string `json:"username"`
-	DisplayName   string `json:"display_name"`
-	Email         string `json:"email"`
-	IsAdmin       bool   `json:"is_admin"`
-	APIKey        string `json:"api_key,omitempty"`
-	ServerAddress string `json:"server_address,omitempty"`
+	ID          int    `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	IsAdmin     bool   `json:"is_admin"`
 }
 
 var (
 	ErrCanvasTrustDisabled = errors.New("canvas trust is not configured")
 	ErrCanvasTrustInvalid  = errors.New("invalid or expired canvas trust token")
+	ErrCanvasTrustUser     = errors.New("invalid canvas trust user")
 )
+
+type CanvasTrustUserProfile struct {
+	ID         int    `json:"id"`
+	Username   string `json:"username"`
+	Group      string `json:"group"`
+	Quota      int    `json:"quota"`
+	UsedQuota  int    `json:"used_quota"`
+	ServerAddr string `json:"server_address"`
+}
+
+type CanvasTrustTokenItem struct {
+	ID                 int    `json:"id"`
+	Name               string `json:"name"`
+	Key                string `json:"key"`
+	Status             int    `json:"status"`
+	RemainQuota        int    `json:"remain_quota"`
+	UnlimitedQuota     bool   `json:"unlimited_quota"`
+	ModelLimitsEnabled bool   `json:"model_limits_enabled"`
+	ModelLimits        string `json:"model_limits"`
+	Group              string `json:"group"`
+}
 
 func canvasTrustTTL() time.Duration {
 	return time.Duration(setting.CanvasTrustTokenTTL) * time.Second
@@ -122,46 +142,13 @@ func VerifyCanvasTrustToken(token string) (*CanvasTrustUser, error) {
 		return nil, errors.New("user is disabled")
 	}
 
-	apiKey, _ := firstEnabledUserAPIKey(user.Id)
-	serverAddress := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
-	if serverAddress == "" {
-		serverAddress = strings.TrimRight(strings.TrimSpace(setting.CanvasBaseURL), "/")
-	}
-
 	return &CanvasTrustUser{
-		ID:            user.Id,
-		Username:      user.Username,
-		DisplayName:   user.DisplayName,
-		Email:         user.Email,
-		IsAdmin:       user.Role >= common.RoleAdminUser,
-		APIKey:        apiKey,
-		ServerAddress: serverAddress,
+		ID:          user.Id,
+		Username:    user.Username,
+		DisplayName: user.DisplayName,
+		Email:       user.Email,
+		IsAdmin:     user.Role >= common.RoleAdminUser,
 	}, nil
-}
-
-func firstEnabledUserAPIKey(userID int) (string, error) {
-	tokens, err := model.GetAllUserTokens(userID, 0, 50)
-	if err != nil {
-		return "", err
-	}
-	now := common.GetTimestamp()
-	for _, token := range tokens {
-		if token == nil || token.Status != common.TokenStatusEnabled {
-			continue
-		}
-		if token.ExpiredTime != -1 && token.ExpiredTime < now {
-			continue
-		}
-		key := strings.TrimSpace(token.Key)
-		if key == "" {
-			continue
-		}
-		if !strings.HasPrefix(key, "sk-") {
-			key = "sk-" + key
-		}
-		return key, nil
-	}
-	return "", errors.New("no enabled api key")
 }
 
 func consumeCanvasTrustToken(token string) (int, error) {
@@ -204,4 +191,93 @@ func randomCanvasTrustToken() (string, error) {
 
 func trimCanvasTrustToken(token string) string {
 	return strings.TrimSpace(token)
+}
+
+func resolveCanvasTrustUser(userID int) (*model.User, error) {
+	if userID <= 0 {
+		return nil, ErrCanvasTrustUser
+	}
+	user, err := model.GetUserById(userID, false)
+	if err != nil || user == nil || user.Id <= 0 {
+		return nil, ErrCanvasTrustUser
+	}
+	if user.Status != common.UserStatusEnabled {
+		return nil, errors.New("user is disabled")
+	}
+	return user, nil
+}
+
+func GetCanvasTrustUserProfile(userID int) (*CanvasTrustUserProfile, error) {
+	user, err := resolveCanvasTrustUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	serverAddr := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
+	return &CanvasTrustUserProfile{
+		ID:         user.Id,
+		Username:   user.Username,
+		Group:      user.Group,
+		Quota:      user.Quota,
+		UsedQuota:  user.UsedQuota,
+		ServerAddr: serverAddr,
+	}, nil
+}
+
+func ListCanvasTrustUserTokens(userID int, startIdx int, pageSize int) ([]CanvasTrustTokenItem, int, error) {
+	if _, err := resolveCanvasTrustUser(userID); err != nil {
+		return nil, 0, err
+	}
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	if pageSize > 1000 {
+		pageSize = 1000
+	}
+	tokens, err := model.GetAllUserTokens(userID, startIdx, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	total64, err := model.CountUserTokens(userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]CanvasTrustTokenItem, 0, len(tokens))
+	for _, token := range tokens {
+		if token == nil {
+			continue
+		}
+		items = append(items, CanvasTrustTokenItem{
+			ID:                 token.Id,
+			Name:               token.Name,
+			Key:                token.GetMaskedKey(),
+			Status:             token.Status,
+			RemainQuota:        token.RemainQuota,
+			UnlimitedQuota:     token.UnlimitedQuota,
+			ModelLimitsEnabled: token.ModelLimitsEnabled,
+			ModelLimits:        token.ModelLimits,
+			Group:              token.Group,
+		})
+	}
+	return items, int(total64), nil
+}
+
+func GetCanvasTrustTokenKey(userID int, tokenID int) (string, error) {
+	if _, err := resolveCanvasTrustUser(userID); err != nil {
+		return "", err
+	}
+	token, err := model.GetTokenByIds(tokenID, userID)
+	if err != nil {
+		return "", err
+	}
+	if token.Status != common.TokenStatusEnabled {
+		return "", errors.New("token is disabled")
+	}
+	key := strings.TrimSpace(token.GetFullKey())
+	if key == "" {
+		return "", errors.New("token key is empty")
+	}
+	if !strings.HasPrefix(key, "sk-") {
+		key = "sk-" + key
+	}
+	return key, nil
 }
