@@ -441,16 +441,9 @@ const RechargeCard = ({
                         preset.discount ||
                         topupInfo?.discount?.[preset.value] ||
                         1.0;
-                      const originalPrice = preset.value * priceRatio;
-                      const discountedPrice = originalPrice * discount;
-                      const hasDiscount = discount < 1.0;
-                      const actualPay = discountedPrice;
-                      const save = originalPrice - discountedPrice;
-
-                      // 根据当前货币类型换算显示金额和数量
                       const { symbol, rate, type } = getCurrencyConfig();
                       const statusStr = localStorage.getItem('status');
-                      let usdRate = 7; // 默认CNY汇率
+                      let usdRate = 7;
                       try {
                         if (statusStr) {
                           const s = JSON.parse(statusStr);
@@ -458,22 +451,19 @@ const RechargeCard = ({
                         }
                       } catch (e) {}
 
-                      let displayValue = preset.value; // 显示的数量
+                      const originalPrice = preset.value;
+                      const discountedPrice = originalPrice * discount;
+                      const hasDiscount = discount < 1.0;
+                      const actualPay = discountedPrice;
+                      const save = originalPrice - discountedPrice;
+                      let displayValue = preset.value;
                       let displayActualPay = actualPay;
                       let displaySave = save;
 
-                      if (type === 'USD') {
-                        // 数量保持USD，价格从CNY转USD
-                        displayActualPay = actualPay / usdRate;
-                        displaySave = save / usdRate;
-                      } else if (type === 'CNY') {
-                        // 数量转CNY，价格已是CNY
-                        displayValue = preset.value * usdRate;
-                      } else if (type === 'CUSTOM') {
-                        // 数量和价格都转自定义货币
-                        displayValue = preset.value * rate;
-                        displayActualPay = (actualPay / usdRate) * rate;
-                        displaySave = (save / usdRate) * rate;
+                      if (type === 'CUSTOM') {
+                        displayValue = preset.value * (rate / usdRate);
+                        displayActualPay = actualPay * (rate / usdRate);
+                        displaySave = save * (rate / usdRate);
                       }
 
                       return (

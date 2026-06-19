@@ -67,8 +67,6 @@ interface RechargeFormCardProps {
   redeeming: boolean
   topupLink?: string
   loading?: boolean
-  priceRatio?: number
-  usdExchangeRate?: number
   onOpenBilling?: () => void
   creemProducts?: CreemProduct[]
   enableCreemTopup?: boolean
@@ -97,8 +95,6 @@ export function RechargeFormCard({
   redeeming,
   topupLink,
   loading,
-  priceRatio = 1,
-  usdExchangeRate = 1,
   onOpenBilling,
   creemProducts,
   enableCreemTopup,
@@ -227,12 +223,7 @@ export function RechargeFormCard({
                         actualPrice,
                         savedAmount,
                         hasDiscount,
-                      } = calculatePresetPricing(
-                        preset.value,
-                        priceRatio,
-                        discount,
-                        usdExchangeRate
-                      )
+                      } = calculatePresetPricing(preset.value, discount)
                       return (
                         <Button
                           key={index}

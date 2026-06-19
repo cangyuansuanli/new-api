@@ -73,22 +73,16 @@ export function getDiscountLabel(discount: number): string {
 }
 
 /**
- * Calculate pricing details for a preset amount
+ * 易支付档位为人民币：填多少、展示多少、付多少（折扣除外）
  */
-export function calculatePresetPricing(
-  presetValue: number,
-  priceRatio: number,
-  discount: number,
-  usdExchangeRate: number = 1
-) {
-  const originalPrice = presetValue * priceRatio
-  const actualPrice = originalPrice * discount
+export function calculatePresetPricing(presetValue: number, discount: number) {
+  const originalPrice = presetValue
+  const actualPrice = presetValue * discount
   const savedAmount = originalPrice - actualPrice
   const hasDiscount = discount < 1.0
-  const displayValue = presetValue * usdExchangeRate
 
   return {
-    displayValue,
+    displayValue: presetValue,
     originalPrice,
     actualPrice,
     savedAmount,

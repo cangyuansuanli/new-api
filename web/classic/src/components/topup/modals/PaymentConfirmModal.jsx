@@ -21,6 +21,7 @@ import React from 'react';
 import { Modal, Typography, Card, Skeleton } from '@douyinfe/semi-ui';
 import { SiAlipay, SiWechat, SiStripe } from 'react-icons/si';
 import { CreditCard } from 'lucide-react';
+import { getCurrencyConfig } from '../../../helpers/render';
 
 const { Text } = Typography;
 
@@ -68,7 +69,13 @@ const PaymentConfirmModal = ({
                 {t('充值数量')}：
               </Text>
               <Text className='text-slate-900 dark:text-slate-100'>
-                {renderQuotaWithAmount(topUpCount)}
+                {(() => {
+                  const { symbol, type } = getCurrencyConfig();
+                  if (type === 'CNY') {
+                    return `${symbol}${topUpCount}`;
+                  }
+                  return renderQuotaWithAmount(topUpCount);
+                })()}
               </Text>
             </div>
             <div className='flex justify-between items-center'>

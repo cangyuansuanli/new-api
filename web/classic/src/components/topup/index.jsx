@@ -883,10 +883,8 @@ const TopUp = () => {
     setTopUpCount(preset.value);
     setSelectedPreset(preset.value);
 
-    // 计算实际支付金额，考虑折扣
     const discount = preset.discount || topupInfo.discount[preset.value] || 1.0;
-    const discountedAmount = preset.value * priceRatio * discount;
-    setAmount(discountedAmount);
+    setAmount(preset.value * discount);
   };
 
   // 格式化大数字显示

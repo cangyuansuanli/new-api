@@ -92,7 +92,7 @@ export function AmountOptionsVisualEditor({
     <div className='space-y-4'>
       <div>
         <p className='text-muted-foreground mb-3 text-sm'>
-          {t('Preset recharge amounts displayed to users')}
+          {t('Preset recharge amounts displayed to users')}（{t('CNY')}）
         </p>
 
         {amounts.length === 0 ? (
@@ -110,7 +110,7 @@ export function AmountOptionsVisualEditor({
                 className='text-base'
                 copyable={false}
               >
-                <span className='font-mono'>${amount}</span>
+                <span className='font-mono'>¥{amount}</span>
                 <Button
                   type='button'
                   variant='ghost'
@@ -121,7 +121,7 @@ export function AmountOptionsVisualEditor({
                     handleRemove(amount)
                   }}
                   className='hover:bg-muted-foreground/20 size-auto p-0.5'
-                  aria-label={t('Remove ${{amount}}', { amount })}
+                  aria-label={t('Remove ¥{{amount}}', { amount })}
                 >
                   <X className='h-3.5 w-3.5' />
                 </Button>
