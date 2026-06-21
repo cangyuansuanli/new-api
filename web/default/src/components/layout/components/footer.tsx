@@ -50,14 +50,15 @@ const NEW_API_FOOTER_ATTRIBUTION_KEY = [
 function FooterLinkItem(props: { link: FooterLink }) {
   const { t } = useTranslation()
   const isExternal = props.link.href.startsWith('http')
+  const isHashLink = props.link.href.includes('#')
   const label = t(props.link.text)
 
-  if (isExternal) {
+  if (isExternal || isHashLink) {
     return (
       <a
         href={props.link.href}
-        target='_blank'
-        rel='noopener noreferrer'
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noopener noreferrer' : undefined}
         className='text-muted-foreground hover:text-foreground text-sm transition-colors duration-200'
       >
         {label}
@@ -169,15 +170,15 @@ export function Footer(props: FooterProps) {
         links: [
           {
             text: t('footer.columns.about.links.aboutProject'),
-            href: 'https://docs.newapi.pro/wiki/project-introduction/',
-          },
-          {
-            text: t('footer.columns.about.links.contact'),
-            href: 'https://docs.newapi.pro/support/community-interaction/',
+            href: '/docs#overview',
           },
           {
             text: t('footer.columns.about.links.features'),
-            href: 'https://docs.newapi.pro/wiki/features-introduction/',
+            href: '/about',
+          },
+          {
+            text: t('footer.columns.about.links.contact'),
+            href: '/docs#faq',
           },
         ],
       },
@@ -186,15 +187,19 @@ export function Footer(props: FooterProps) {
         links: [
           {
             text: t('footer.columns.docs.links.quickStart'),
-            href: 'https://docs.newapi.pro/getting-started/',
+            href: '/docs#quick-start',
           },
           {
-            text: t('footer.columns.docs.links.installation'),
-            href: 'https://docs.newapi.pro/installation/',
+            text: t('footer.columns.docs.links.createKey'),
+            href: '/docs#api-key',
           },
           {
             text: t('footer.columns.docs.links.apiDocs'),
-            href: 'https://docs.newapi.pro/api/',
+            href: '/docs#integrations',
+          },
+          {
+            text: t('footer.columns.docs.links.infiniteCanvas'),
+            href: '/docs#infinite-canvas',
           },
         ],
       },

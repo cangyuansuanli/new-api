@@ -87,11 +87,12 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Docs (supports external links)
   if (modules?.docs !== false) {
-    if (docsLink) {
-      links.push({ title: t('Docs'), href: docsLink, external: true })
-    } else {
-      links.push({ title: t('Docs'), href: '/docs' })
-    }
+    const href = docsLink?.trim() || '/docs'
+    links.push({
+      title: t('Docs'),
+      href,
+      external: href.startsWith('http'),
+    })
   }
 
   // About
