@@ -24,5 +24,7 @@ export interface ShowcaseAsset {
   image: string
   title: string
   tags: string
+  width?: number
+  height?: number
   aspectRatio?: number
 }

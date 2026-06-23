@@ -33,6 +33,7 @@ export function normalizeModelLookupKey(name: string): string {
   key = key.replace(/(-latest|-preview|-exp|-experimental)$/i, '')
   key = key.replace(/-\d{4}-\d{2}-\d{2}$/, '')
   key = key.replace(/-\d{8}$/, '')
+  key = key.replace(/-\d{6}$/, '')
   key = key.replace(/-\d{4}-\d{2}$/, '')
   return key
 }

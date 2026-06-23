@@ -21,11 +21,11 @@ import { fetchModelsDevCostIndex, type ModelsDevCost } from '../../lib/models-de
 import {
   buildHomePricingSections,
   formatHomeInputPrice,
+  formatHomeMediaPrice,
   formatHomeModelDisplayName,
   formatHomeOfficialPricing,
   formatHomeOutputPrice,
   formatHomeSavePercent,
-  formatHomeUnitPrice,
 } from '../../lib/pricing-preview'
 
 const HOME_PRICING_MAX_PER_PREFIX = 2
@@ -198,7 +198,7 @@ function UnitPricingTable(props: {
                   </span>
                 </td>
                 <td className={cn('px-4 py-3.5 tabular-nums', mkt.body)}>
-                  {formatHomeUnitPrice(model, t)}
+                  {formatHomeMediaPrice(model, t)}
                 </td>
               </tr>
             ))
@@ -253,7 +253,9 @@ export function PricingPreview() {
   const hasAnyRows =
     sections.text.length > 0 ||
     sections.image.length > 0 ||
-    sections.video.length > 0
+    sections.video.length > 0 ||
+    sections.audio.length > 0 ||
+    sections.music.length > 0
 
   return (
     <section
@@ -311,6 +313,34 @@ export function PricingPreview() {
                 rows={sections.video}
                 isLoading={isLoading}
                 priceColumnLabel={t('Home price per second column')}
+              />
+            </PricingSectionBlock>
+          )}
+
+          {(isLoading || sections.audio.length > 0) && (
+            <PricingSectionBlock
+              title={t('Home audio pricing title')}
+              unitLabel={t('Home audio pricing unit')}
+              description={t('Home audio pricing description')}
+            >
+              <UnitPricingTable
+                rows={sections.audio}
+                isLoading={isLoading}
+                priceColumnLabel={t('Home price per unit column')}
+              />
+            </PricingSectionBlock>
+          )}
+
+          {(isLoading || sections.music.length > 0) && (
+            <PricingSectionBlock
+              title={t('Home music pricing title')}
+              unitLabel={t('Home music pricing unit')}
+              description={t('Home music pricing description')}
+            >
+              <UnitPricingTable
+                rows={sections.music}
+                isLoading={isLoading}
+                priceColumnLabel={t('Home price per unit column')}
               />
             </PricingSectionBlock>
           )}

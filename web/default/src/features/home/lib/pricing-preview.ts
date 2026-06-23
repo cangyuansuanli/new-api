@@ -27,50 +27,73 @@ export interface HomePricingSelectOptions {
   maxPerPrefix?: number
 }
 
-export type HomePricingCategory = 'text' | 'image' | 'video'
+export type HomePricingCategory = 'text' | 'image' | 'video' | 'audio' | 'music'
 
 export interface HomePricingSections {
   text: PricingModel[]
   image: PricingModel[]
   video: PricingModel[]
+  audio: PricingModel[]
+  music: PricingModel[]
 }
 
+const HOME_MUSIC_NAME =
+  /(?:^|[/_-])(?:suno|music|udio|mureka|ace-step)(?:[/_-]|$)/i
+const HOME_AUDIO_NAME =
+  /(?:^|[/_-])(?:speech|tts|voice|whisper|audio)(?:[/_-]|$)/i
 const HOME_VIDEO_NAME =
-  /(?:^|[/_-])(?:sora|veo|kling|pika|seedance|wan|hunyuanvideo|runway|luma|cogvideo|video)(?:[/_-]|$)/i
+  /(?:^|[/_-])(?:sora|veo|kling|pika|seedance|wan|hunyuanvideo|runway|luma|cogvideo|video|omni)(?:[/_-]|$)/i
 const HOME_IMAGE_NAME =
-  /(?:^|[/_-])(?:seedream|dalle|dall-e|imagen|flux|midjourney|stable-diffusion|gpt-image|jimeng|ideogram|recraft|image)(?:[/_-]|$)/i
-const HOME_SKIP_REQUEST_NAME = /(?:^|[/_-])(?:tts|voice|speech|whisper)(?:[/_-]|$)/i
+  /(?:^|[/_-])(?:seedream|dalle|dall-e|imagen|flux|midjourney|stable-diffusion|gpt-image|jimeng|ideogram|recraft)(?:[/_-]|$)/i
 
 export function classifyHomePricingModel(
   model: PricingModel
 ): HomePricingCategory {
-  if (model.quota_type === QUOTA_TYPE_VALUES.TOKEN) {
-    return 'text'
-  }
-
   const name = model.model_name
+  const lower = name.toLowerCase()
   const endpoints = model.supported_endpoint_types ?? []
 
-  if (HOME_SKIP_REQUEST_NAME.test(name)) {
-    return 'text'
+  if (HOME_MUSIC_NAME.test(name)) {
+    return 'music'
+  }
+
+  if (HOME_AUDIO_NAME.test(name)) {
+    return 'audio'
+  }
+
+  if (/image/.test(lower)) {
+    return 'image'
+  }
+
+  if (/omni/.test(lower)) {
+    return 'video'
   }
 
   if (model.billing_mode === 'per_second') return 'video'
   if (endpoints.includes('openai-video')) return 'video'
-  if (HOME_VIDEO_NAME.test(name)) return 'video'
+  if (HOME_VIDEO_NAME.test(name) || /video/.test(lower)) return 'video'
 
   if (endpoints.includes('image-generation')) return 'image'
   if (model.request_unit === 'image') return 'image'
   if (HOME_IMAGE_NAME.test(name)) return 'image'
 
+  if (model.quota_type === QUOTA_TYPE_VALUES.TOKEN) {
+    return 'text'
+  }
+
   if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
-    if (/second|duration|seedance|sora|video/.test(name.toLowerCase())) {
+    if (/second|duration|seedance|sora|video|omni/.test(lower)) {
       return 'video'
     }
     return 'image'
   }
 
   return 'text'
+}
+
+/** Human-readable model name for the home pricing table (drops date / snapshot suffixes). */
+export function formatHomeModelDisplayName(modelName: string): string {
+  return stripModelDateSuffix(modelName)
 }
 
 function getMinGroupRatio(
@@ -107,14 +130,15 @@ export function getModelFamilyPrefix(modelName: string): string {
   return normalizeModelLookupKey(modelName)
 }
 
-/** Human-readable model name for the home pricing table (drops date / snapshot suffixes). */
-export function formatHomeModelDisplayName(modelName: string): string {
-  let name = modelName.trim()
-  name = name.replace(/(-latest|-preview|-exp|-experimental)$/i, '')
-  name = name.replace(/-\d{4}-\d{2}-\d{2}$/, '')
-  name = name.replace(/-\d{8}$/, '')
-  name = name.replace(/-\d{4}-\d{2}$/, '')
-  return name
+/** Strip snapshot / date suffixes from model ids (YYMMDD, YYYYMMDD, YYYY-MM-DD, …). */
+export function stripModelDateSuffix(name: string): string {
+  let result = name.trim()
+  result = result.replace(/(-latest|-preview|-exp|-experimental)$/i, '')
+  result = result.replace(/-\d{4}-\d{2}-\d{2}$/, '')
+  result = result.replace(/-\d{8}$/, '')
+  result = result.replace(/-\d{6}$/, '')
+  result = result.replace(/-\d{4}-\d{2}$/, '')
+  return result
 }
 
 export function selectHomePricingModels(
@@ -155,6 +179,8 @@ const DEFAULT_HOME_SECTION_LIMITS: Record<HomePricingCategory, number> = {
   text: 12,
   image: 8,
   video: 8,
+  audio: 6,
+  music: 6,
 }
 
 export function buildHomePricingSections(
@@ -166,7 +192,13 @@ export function buildHomePricingSections(
     ...options.limits,
   }
   const maxPerPrefix = options.maxPerPrefix ?? 2
-  const buckets: HomePricingSections = { text: [], image: [], video: [] }
+  const buckets: HomePricingSections = {
+    text: [],
+    image: [],
+    video: [],
+    audio: [],
+    music: [],
+  }
   const sorted = [...models].sort((a, b) =>
     a.model_name.localeCompare(b.model_name)
   )
@@ -228,6 +260,14 @@ export function formatHomeInputPrice(model: PricingModel, t: TFunction): string 
 
 export function formatHomeUnitPrice(model: PricingModel, t: TFunction): string {
   return stripTrailingZeros(formatRequestPrice(model, false, 1, 1, t))
+}
+
+/** Price cell for image / video / audio / music tables (supports token-priced edge cases). */
+export function formatHomeMediaPrice(model: PricingModel, t: TFunction): string {
+  if (model.quota_type === QUOTA_TYPE_VALUES.TOKEN) {
+    return formatTokenPriceWithUnit(model, 'input', t)
+  }
+  return formatHomeUnitPrice(model, t)
 }
 
 export function formatHomeOutputPrice(

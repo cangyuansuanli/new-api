@@ -1,0 +1,438 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-23T08:08:36.744Z",
+  "assets": [
+    {
+      "id": "gpt-image-2-prompts-0001",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case1/output.jpg",
+      "title": "Convenience Store Neon Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0002",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case2/output.jpg",
+      "title": "Cinematic Minimal Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0003",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case3/output.jpg",
+      "title": "Japanese Onsen Ryokan Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0004",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case4/output.jpg",
+      "title": "35mm Flash Editorial Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0005",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case5/output.jpg",
+      "title": "Mirror Selfie Bedroom Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.75,
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0006",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case6/output.jpg",
+      "title": "Soft Airy 35mm Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.75,
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0007",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case7/output.jpg",
+      "title": "Luxury Glam Beauty Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0008",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case8/output.jpg",
+      "title": "9:16 Cosplayer Portrait Screenshot",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5583333333333333,
+      "width": 670,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0009",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case9/output.jpg",
+      "title": "Urban Turn-Back Street Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0010",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case10/output.jpg",
+      "title": "Sam Altman Skatepark Snapshot",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.6486486486486487,
+      "width": 456,
+      "height": 703
+    },
+    {
+      "id": "gpt-image-2-prompts-0011",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case11/output.jpg",
+      "title": "Korean Idol 3x3 Grid Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0012",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case12/output.jpg",
+      "title": "CCD Camera Flash Korean Idol",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0013",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case13/output.jpg",
+      "title": "Korean Idol 3x3 Collage Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0014",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case14/output.jpg",
+      "title": "Soft Black Mist Editorial Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0015",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case15/output.jpg",
+      "title": "Fujifilm Strawberry School Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0016",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case16/output.jpg",
+      "title": "Soft Black Mist Idol Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0017",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case17/output.jpg",
+      "title": "Fujifilm Couple Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0018",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case18/output.jpg",
+      "title": "AI Self-Perception Portrait",
+      "tags": "portrait / photography",
+      "aspectRatio": 1.25,
+      "width": 1200,
+      "height": 960
+    },
+    {
+      "id": "gpt-image-2-prompts-0019",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case1/output.jpg",
+      "title": "Boston Spring 2026 City Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0020",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case2/output.jpg",
+      "title": "Vintage Amalfi Travel Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0021",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case3/output.jpg",
+      "title": "Chengdu Food Map Illustration",
+      "tags": "poster / illustration",
+      "aspectRatio": 1,
+      "width": 1080,
+      "height": 1080
+    },
+    {
+      "id": "gpt-image-2-prompts-0022",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case4/output.jpg",
+      "title": "Chinese Minimalist S-Shaped Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0023",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case5/output.jpg",
+      "title": "2026 Spring Guangzhou City Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0024",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case7/output.jpg",
+      "title": "Doodle Sketch AI Builder",
+      "tags": "poster / illustration",
+      "aspectRatio": 1.5,
+      "width": 1200,
+      "height": 800
+    },
+    {
+      "id": "gpt-image-2-prompts-0025",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case8/output.jpg",
+      "title": "Futuristic Mandala Illustration",
+      "tags": "poster / illustration",
+      "aspectRatio": 1,
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "id": "gpt-image-2-prompts-0026",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case9/output.jpg",
+      "title": "Super Famicom Poster Style",
+      "tags": "poster / illustration",
+      "aspectRatio": 1.5,
+      "width": 1200,
+      "height": 800
+    },
+    {
+      "id": "gpt-image-2-prompts-0027",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case10/output.jpg",
+      "title": "Browser Game Ad Creative Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.7066666666666667,
+      "width": 848,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0028",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case11/output.jpg",
+      "title": "Surreal Koi Nebula Illustration",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0029",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case12/output.jpg",
+      "title": "Ink-Curve Guangzhou Aesthetics Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0030",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case13/output.jpg",
+      "title": "Guangdong Super League Invitation Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0031",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case14/output.jpg",
+      "title": "Spring 2026 Guangzhou Promo Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0032",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case15/output.jpg",
+      "title": "Epic Silhouette World Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0034",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case32/output.jpg",
+      "title": "Science Encyclopedia Vertical Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0035",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case33/output.jpg",
+      "title": "Journey to the West Chinese Comic",
+      "tags": "poster / illustration",
+      "aspectRatio": 1.25,
+      "width": 1200,
+      "height": 960
+    },
+    {
+      "id": "gpt-image-2-prompts-0036",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case34/output.jpg",
+      "title": "Character Relationship Map Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.8002853067047075,
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "id": "gpt-image-2-prompts-0037",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case35/output.jpg",
+      "title": "New Chinese Ink Landscape Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0038",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case36/output.jpg",
+      "title": "AI Builder Doodle Sketch",
+      "tags": "poster / illustration",
+      "aspectRatio": 1.4987468671679198,
+      "width": 1196,
+      "height": 798
+    },
+    {
+      "id": "gpt-image-2-prompts-0039",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case38/output.jpg",
+      "title": "Character Visual Vertical Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.7089241034195163,
+      "width": 850,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0040",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case39/output.jpg",
+      "title": "Science Encyclopedia Infographic",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.8002853067047075,
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "id": "gpt-image-2-prompts-0041",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case40/output.jpg",
+      "title": "Fictional Anime Movie Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.7066666666666667,
+      "width": 848,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0042",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case41/output.jpg",
+      "title": "Product Ad Redesign",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.7066666666666667,
+      "width": 848,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0043",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case42/output.jpg",
+      "title": "Dark-Fantasy Guangzhou City Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0044",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case45/output.jpg",
+      "title": "Science Fiction Movie Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0045",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case46/output.jpg",
+      "title": "Refreshing Summer Udon Ad",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.75,
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0046",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case47/output.jpg",
+      "title": "Handwritten Medical Prescription Sheet",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.749791492910759,
+      "width": 899,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0047",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case48/output.jpg",
+      "title": "Silicon Valley 2026 Promo Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.5629691409507923,
+      "width": 675,
+      "height": 1199
+    },
+    {
+      "id": "gpt-image-2-prompts-0048",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case49/output.jpg",
+      "title": "Japanese Supermarket Sale Flyer",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    },
+    {
+      "id": "gpt-image-2-prompts-0049",
+      "image": "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case50/output.jpg",
+      "title": "Dark Epic Concept Poster",
+      "tags": "poster / illustration",
+      "aspectRatio": 0.6666666666666666,
+      "width": 800,
+      "height": 1200
+    }
+  ]
+}
