@@ -113,6 +113,61 @@ export const INSPIRATION_SLIDES = [
   },
 ] as const
 
+function slideToShowcaseAsset(slide: (typeof INSPIRATION_SLIDES)[number]) {
+  return {
+    id: slide.id,
+    image: slide.image,
+    title: slide.title,
+    tags: slide.tags,
+    aspectRatio: slide.width / slide.height,
+  }
+}
+
+/** Home marquee row A — 10 curated CDN inspiration assets (no runtime API) */
+export const SHOWCASE_ROW_A = INSPIRATION_SLIDES.slice(0, 10).map(
+  slideToShowcaseAsset
+)
+
+/** Home marquee row B — CDN assets without overlapping row A (inspiration 01–10) */
+export const SHOWCASE_ROW_B = [
+  slideToShowcaseAsset(INSPIRATION_SLIDES[10]),
+  {
+    id: 'tool-claude-code',
+    image: siteAsset('/home/tools/claude-code.png'),
+    title: 'Claude Code',
+    tags: 'CLI / 开发',
+    aspectRatio: 1,
+  },
+  {
+    id: 'tool-codex-cli',
+    image: siteAsset('/home/tools/codex-cli.png'),
+    title: 'Codex CLI',
+    tags: 'CLI / 开发',
+    aspectRatio: 1,
+  },
+  {
+    id: 'tool-gemini-cli',
+    image: siteAsset('/home/tools/gemini-cli.png'),
+    title: 'Gemini CLI',
+    tags: 'CLI / 开发',
+    aspectRatio: 1,
+  },
+  {
+    id: 'tool-image-api',
+    image: siteAsset('/home/tools/image-api.png'),
+    title: 'Image API',
+    tags: 'API / 生图',
+    aspectRatio: 1,
+  },
+  {
+    id: 'brand-logo',
+    image: SITE_BRAND.logo,
+    title: SITE_BRAND.name,
+    tags: '品牌 / 沧元算力',
+    aspectRatio: 1,
+  },
+] as const
+
 export const SITE_ASSETS = {
   logo: SITE_BRAND.logo,
   tools: {

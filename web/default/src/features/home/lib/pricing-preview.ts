@@ -7,62 +7,70 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QUOTA_TYPE_VALUES } from '@/features/pricing/constants'
-import { formatRequestPrice } from '@/features/pricing/lib/price'
+import {
+  formatPrice,
+  formatRequestPrice,
+  stripTrailingZeros,
+} from '@/features/pricing/lib/price'
 import type { PricingModel, PriceType } from '@/features/pricing/types'
-
-export interface FeaturedModelSpec {
-  display: string
-  pattern: RegExp
-  official?: { input: number; output: number }
-}
-
-/** Official API pricing for optional save-% enrichment only */
-const OFFICIAL_PRICE_SPECS: FeaturedModelSpec[] = [
-  {
-    display: 'Claude Opus 4',
-    pattern: /claude-opus-4(?:\.\d|-)/i,
-    official: { input: 15, output: 75 },
-  },
-  {
-    display: 'Claude Sonnet 4',
-    pattern: /claude-sonnet-4(?:\.\d|-)/i,
-    official: { input: 3, output: 15 },
-  },
-  {
-    display: 'Claude Haiku 4',
-    pattern: /claude-haiku-4(?:\.\d|-)/i,
-    official: { input: 0.8, output: 4 },
-  },
-  {
-    display: 'GPT-4o',
-    pattern: /^gpt-4o(?!-mini)(?:-2024|-audio|$)/i,
-    official: { input: 2.5, output: 10 },
-  },
-  {
-    display: 'GPT-4.1 Mini',
-    pattern: /^gpt-4\.1-mini/i,
-    official: { input: 0.4, output: 1.6 },
-  },
-  {
-    display: 'GPT-4.1',
-    pattern: /^gpt-4\.1(?!-mini|-nano)/i,
-    official: { input: 2, output: 8 },
-  },
-  {
-    display: 'DeepSeek V3',
-    pattern: /deepseek-(?:chat|v3)/i,
-    official: { input: 0.27, output: 1.1 },
-  },
-  {
-    display: 'Gemini 2.5 Pro',
-    pattern: /gemini-2\.5-pro/i,
-    official: { input: 1.25, output: 10 },
-  },
-]
+import type { TFunction } from 'i18next'
+import {
+  calcSavePercent,
+  formatOfficialTokenPair,
+  lookupModelsDevCost,
+  normalizeModelLookupKey,
+  type ModelsDevCost,
+} from './models-dev-official'
 
 export interface HomePricingSelectOptions {
   limit?: number
   maxPerPrefix?: number
+}
+
+export type HomePricingCategory = 'text' | 'image' | 'video'
+
+export interface HomePricingSections {
+  text: PricingModel[]
+  image: PricingModel[]
+  video: PricingModel[]
+}
+
+const HOME_VIDEO_NAME =
+  /(?:^|[/_-])(?:sora|veo|kling|pika|seedance|wan|hunyuanvideo|runway|luma|cogvideo|video)(?:[/_-]|$)/i
+const HOME_IMAGE_NAME =
+  /(?:^|[/_-])(?:seedream|dalle|dall-e|imagen|flux|midjourney|stable-diffusion|gpt-image|jimeng|ideogram|recraft|image)(?:[/_-]|$)/i
+const HOME_SKIP_REQUEST_NAME = /(?:^|[/_-])(?:tts|voice|speech|whisper)(?:[/_-]|$)/i
+
+export function classifyHomePricingModel(
+  model: PricingModel
+): HomePricingCategory {
+  if (model.quota_type === QUOTA_TYPE_VALUES.TOKEN) {
+    return 'text'
+  }
+
+  const name = model.model_name
+  const endpoints = model.supported_endpoint_types ?? []
+
+  if (HOME_SKIP_REQUEST_NAME.test(name)) {
+    return 'text'
+  }
+
+  if (model.billing_mode === 'per_second') return 'video'
+  if (endpoints.includes('openai-video')) return 'video'
+  if (HOME_VIDEO_NAME.test(name)) return 'video'
+
+  if (endpoints.includes('image-generation')) return 'image'
+  if (model.request_unit === 'image') return 'image'
+  if (HOME_IMAGE_NAME.test(name)) return 'image'
+
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    if (/second|duration|seedance|sora|video/.test(name.toLowerCase())) {
+      return 'video'
+    }
+    return 'image'
+  }
+
+  return 'text'
 }
 
 function getMinGroupRatio(
@@ -78,10 +86,6 @@ function getMinGroupRatio(
   return minRatio === Number.POSITIVE_INFINITY ? 1 : minRatio
 }
 
-function hasRatio(value: number | null | undefined): boolean {
-  return value !== undefined && value !== null && Number.isFinite(Number(value))
-}
-
 function calculateTokenPriceUSD(
   model: PricingModel,
   type: PriceType,
@@ -93,26 +97,19 @@ function calculateTokenPriceUSD(
       return base
     case 'output':
       return base * model.completion_ratio
-    case 'cache':
-      return hasRatio(model.cache_ratio)
-        ? base * Number(model.cache_ratio)
-        : null
-    case 'create_cache':
-      return hasRatio(model.create_cache_ratio)
-        ? base * Number(model.create_cache_ratio)
-        : null
     default:
       return null
   }
 }
 
-function findOfficialSpec(modelName: string): FeaturedModelSpec | undefined {
-  return OFFICIAL_PRICE_SPECS.find((spec) => spec.pattern.test(modelName))
-}
-
 /** Strip date / variant suffixes so model family variants share one prefix key */
 export function getModelFamilyPrefix(modelName: string): string {
-  let name = modelName.trim().toLowerCase()
+  return normalizeModelLookupKey(modelName)
+}
+
+/** Human-readable model name for the home pricing table (drops date / snapshot suffixes). */
+export function formatHomeModelDisplayName(modelName: string): string {
+  let name = modelName.trim()
   name = name.replace(/(-latest|-preview|-exp|-experimental)$/i, '')
   name = name.replace(/-\d{4}-\d{2}-\d{2}$/, '')
   name = name.replace(/-\d{8}$/, '')
@@ -143,18 +140,51 @@ export function selectHomePricingModels(
   return selected
 }
 
-export interface HomePricingRow {
-  display: string
-  modelName: string
-  isRequestBased: boolean
-  input: number | null
-  output: number | null
-  requestPrice: string | null
-  cacheRead: number | null
-  cacheWrite: number | null
-  officialInput: number | null
-  officialOutput: number | null
-  savePercent: number | null
+export function buildHomePricingModels(
+  models: PricingModel[],
+  options: HomePricingSelectOptions = {}
+): PricingModel[] {
+  return selectHomePricingModels(models, options)
+}
+
+export interface HomePricingSectionOptions extends HomePricingSelectOptions {
+  limits?: Partial<Record<HomePricingCategory, number>>
+}
+
+const DEFAULT_HOME_SECTION_LIMITS: Record<HomePricingCategory, number> = {
+  text: 12,
+  image: 8,
+  video: 8,
+}
+
+export function buildHomePricingSections(
+  models: PricingModel[],
+  options: HomePricingSectionOptions = {}
+): HomePricingSections {
+  const limits = {
+    ...DEFAULT_HOME_SECTION_LIMITS,
+    ...options.limits,
+  }
+  const maxPerPrefix = options.maxPerPrefix ?? 2
+  const buckets: HomePricingSections = { text: [], image: [], video: [] }
+  const sorted = [...models].sort((a, b) =>
+    a.model_name.localeCompare(b.model_name)
+  )
+  const prefixCounts = new Map<string, number>()
+
+  for (const model of sorted) {
+    const category = classifyHomePricingModel(model)
+    if (buckets[category].length >= limits[category]) continue
+
+    const prefix = `${category}:${getModelFamilyPrefix(model.model_name)}`
+    const count = prefixCounts.get(prefix) ?? 0
+    if (count >= maxPerPrefix) continue
+
+    prefixCounts.set(prefix, count + 1)
+    buckets[category].push(model)
+  }
+
+  return buckets
 }
 
 export function formatUsdPerM(value: number | null): string {
@@ -164,61 +194,75 @@ export function formatUsdPerM(value: number | null): string {
   return `$${value.toFixed(4)}`
 }
 
-function modelToHomeRow(model: PricingModel): HomePricingRow {
-  const spec = findOfficialSpec(model.model_name)
+export function getOurTokenPricesUsd(
+  model: PricingModel
+): { input: number; output: number } | null {
+  if (model.quota_type !== QUOTA_TYPE_VALUES.TOKEN) return null
   const enableGroups = Array.isArray(model.enable_groups)
     ? model.enable_groups
     : []
-  const groupRatio = model.group_ratio || {}
-  const minRatio = getMinGroupRatio(enableGroups, groupRatio)
-
-  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
-    return {
-      display: model.model_name,
-      modelName: model.model_name,
-      isRequestBased: true,
-      input: null,
-      output: null,
-      requestPrice: formatRequestPrice(model),
-      cacheRead: null,
-      cacheWrite: null,
-      officialInput: null,
-      officialOutput: null,
-      savePercent: null,
-    }
-  }
-
-  const input = calculateTokenPriceUSD(model, 'input', minRatio)!
-  const output = calculateTokenPriceUSD(model, 'output', minRatio)!
-  const cacheRead = calculateTokenPriceUSD(model, 'cache', minRatio)
-  const cacheWrite = calculateTokenPriceUSD(model, 'create_cache', minRatio)
-
-  let savePercent: number | null = null
-  if (spec?.official && input > 0) {
-    const avgOur = (input + output) / 2
-    const avgOfficial = (spec.official.input + spec.official.output) / 2
-    savePercent = Math.round((1 - avgOur / avgOfficial) * 100)
-    if (savePercent < 0) savePercent = null
-  }
-
-  return {
-    display: model.model_name,
-    modelName: model.model_name,
-    isRequestBased: false,
-    input,
-    output,
-    requestPrice: null,
-    cacheRead,
-    cacheWrite,
-    officialInput: spec?.official?.input ?? null,
-    officialOutput: spec?.official?.output ?? null,
-    savePercent,
-  }
+  const minRatio = getMinGroupRatio(enableGroups, model.group_ratio || {})
+  const input = calculateTokenPriceUSD(model, 'input', minRatio)
+  const output = calculateTokenPriceUSD(model, 'output', minRatio)
+  if (input == null || output == null) return null
+  return { input, output }
 }
 
-export function buildHomePricingRows(
-  models: PricingModel[],
-  options: HomePricingSelectOptions = {}
-): HomePricingRow[] {
-  return selectHomePricingModels(models, options).map(modelToHomeRow)
+function formatTokenPriceWithUnit(
+  model: PricingModel,
+  type: 'input' | 'output',
+  t: TFunction
+): string {
+  const price = stripTrailingZeros(
+    formatPrice(model, type, 'M', false, 1, 1)
+  )
+  return `${price}/${t('per 1M tokens unit')}`
+}
+
+export function formatHomeInputPrice(model: PricingModel, t: TFunction): string {
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    return stripTrailingZeros(formatRequestPrice(model, false, 1, 1, t))
+  }
+  return formatTokenPriceWithUnit(model, 'input', t)
+}
+
+export function formatHomeUnitPrice(model: PricingModel, t: TFunction): string {
+  return stripTrailingZeros(formatRequestPrice(model, false, 1, 1, t))
+}
+
+export function formatHomeOutputPrice(
+  model: PricingModel,
+  t: TFunction
+): string {
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    return '—'
+  }
+  return formatTokenPriceWithUnit(model, 'output', t)
+}
+
+export function formatHomeOfficialPricing(
+  model: PricingModel,
+  officialIndex: Record<string, ModelsDevCost>
+): string | null {
+  const cost = lookupModelsDevCost(officialIndex, model.model_name)
+  if (!cost) return null
+
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    if (cost.input == null || !Number.isFinite(cost.input)) return null
+    if (cost.output != null && cost.output > 0) {
+      return formatOfficialTokenPair(cost, formatUsdPerM)
+    }
+    return formatUsdPerM(cost.input)
+  }
+
+  return formatOfficialTokenPair(cost, formatUsdPerM)
+}
+
+export function formatHomeSavePercent(
+  model: PricingModel,
+  officialIndex: Record<string, ModelsDevCost>
+): number | null {
+  const cost = lookupModelsDevCost(officialIndex, model.model_name)
+  const ours = getOurTokenPricesUsd(model)
+  return calcSavePercent(model, cost, ours?.input ?? null, ours?.output ?? null)
 }
