@@ -28,6 +28,7 @@ import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
+import { getModelDisplayName } from '../lib/model-display-name'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
@@ -60,7 +61,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const modelIcon = modelIconKey
     ? getLobeIcon(modelIconKey, 28)
     : null
-  const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
+  const initial = getModelDisplayName(props.model)?.charAt(0).toUpperCase() || '?'
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
@@ -106,8 +107,13 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           </div>
           <div className='min-w-0'>
             <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
-              {props.model.model_name}
+              {getModelDisplayName(props.model)}
             </h3>
+            {(props.model.model_aliases?.length ?? 0) > 1 ? (
+              <p className='text-muted-foreground mt-0.5 text-[11px]'>
+                +{(props.model.model_aliases?.length ?? 0) - 1}
+              </p>
+            ) : null}
             <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs sm:mt-1 sm:gap-x-3'>
               {dynamicSummary ? (
                 dynamicSummary.isSpecialExpression ? (

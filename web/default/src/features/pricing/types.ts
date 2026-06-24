@@ -58,6 +58,10 @@ export type PricingModel = {
   billing_expr?: string
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
+  /** 去掉渠道前缀后的展示名（模型广场合并条目时填充） */
+  display_name?: string
+  /** 同一展示名对应的完整注册别名 */
+  model_aliases?: string[]
   /**
    * Optional model metadata fields. These are not yet returned by the backend
    * and are populated client-side from {@link inferModelMetadata}.

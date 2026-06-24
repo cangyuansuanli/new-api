@@ -53,6 +53,7 @@ import {
   isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
+import { getModelDisplayName, groupPricingModelsByDisplayName } from '../lib/model-display-name'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { formatRequestUnitLabel } from '@/features/system-settings/models/model-pricing-core'
@@ -276,7 +277,7 @@ function ModelHeader(props: { model: PricingModel }) {
       <div className='flex items-center gap-2.5'>
         {modelIcon}
         <h1 className='font-mono text-xl font-bold tracking-tight sm:text-2xl'>
-          {model.model_name}
+          {getModelDisplayName(model)}
         </h1>
         <CopyButton
           value={model.model_name || ''}
@@ -313,6 +314,18 @@ function ModelHeader(props: { model: PricingModel }) {
           {description}
         </p>
       )}
+      {(model.model_aliases?.length ?? 0) > 1 ? (
+        <div className='mt-3 flex flex-wrap gap-1.5'>
+          {model.model_aliases?.map((alias) => (
+            <code
+              key={alias}
+              className='bg-muted/60 text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[11px]'
+            >
+              {alias}
+            </code>
+          ))}
+        </div>
+      ) : null}
       {tags.length > 0 && (
         <div className='mt-2.5 flex flex-wrap gap-1'>
           {tags.map((tag) => (
@@ -1041,7 +1054,16 @@ export function ModelDetails() {
 
   const model = useMemo(() => {
     if (!models || !modelId) return null
-    return models.find((m) => m.model_name === modelId) || null
+    const grouped = groupPricingModelsByDisplayName(models)
+    return (
+      grouped.find(
+        (item) =>
+          item.model_name === modelId ||
+          item.model_aliases?.includes(modelId)
+      ) ||
+      models.find((item) => item.model_name === modelId) ||
+      null
+    )
   }, [models, modelId])
 
   const handleBack = () => {

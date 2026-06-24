@@ -28,6 +28,7 @@ import {
   type ViewMode,
 } from '../constants'
 import { filterAndSortModels, extractAllTags } from '../lib/filters'
+import { groupPricingModelsByDisplayName } from '../lib/model-display-name'
 import type { PricingModel, TokenUnit } from '../types'
 
 type FilterState = {
@@ -137,15 +138,20 @@ export function useFilters(models: PricingModel[]) {
     [updateFilters]
   )
 
+  const displayModels = useMemo(
+    () => groupPricingModelsByDisplayName(models),
+    [models]
+  )
+
   const availableTags = useMemo(() => {
-    if (!models || models.length === 0) return []
-    return extractAllTags(models)
-  }, [models])
+    if (!displayModels.length) return []
+    return extractAllTags(displayModels)
+  }, [displayModels])
 
   const filteredModels = useMemo(() => {
-    if (!models || models.length === 0) return []
+    if (!displayModels.length) return []
 
-    return filterAndSortModels(models, {
+    return filterAndSortModels(displayModels, {
       search: searchInput,
       vendor: vendorFilter,
       group: groupFilter,
@@ -155,7 +161,7 @@ export function useFilters(models: PricingModel[]) {
       sortBy,
     })
   }, [
-    models,
+    displayModels,
     searchInput,
     vendorFilter,
     groupFilter,
@@ -221,6 +227,7 @@ export function useFilters(models: PricingModel[]) {
     setViewMode,
     setShowRechargePrice,
     filteredModels,
+    displayModels,
     hasActiveFilters,
     activeFilterCount,
     availableTags,

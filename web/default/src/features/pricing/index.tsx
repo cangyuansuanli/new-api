@@ -31,6 +31,7 @@ import {
   ModelDetailsDrawer,
 } from './components'
 import { EXCLUDED_GROUPS, VIEW_MODES } from './constants'
+import { groupPricingModelsByDisplayName } from './lib/model-display-name'
 import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
 
@@ -74,6 +75,7 @@ export function Pricing() {
     setViewMode,
     setShowRechargePrice,
     filteredModels,
+    displayModels,
     hasActiveFilters,
     activeFilterCount,
     availableTags,
@@ -85,15 +87,17 @@ export function Pricing() {
     setSelectedModelName(modelName)
   }, [])
 
-  const selectedModel = useMemo(
-    () =>
-      selectedModelName
-        ? (models || []).find(
-            (model) => model.model_name === selectedModelName
-          ) || null
-        : null,
-    [models, selectedModelName]
-  )
+  const selectedModel = useMemo(() => {
+    if (!selectedModelName) return null
+    const grouped = groupPricingModelsByDisplayName(models || [])
+    return (
+      grouped.find(
+        (item) =>
+          item.model_name === selectedModelName ||
+          item.model_aliases?.includes(selectedModelName)
+      ) || null
+    )
+  }, [models, selectedModelName])
 
   const availableGroups = useMemo(
     () =>
@@ -179,7 +183,7 @@ export function Pricing() {
             </h1>
             <p className='text-muted-foreground/80 mt-3 text-sm sm:mt-4 sm:text-base'>
               {t('This site currently has {{count}} models enabled', {
-                count: models?.length || 0,
+                count: displayModels.length || 0,
               })}
             </p>
             <p className='text-muted-foreground/60 mx-auto mt-2 max-w-2xl text-xs leading-relaxed sm:text-sm'>
@@ -223,7 +227,7 @@ export function Pricing() {
             <main className='min-w-0 space-y-4'>
               <PricingToolbar
                 filteredCount={filteredModels.length}
-                totalCount={models?.length}
+                totalCount={displayModels.length}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
                 tokenUnit={tokenUnit}

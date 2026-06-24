@@ -7,6 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QUOTA_TYPE_VALUES } from '@/features/pricing/constants'
+import { stripModelVendorPrefix } from '@/features/pricing/lib/model-display-name'
 import {
   formatPrice,
   formatRequestPrice,
@@ -93,7 +94,7 @@ export function classifyHomePricingModel(
 
 /** Human-readable model name for the home pricing table (drops date / snapshot suffixes). */
 export function formatHomeModelDisplayName(modelName: string): string {
-  return stripModelDateSuffix(modelName)
+  return stripModelDateSuffix(stripModelVendorPrefix(modelName))
 }
 
 function getMinGroupRatio(
