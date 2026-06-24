@@ -57,7 +57,7 @@ import { getModelDisplayName, groupPricingModelsByDisplayName } from '../lib/mod
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { formatRequestUnitLabel } from '@/features/system-settings/models/model-pricing-core'
-import { formatFixedPrice, formatGroupPrice } from '../lib/price'
+import { formatFixedPrice, formatGroupPrice, formatModelPrimaryPrice } from '../lib/price'
 import type {
   Modality,
   ModelCapability,
@@ -339,6 +339,64 @@ function ModelHeader(props: { model: PricingModel }) {
         </div>
       )}
     </header>
+  )
+}
+
+// ----------------------------------------------------------------------------
+// Channel alias pricing (when merged models differ in price)
+// ----------------------------------------------------------------------------
+
+function AliasPricingSection(props: {
+  model: PricingModel
+  tokenUnit: TokenUnit
+  priceRate: number
+  usdExchangeRate: number
+  showRechargePrice?: boolean
+}) {
+  const { t } = useTranslation()
+  const variants = props.model.pricing_variants
+  if (!variants || variants.length <= 1) return null
+
+  return (
+    <section>
+      <SectionTitle>{t('Pricing by channel alias')}</SectionTitle>
+      <p className='text-muted-foreground mb-3 text-xs'>
+        {t(
+          'This model is available under multiple channel registrations with different pricing.'
+        )}
+      </p>
+      <div className='overflow-hidden rounded-lg border'>
+        <StaticDataTable
+          data={variants}
+          getRowKey={(variant) => variant.model_name}
+          columns={[
+            {
+              id: 'alias',
+              header: t('Registration name'),
+              cell: (variant) => (
+                <code className='font-mono text-xs'>{variant.model_name}</code>
+              ),
+            },
+            {
+              id: 'price',
+              header: t('Price'),
+              cell: (variant) => (
+                <span className='font-mono text-sm tabular-nums'>
+                  {formatModelPrimaryPrice(
+                    variant,
+                    props.tokenUnit,
+                    props.showRechargePrice,
+                    props.priceRate,
+                    props.usdExchangeRate,
+                    t
+                  )}
+                </span>
+              ),
+            },
+          ]}
+        />
+      </div>
+    </section>
   )
 }
 
@@ -952,6 +1010,13 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           <section className='bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm'>
             <SectionTitle>{t('Pricing')}</SectionTitle>
             <PriceSection
+              model={props.model}
+              priceRate={props.priceRate}
+              usdExchangeRate={props.usdExchangeRate}
+              tokenUnit={props.tokenUnit}
+              showRechargePrice={showRechargePrice}
+            />
+            <AliasPricingSection
               model={props.model}
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}

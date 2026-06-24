@@ -25,6 +25,24 @@ import type { PricingModel, TokenUnit, PriceType } from '../types'
 // Price Calculation Utilities
 // ----------------------------------------------------------------------------
 
+/** Stable fingerprint for comparing whether two pricing rows differ. */
+export function getPricingSignature(model: PricingModel): string {
+  return JSON.stringify([
+    model.quota_type,
+    model.model_ratio,
+    model.completion_ratio,
+    model.model_price ?? null,
+    model.billing_mode ?? '',
+    model.billing_expr ?? '',
+    model.cache_ratio ?? null,
+    model.create_cache_ratio ?? null,
+    model.image_ratio ?? null,
+    model.audio_ratio ?? null,
+    model.audio_completion_ratio ?? null,
+    model.request_unit ?? '',
+  ])
+}
+
 /**
  * Strip trailing zeros from formatted price string while preserving currency symbols
  */
@@ -325,4 +343,43 @@ export function formatRequestPrice(
   })
 
   return appendRequestUnitSuffix(formatted, model, translate)
+}
+
+/** Compact primary price label for model square variant rows. */
+export function formatModelPrimaryPrice(
+  model: PricingModel,
+  tokenUnit: TokenUnit,
+  showWithRecharge = false,
+  priceRate = 1,
+  usdExchangeRate = 1,
+  translate?: (key: string) => string
+): string {
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    return formatRequestPrice(
+      model,
+      showWithRecharge,
+      priceRate,
+      usdExchangeRate,
+      translate
+    )
+  }
+
+  const input = formatPrice(
+    model,
+    'input',
+    tokenUnit,
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate
+  )
+  const output = formatPrice(
+    model,
+    'output',
+    tokenUnit,
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate
+  )
+  const unitLabel = tokenUnit === 'K' ? '1K' : '1M'
+  return `${input} / ${output} · ${unitLabel}`
 }

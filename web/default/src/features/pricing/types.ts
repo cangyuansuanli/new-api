@@ -62,6 +62,8 @@ export type PricingModel = {
   display_name?: string
   /** 同一展示名对应的完整注册别名 */
   model_aliases?: string[]
+  /** 展示名相同但定价不同的各渠道注册名（详情页展示） */
+  pricing_variants?: PricingModel[]
   /**
    * Optional model metadata fields. These are not yet returned by the backend
    * and are populated client-side from {@link inferModelMetadata}.
