@@ -131,7 +131,8 @@ function GroupSection({ groupName, items, groupOptions, onUpdate, onRemove, onAd
               <InputNumber
                 size='small'
                 min={0}
-                step={0.1}
+                step={0.01}
+                precision={6}
                 value={rule.ratio}
                 style={{ width: 100 }}
                 onChange={(v) => onUpdate(rule._id, 'ratio', v ?? 0)}

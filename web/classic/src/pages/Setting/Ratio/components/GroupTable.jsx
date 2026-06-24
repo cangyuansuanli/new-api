@@ -162,7 +162,8 @@ export default function GroupTable({ groupRatio, userUsableGroups, onChange }) {
           <InputNumber
             size='small'
             min={0}
-            step={0.1}
+            step={0.01}
+            precision={6}
             value={record.ratio}
             style={{ width: '100%' }}
             onChange={(v) => updateRow(record._id, 'ratio', v ?? 0)}

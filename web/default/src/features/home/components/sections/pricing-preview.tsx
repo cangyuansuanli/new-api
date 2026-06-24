@@ -22,13 +22,13 @@ import {
   buildHomePricingSections,
   formatHomeInputPrice,
   formatHomeMediaPrice,
-  formatHomeModelDisplayName,
+  getHomeModelDisplayName,
   formatHomeOfficialPricing,
   formatHomeOutputPrice,
   formatHomeSavePercent,
 } from '../../lib/pricing-preview'
 
-const HOME_PRICING_MAX_PER_PREFIX = 2
+const HOME_PRICING_MAX_PER_PREFIX = 1
 
 function PricingTableShell(props: {
   children: ReactNode
@@ -124,7 +124,7 @@ function TextPricingTable(props: {
                 >
                   <td className={cn('px-5 py-3.5 font-medium', mkt.heading)}>
                     <span className='font-mono text-xs sm:text-sm'>
-                      {formatHomeModelDisplayName(model.model_name)}
+                      {getHomeModelDisplayName(model)}
                     </span>
                   </td>
                   <td className={cn('px-4 py-3.5 tabular-nums', mkt.body)}>
@@ -194,7 +194,7 @@ function UnitPricingTable(props: {
               >
                 <td className={cn('px-5 py-3.5 font-medium', mkt.heading)}>
                   <span className='font-mono text-xs sm:text-sm'>
-                    {formatHomeModelDisplayName(model.model_name)}
+                    {getHomeModelDisplayName(model)}
                   </span>
                 </td>
                 <td className={cn('px-4 py-3.5 tabular-nums', mkt.body)}>

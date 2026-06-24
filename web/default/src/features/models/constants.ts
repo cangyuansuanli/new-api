@@ -77,6 +77,26 @@ export function getModelStatusOptions(t: TFunction) {
   ] as const
 }
 
+/** Map UI filter values to API query params (backend expects 0/1). */
+export function mapModelStatusFilterToApi(
+  value: string | undefined
+): string | undefined {
+  if (!value || value === 'all') return undefined
+  if (value === 'enabled') return '1'
+  if (value === 'disabled') return '0'
+  return value
+}
+
+/** Map UI filter values to API query params (backend expects 0/1). */
+export function mapSyncOfficialFilterToApi(
+  value: string | undefined
+): string | undefined {
+  if (!value || value === 'all') return undefined
+  if (value === 'yes') return '1'
+  if (value === 'no') return '0'
+  return value
+}
+
 export function getModelStatusConfig(
   t: TFunction
 ): Record<ModelStatus, { label: string; variant: 'success' | 'neutral' }> {

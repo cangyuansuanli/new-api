@@ -7,7 +7,15 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QUOTA_TYPE_VALUES } from '@/features/pricing/constants'
-import { stripModelVendorPrefix } from '@/features/pricing/lib/model-display-name'
+import {
+  getDynamicDisplayGroupRatio,
+  getDynamicPricingSummary,
+  isDynamicPricingModel,
+} from '@/features/pricing/lib/dynamic-price'
+import {
+  groupPricingModelsByDisplayName,
+  stripModelVendorPrefix,
+} from '@/features/pricing/lib/model-display-name'
 import {
   formatPrice,
   formatRequestPrice,
@@ -95,6 +103,10 @@ export function classifyHomePricingModel(
 /** Human-readable model name for the home pricing table (drops date / snapshot suffixes). */
 export function formatHomeModelDisplayName(modelName: string): string {
   return stripModelDateSuffix(stripModelVendorPrefix(modelName))
+}
+
+export function getHomeModelDisplayName(model: PricingModel): string {
+  return model.display_name || formatHomeModelDisplayName(model.model_name)
 }
 
 function getMinGroupRatio(
@@ -188,11 +200,12 @@ export function buildHomePricingSections(
   models: PricingModel[],
   options: HomePricingSectionOptions = {}
 ): HomePricingSections {
+  const groupedModels = groupPricingModelsByDisplayName(models)
   const limits = {
     ...DEFAULT_HOME_SECTION_LIMITS,
     ...options.limits,
   }
-  const maxPerPrefix = options.maxPerPrefix ?? 2
+  const maxPerPrefix = options.maxPerPrefix ?? 1
   const buckets: HomePricingSections = {
     text: [],
     image: [],
@@ -200,7 +213,7 @@ export function buildHomePricingSections(
     audio: [],
     music: [],
   }
-  const sorted = [...models].sort((a, b) =>
+  const sorted = [...groupedModels].sort((a, b) =>
     a.model_name.localeCompare(b.model_name)
   )
   const prefixCounts = new Map<string, number>()
@@ -241,32 +254,56 @@ export function getOurTokenPricesUsd(
   return { input, output }
 }
 
-function formatTokenPriceWithUnit(
+function formatHomeDynamicOrStaticPrice(
   model: PricingModel,
-  type: 'input' | 'output',
-  t: TFunction
+  t: TFunction,
+  type: 'input' | 'output' = 'input'
 ): string {
-  const price = stripTrailingZeros(
+  if (isDynamicPricingModel(model)) {
+    const summary = getDynamicPricingSummary(model, {
+      tokenUnit: 'M',
+      showRechargePrice: false,
+      priceRate: 1,
+      usdExchangeRate: 1,
+      groupRatioMultiplier: getDynamicDisplayGroupRatio(model),
+    })
+    if (summary && !summary.isSpecialExpression) {
+      const entry =
+        type === 'output'
+          ? summary.primaryEntries.find((item) => item.field === 'outputPrice')
+          : summary.primaryEntries.find((item) => item.field === 'inputPrice')
+      const fallback = summary.primaryEntries[0] ?? summary.entries[0]
+      const chosen = entry ?? fallback
+      if (chosen) {
+        return stripTrailingZeros(chosen.formatted)
+      }
+    }
+  }
+
+  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
+    return stripTrailingZeros(formatRequestPrice(model, false, 1, 1, t))
+  }
+
+  return stripTrailingZeros(
     formatPrice(model, type, 'M', false, 1, 1)
   )
-  return `${price}/${t('per 1M tokens unit')}`
 }
 
 export function formatHomeInputPrice(model: PricingModel, t: TFunction): string {
   if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
-    return stripTrailingZeros(formatRequestPrice(model, false, 1, 1, t))
+    return formatHomeDynamicOrStaticPrice(model, t, 'input')
   }
-  return formatTokenPriceWithUnit(model, 'input', t)
+  return `${formatHomeDynamicOrStaticPrice(model, t, 'input')}/${t('per 1M tokens unit')}`
 }
 
 export function formatHomeUnitPrice(model: PricingModel, t: TFunction): string {
-  return stripTrailingZeros(formatRequestPrice(model, false, 1, 1, t))
+  return formatHomeDynamicOrStaticPrice(model, t, 'input')
 }
 
 /** Price cell for image / video / audio / music tables (supports token-priced edge cases). */
 export function formatHomeMediaPrice(model: PricingModel, t: TFunction): string {
   if (model.quota_type === QUOTA_TYPE_VALUES.TOKEN) {
-    return formatTokenPriceWithUnit(model, 'input', t)
+    return `${formatHomeDynamicOrStaticPrice(model, t, 'input')}/${t('per 1M tokens unit')}`
   }
   return formatHomeUnitPrice(model, t)
 }
@@ -278,7 +315,7 @@ export function formatHomeOutputPrice(
   if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
     return '—'
   }
-  return formatTokenPriceWithUnit(model, 'output', t)
+  return `${formatHomeDynamicOrStaticPrice(model, t, 'output')}/${t('per 1M tokens unit')}`
 }
 
 export function formatHomeOfficialPricing(

@@ -154,7 +154,7 @@ export function usePricingColumns(
           }
 
           return (
-            <div className='min-w-[180px]'>
+            <div className='min-w-[200px] whitespace-nowrap'>
               <span className='font-mono text-sm tabular-nums'>
                 {primaryEntries.map((entry, index) => (
                   <span key={entry.key}>
@@ -164,14 +164,14 @@ export function usePricingColumns(
                     {stripTrailingZeros(entry.formatted)}
                   </span>
                 ))}
+                <span className='text-muted-foreground/50 ml-2 text-[10px]'>
+                  / {tokenUnitLabel} tokens
+                  {dynamicSummary.tierCount > 1 &&
+                    ` · ${t('{{count}} tiers', {
+                      count: dynamicSummary.tierCount,
+                    })}`}
+                </span>
               </span>
-              <div className='text-muted-foreground/50 text-[10px]'>
-                / {tokenUnitLabel} tokens
-                {dynamicSummary.tierCount > 1 &&
-                  ` · ${t('{{count}} tiers', {
-                    count: dynamicSummary.tierCount,
-                  })}`}
-              </div>
             </div>
           )
         }
@@ -201,15 +201,15 @@ export function usePricingColumns(
           )
 
           return (
-            <div className='min-w-[160px]'>
+            <div className='min-w-[200px] whitespace-nowrap'>
               <span className='font-mono text-sm tabular-nums'>
                 {inputPrice}
                 <span className='text-muted-foreground/40 mx-1'>/</span>
                 {outputPrice}
+                <span className='text-muted-foreground/50 ml-2 text-[10px]'>
+                  / {tokenUnitLabel} tokens
+                </span>
               </span>
-              <div className='text-muted-foreground/50 text-[10px]'>
-                / {tokenUnitLabel} tokens
-              </div>
             </div>
           )
         }
@@ -230,7 +230,7 @@ export function usePricingColumns(
           </div>
         )
       },
-      size: 180,
+      size: 220,
       enableSorting: false,
     },
 
@@ -265,13 +265,13 @@ export function usePricingColumns(
           }
 
           return (
-            <div className='min-w-[80px]'>
+            <div className='min-w-[90px] whitespace-nowrap'>
               <span className='font-mono text-sm tabular-nums'>
                 {stripTrailingZeros(cacheEntry.formatted)}
+                <span className='text-muted-foreground/50 ml-2 text-[10px]'>
+                  / {tokenUnitLabel}
+                </span>
               </span>
-              <div className='text-muted-foreground/50 text-[10px]'>
-                / {tokenUnitLabel}
-              </div>
             </div>
           )
         }
@@ -294,17 +294,17 @@ export function usePricingColumns(
         )
 
         return (
-          <div className='min-w-[80px]'>
+          <div className='min-w-[90px] whitespace-nowrap'>
             <span className='font-mono text-sm tabular-nums'>
               {cachedPrice}
+              <span className='text-muted-foreground/50 ml-2 text-[10px]'>
+                / {tokenUnitLabel}
+              </span>
             </span>
-            <div className='text-muted-foreground/50 text-[10px]'>
-              / {tokenUnitLabel}
-            </div>
           </div>
         )
       },
-      size: 110,
+      size: 130,
       enableSorting: false,
     },
 

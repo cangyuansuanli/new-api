@@ -28,6 +28,8 @@ import {
   DEFAULT_PAGE_SIZE,
   getModelStatusOptions,
   getSyncStatusOptions,
+  mapModelStatusFilterToApi,
+  mapSyncOfficialFilterToApi,
 } from '../constants'
 import { modelsQueryKeys, vendorsQueryKeys } from '../lib'
 import { DataTableBulkActions } from './data-table-bulk-actions'
@@ -74,6 +76,17 @@ export function ModelsTable() {
     (columnFilters.find((f) => f.id === 'sync_official')?.value as string[]) ||
     []
 
+  const apiStatusFilter = mapModelStatusFilterToApi(
+    statusFilter.length > 0 && !statusFilter.includes('all')
+      ? statusFilter[0]
+      : undefined
+  )
+  const apiSyncFilter = mapSyncOfficialFilterToApi(
+    syncFilter.length > 0 && !syncFilter.includes('all')
+      ? syncFilter[0]
+      : undefined
+  )
+
   // Fetch vendors for filter
   const { data: vendorsData } = useQuery({
     queryKey: vendorsQueryKeys.list(),
@@ -108,14 +121,8 @@ export function ModelsTable() {
     queryKey: modelsQueryKeys.list({
       keyword: globalFilter,
       vendor: activeVendorFilter,
-      status:
-        statusFilter.length > 0 && !statusFilter.includes('all')
-          ? statusFilter[0]
-          : undefined,
-      sync_official:
-        syncFilter.length > 0 && !syncFilter.includes('all')
-          ? syncFilter[0]
-          : undefined,
+      status: apiStatusFilter,
+      sync_official: apiSyncFilter,
       p: pagination.pageIndex + 1,
       page_size: pagination.pageSize,
     }),
@@ -124,27 +131,15 @@ export function ModelsTable() {
         return searchModels({
           keyword: globalFilter,
           vendor: activeVendorFilter,
-          status:
-            statusFilter.length > 0 && !statusFilter.includes('all')
-              ? statusFilter[0]
-              : undefined,
-          sync_official:
-            syncFilter.length > 0 && !syncFilter.includes('all')
-              ? syncFilter[0]
-              : undefined,
+          status: apiStatusFilter,
+          sync_official: apiSyncFilter,
           p: pagination.pageIndex + 1,
           page_size: pagination.pageSize,
         })
       } else {
         return getModels({
-          status:
-            statusFilter.length > 0 && !statusFilter.includes('all')
-              ? statusFilter[0]
-              : undefined,
-          sync_official:
-            syncFilter.length > 0 && !syncFilter.includes('all')
-              ? syncFilter[0]
-              : undefined,
+          status: apiStatusFilter,
+          sync_official: apiSyncFilter,
           p: pagination.pageIndex + 1,
           page_size: pagination.pageSize,
         })

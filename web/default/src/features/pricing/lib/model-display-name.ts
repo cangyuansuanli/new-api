@@ -8,6 +8,7 @@ License, or (at your option) any later version.
 */
 import type { PricingModel } from '../types'
 import { getPricingSignature } from './price'
+import { QUOTA_TYPE_VALUES } from '../constants'
 
 /**
  * 官方模型名首段（`-` 前）。若首段属于此集合，则视为模型本名而非渠道别名前缀。
@@ -132,11 +133,33 @@ function mergeEnableGroups(variants: PricingModel[]): string[] {
   return Array.from(groups)
 }
 
+function variantPricingScore(model: PricingModel): number {
+  let score = 0
+  if (model.billing_mode === 'tiered_expr' && model.billing_expr?.trim()) {
+    score += 4
+  }
+  if (
+    model.quota_type === QUOTA_TYPE_VALUES.TOKEN &&
+    (model.model_ratio ?? 0) > 0
+  ) {
+    score += 3
+  }
+  if (
+    model.quota_type === QUOTA_TYPE_VALUES.REQUEST &&
+    (model.model_price ?? 0) > 0
+  ) {
+    score += 3
+  }
+  if (!hasChannelRegistrationPrefix(model.model_name)) {
+    score += 1
+  }
+  return score
+}
+
 function pickPrimaryVariant(variants: PricingModel[]): PricingModel {
   return [...variants].sort((a, b) => {
-    const aPrefixed = hasChannelRegistrationPrefix(a.model_name)
-    const bPrefixed = hasChannelRegistrationPrefix(b.model_name)
-    if (aPrefixed !== bPrefixed) return aPrefixed ? 1 : -1
+    const scoreDiff = variantPricingScore(b) - variantPricingScore(a)
+    if (scoreDiff !== 0) return scoreDiff
     return a.model_name.localeCompare(b.model_name)
   })[0]
 }
