@@ -50,7 +50,7 @@ const HOME_IMAGE_NAME =
 export function classifyHomePricingModel(
   model: PricingModel
 ): HomePricingCategory {
-  const name = model.model_name
+  const name = formatHomeModelDisplayName(model.model_name)
   const lower = name.toLowerCase()
   const endpoints = model.supported_endpoint_types ?? []
 
@@ -128,7 +128,7 @@ function calculateTokenPriceUSD(
 
 /** Strip date / variant suffixes so model family variants share one prefix key */
 export function getModelFamilyPrefix(modelName: string): string {
-  return normalizeModelLookupKey(modelName)
+  return normalizeModelLookupKey(stripModelVendorPrefix(modelName))
 }
 
 /** Strip snapshot / date suffixes from model ids (YYMMDD, YYYYMMDD, YYYY-MM-DD, …). */
@@ -285,7 +285,10 @@ export function formatHomeOfficialPricing(
   model: PricingModel,
   officialIndex: Record<string, ModelsDevCost>
 ): string | null {
-  const cost = lookupModelsDevCost(officialIndex, model.model_name)
+  const cost = lookupModelsDevCost(
+    officialIndex,
+    formatHomeModelDisplayName(model.model_name)
+  )
   if (!cost) return null
 
   if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
@@ -303,7 +306,10 @@ export function formatHomeSavePercent(
   model: PricingModel,
   officialIndex: Record<string, ModelsDevCost>
 ): number | null {
-  const cost = lookupModelsDevCost(officialIndex, model.model_name)
+  const cost = lookupModelsDevCost(
+    officialIndex,
+    formatHomeModelDisplayName(model.model_name)
+  )
   const ours = getOurTokenPricesUsd(model)
   return calcSavePercent(model, cost, ours?.input ?? null, ours?.output ?? null)
 }

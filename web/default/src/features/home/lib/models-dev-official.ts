@@ -9,6 +9,7 @@ License, or (at your option) any later version.
 import { MODELS_DEV_PRESET_ENDPOINT } from '@/features/system-settings/models/constants'
 import type { PricingModel } from '@/features/pricing/types'
 import { QUOTA_TYPE_VALUES } from '@/features/pricing/constants'
+import { stripModelVendorPrefix } from '@/features/pricing/lib/model-display-name'
 
 /** Official $/1M token costs from models.dev (same source as admin ratio sync preset) */
 export interface ModelsDevCost {
@@ -87,6 +88,12 @@ export function expandModelLookupAliases(modelName: string): string[] {
   const aliases = new Set<string>([raw])
   const normalized = normalizeModelLookupKey(raw)
   aliases.add(normalized)
+
+  const withoutChannelPrefix = stripModelVendorPrefix(raw)
+  if (withoutChannelPrefix && withoutChannelPrefix !== raw) {
+    aliases.add(withoutChannelPrefix)
+    aliases.add(normalizeModelLookupKey(withoutChannelPrefix))
+  }
 
   const withoutThinking = stripThinkingSuffix(normalized)
   if (withoutThinking && withoutThinking !== normalized) {

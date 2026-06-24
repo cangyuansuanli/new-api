@@ -10,15 +10,106 @@ import type { PricingModel } from '../types'
 import { getPricingSignature } from './price'
 
 /**
- * 内部别名渠道前缀。
- * 规则：渠道 base_url 的域名主体（如 ctlove.cn → ctlove，api.119337.xyz → 119337）。
- * 与 infinite-canvas docs/dev/model-names.md 及 NewAPI 渠道注册名对齐。
+ * 官方模型名首段（`-` 前）。若首段属于此集合，则视为模型本名而非渠道别名前缀。
+ * 渠道注册名形如 `{渠道}-{模型}`；首段不在此集合时去掉渠道前缀。
  */
-const MODEL_VENDOR_PREFIX =
-  /^(?:gz|oairegbox|yunwu|119337|byte|niming|zeabur|happyhorse|ctlove|aini|czeq)-/i
+const MODEL_FAMILY_FIRST_SEGMENTS = new Set([
+  'gpt',
+  'claude',
+  'gemini',
+  'gemma',
+  'grok',
+  'imagen',
+  'veo',
+  'palm',
+  'o1',
+  'o2',
+  'o3',
+  'o4',
+  'omni',
+  'sora',
+  'dall',
+  'dalle',
+  'whisper',
+  'tts',
+  'davinci',
+  'babbage',
+  'text',
+  'embed',
+  'embedding',
+  'llama',
+  'codellama',
+  'mistral',
+  'mixtral',
+  'codestral',
+  'magistral',
+  'pixtral',
+  'qwen',
+  'qwq',
+  'qvq',
+  'deepseek',
+  'command',
+  'cohere',
+  'aya',
+  'ernie',
+  'wenxin',
+  'hunyuan',
+  'hunyuanvideo',
+  'glm',
+  'chatglm',
+  'cogview',
+  'cogvideo',
+  'kimi',
+  'moonshot',
+  'abab',
+  'minimax',
+  'hailuo',
+  'doubao',
+  'seedance',
+  'seedream',
+  'jimeng',
+  'kling',
+  'wan',
+  'pika',
+  'runway',
+  'luma',
+  'flux',
+  'ideogram',
+  'recraft',
+  'midjourney',
+  'niji',
+  'sd',
+  'sdxl',
+  'stable',
+  'suno',
+  'udio',
+  'mureka',
+  'meta',
+])
 
-export function stripModelVendorPrefix(modelName: string) {
-  return modelName.replace(MODEL_VENDOR_PREFIX, '')
+function getNameFirstSegment(modelName: string): string | null {
+  const trimmed = modelName.trim()
+  const dash = trimmed.indexOf('-')
+  if (dash <= 0) return null
+  return trimmed.slice(0, dash).toLowerCase()
+}
+
+export function isModelFamilyFirstSegment(segment: string): boolean {
+  return MODEL_FAMILY_FIRST_SEGMENTS.has(segment.toLowerCase())
+}
+
+/** 是否带有渠道注册前缀（首段不是官方模型族名）。 */
+export function hasChannelRegistrationPrefix(modelName: string): boolean {
+  const first = getNameFirstSegment(modelName)
+  if (!first) return false
+  return !isModelFamilyFirstSegment(first)
+}
+
+export function stripModelVendorPrefix(modelName: string): string {
+  const trimmed = modelName.trim()
+  if (!hasChannelRegistrationPrefix(trimmed)) return trimmed
+  const dash = trimmed.indexOf('-')
+  return trimmed.slice(dash + 1).trim()
 }
 
 export function formatModelDisplayName(modelName: string) {
@@ -29,10 +120,6 @@ export function getModelDisplayName(
   model: Pick<PricingModel, 'model_name' | 'display_name'>
 ) {
   return model.display_name || formatModelDisplayName(model.model_name)
-}
-
-function hasModelVendorPrefix(modelName: string) {
-  return MODEL_VENDOR_PREFIX.test(modelName)
 }
 
 function mergeEnableGroups(variants: PricingModel[]): string[] {
@@ -47,8 +134,8 @@ function mergeEnableGroups(variants: PricingModel[]): string[] {
 
 function pickPrimaryVariant(variants: PricingModel[]): PricingModel {
   return [...variants].sort((a, b) => {
-    const aPrefixed = hasModelVendorPrefix(a.model_name)
-    const bPrefixed = hasModelVendorPrefix(b.model_name)
+    const aPrefixed = hasChannelRegistrationPrefix(a.model_name)
+    const bPrefixed = hasChannelRegistrationPrefix(b.model_name)
     if (aPrefixed !== bPrefixed) return aPrefixed ? 1 : -1
     return a.model_name.localeCompare(b.model_name)
   })[0]
