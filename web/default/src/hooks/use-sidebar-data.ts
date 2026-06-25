@@ -124,6 +124,7 @@ export function useSidebarData(): SidebarData {
           {
             title: t('Models'),
             url: '/models/metadata',
+            activeUrls: ['/models'],
             icon: Box,
           },
           {
