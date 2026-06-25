@@ -70,8 +70,10 @@ const PageLayout = () => {
     location.pathname !== '/console/playground';
 
   const isConsoleRoute = location.pathname.startsWith('/console');
-  const showSider = isConsoleRoute && (!isMobile || drawerOpen);
-  const isFixedLayout = isConsoleRoute || location.pathname === '/pricing';
+  const isEmbedRoute = location.pathname === '/console/task/embed';
+  const showSider = isConsoleRoute && !isEmbedRoute && (!isMobile || drawerOpen);
+  const isFixedLayout =
+    (isConsoleRoute && !isEmbedRoute) || location.pathname === '/pricing';
 
   useEffect(() => {
     if (isMobile && drawerOpen && collapsed) {
@@ -144,6 +146,17 @@ const PageLayout = () => {
       }
     }
   }, [i18n, userState?.user?.setting]);
+
+  if (location.pathname === '/console/task/embed') {
+    return (
+      <>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+        <ToastContainer />
+      </>
+    );
+  }
 
   return (
     <Layout

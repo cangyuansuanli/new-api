@@ -306,6 +306,16 @@ function App() {
           }
         />
         <Route
+          path='/console/task/embed'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <Task />
+              </Suspense>
+            </PrivateRoute>
+          }
+        />
+        <Route
           path='/console/task'
           element={
             <PrivateRoute>

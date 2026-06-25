@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2025 QuantumNous
+Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -16,20 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useTranslation } from 'react-i18next'
 
-import React from 'react';
-import { useLocation } from 'react-router-dom';
-import TaskLogsTable from '../../components/table/task-logs';
-
-const Task = () => {
-  const { pathname } = useLocation();
-  const isEmbed = pathname === '/console/task/embed';
+export function ClassicTaskLogsEmbed() {
+  const { t } = useTranslation()
 
   return (
-    <div className={isEmbed ? 'px-2 py-2' : 'mt-[60px] px-2'}>
-      <TaskLogsTable />
-    </div>
-  );
-};
-
-export default Task;
+    <iframe
+      title={t('Task Logs')}
+      src='/console/task/embed'
+      className='h-full min-h-[640px] w-full border-0'
+    />
+  )
+}
