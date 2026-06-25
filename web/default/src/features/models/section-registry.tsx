@@ -33,6 +33,11 @@ const MODELS_SECTIONS = [
     build: () => null,
   },
   {
+    id: 'params',
+    titleKey: 'Model parameters',
+    build: () => null,
+  },
+  {
     id: 'deployments',
     titleKey: 'Deployments',
     build: () => null, // Content is rendered directly in the page component

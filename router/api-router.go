@@ -393,6 +393,26 @@ func SetApiRouter(router *gin.Engine) {
 			modelPublicNameRoute.GET("/status", controller.GetModelPublicNameRegistryStatus)
 		}
 
+		apiRouter.GET("/model_ui_params/:capability", controller.GetModelUiParamsRegistry)
+
+		modelUiParamRegistryRoute := apiRouter.Group("/model_ui_param_registries")
+		modelUiParamRegistryRoute.Use(middleware.AdminAuth())
+		{
+			modelUiParamRegistryRoute.GET("/:capability", controller.GetModelUiParamRegistrySettings)
+			modelUiParamRegistryRoute.PUT("/:capability", controller.UpdateModelUiParamRegistrySettings)
+		}
+
+		modelUiParamProfileRoute := apiRouter.Group("/model_ui_param_profiles")
+		modelUiParamProfileRoute.Use(middleware.AdminAuth())
+		{
+			modelUiParamProfileRoute.GET("/", controller.GetAllModelUiParamProfiles)
+			modelUiParamProfileRoute.GET("/preview-match", controller.PreviewModelUiParamMatch)
+			modelUiParamProfileRoute.POST("/", controller.CreateModelUiParamProfile)
+			modelUiParamProfileRoute.PUT("/", controller.UpdateModelUiParamProfile)
+			modelUiParamProfileRoute.POST("/reorder", controller.ReorderModelUiParamProfiles)
+			modelUiParamProfileRoute.DELETE("/:id", controller.DeleteModelUiParamProfile)
+		}
+
 		// Deployments (model deployment management)
 		deploymentsRoute := apiRouter.Group("/deployments")
 		deploymentsRoute.Use(middleware.AdminAuth())

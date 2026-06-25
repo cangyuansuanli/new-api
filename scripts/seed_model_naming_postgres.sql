@@ -31,6 +31,11 @@ VALUES
   ('zeabur-', 'Zeabur 托管 Gemini/GLM', TRUE, 120, EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
 ON CONFLICT (prefix) DO NOTHING;
 
+-- OAIREGBox Grok Chat 视频 public 名与 119337 grok-video 碰撞时，alias 为 grok-imagine-video。
+INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
+VALUES ('oairegbox-grok-video', 'grok-imagine-video', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
+ON CONFLICT (internal_name) DO UPDATE SET public_name = EXCLUDED.public_name, updated_time = EXCLUDED.updated_time;
+
 -- Remove incorrect hotfix alias (go2api-gpt-image-2-1k → gpt-image-2).
 -- After prefix seed, public name auto-resolves to gpt-image-2-1k.
 DELETE FROM model_public_aliases
