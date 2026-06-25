@@ -106,6 +106,11 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		return nil
 	}
 
+	modelName := info.OriginModelName
+	if service.IsPerRequestTaskBilling(modelName) {
+		return nil
+	}
+
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil
@@ -343,6 +348,13 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
 	bc := task.PrivateData.BillingContext
 	if bc == nil || bc.ModelPrice <= 0 {
+		return 0
+	}
+	modelName := bc.OriginModelName
+	if modelName == "" {
+		modelName = task.Properties.OriginModelName
+	}
+	if service.IsPerRequestTaskBilling(modelName) || bc.PerCallBilling {
 		return 0
 	}
 	if _, ok := bc.OtherRatios["seconds"]; !ok {

@@ -10,14 +10,31 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 )
 
+// IsPerRequestTaskBilling reports models billed once per generation regardless of duration.
+func IsPerRequestTaskBilling(modelName string) bool {
+	if common.StringsContains(constant.TaskPricePatches, modelName) {
+		return true
+	}
+	return billing_setting.GetBillingMode(modelName) == billing_setting.BillingModePerRequest
+}
+
+// ShouldApplyTaskOtherRatio decides whether a billing ratio key should affect pre-charge quota.
+func ShouldApplyTaskOtherRatio(modelName, ratioKey string) bool {
+	if ratioKey == "seconds" && IsPerRequestTaskBilling(modelName) {
+		return false
+	}
+	return true
+}
+
 // ShouldTaskPerCallBilling 判断任务是否按固定次价计费（完成后不再按 usage.seconds 差额结算）。
 // 配置了 ModelPrice 且带 seconds 倍率的视频模型视为按秒单价，完成后再结算。
 func ShouldTaskPerCallBilling(modelName string, usePrice bool, otherRatios map[string]float64) bool {
-	if common.StringsContains(constant.TaskPricePatches, modelName) {
+	if IsPerRequestTaskBilling(modelName) {
 		return true
 	}
 	if !usePrice {
