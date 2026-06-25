@@ -14,10 +14,9 @@ import (
 )
 
 type seedRegistry struct {
-	DefaultId          string                   `json:"defaultId"`
-	CapabilityFallback []string                 `json:"capabilityFallback"`
-	Poll               map[string]interface{}   `json:"poll"`
-	Profiles           []map[string]interface{} `json:"profiles"`
+	DefaultId string                   `json:"defaultId"`
+	Poll      map[string]interface{}   `json:"poll"`
+	Profiles  []map[string]interface{} `json:"profiles"`
 }
 
 func main() {
@@ -80,17 +79,15 @@ func seedCapability(capability, path string, force bool) error {
 	registry, err := model.GetModelUiParamRegistryByCapability(capability)
 	if err != nil {
 		registry = &model.ModelUiParamRegistry{
-			Capability:         capability,
-			DefaultProfileId:   doc.DefaultId,
-			CapabilityFallback: service.MustJSONString(doc.CapabilityFallback, "[]"),
-			PollDefaults:       service.MustJSONString(doc.Poll, "{}"),
+			Capability:       capability,
+			DefaultProfileId: doc.DefaultId,
+			PollDefaults:     service.MustJSONString(doc.Poll, "{}"),
 		}
 		if err := registry.Insert(); err != nil {
 			return err
 		}
 	} else {
 		registry.DefaultProfileId = doc.DefaultId
-		registry.CapabilityFallback = service.MustJSONString(doc.CapabilityFallback, "[]")
 		if capability == model.ModelUiParamCapabilityVideo {
 			registry.PollDefaults = service.MustJSONString(doc.Poll, "{}")
 		}
@@ -101,43 +98,60 @@ func seedCapability(capability, path string, force bool) error {
 
 	if force && len(existingProfiles) > 0 {
 		for _, profile := range existingProfiles {
+			if err := model.ClearModelProfileBinding(capability, profile.ProfileId); err != nil {
+				return err
+			}
 			if err := model.DeleteModelUiParamProfile(profile.Id); err != nil {
 				return err
 			}
 		}
 	}
 
-	for index, profileDoc := range doc.Profiles {
-		row, err := profileDocToRow(capability, profileDoc, index*10)
+	for _, profileDoc := range doc.Profiles {
+		row, matchTokens, err := profileDocToRow(capability, profileDoc)
 		if err != nil {
 			return err
 		}
 		if err := row.Insert(); err != nil {
 			return err
 		}
+		profileId, _ := profileDoc["id"].(string)
+		if profileId == doc.DefaultId || len(matchTokens) == 0 {
+			continue
+		}
+		if err := model.BindModelsToProfile(capability, profileId, matchTokens); err != nil {
+			return err
+		}
 	}
+	model.RefreshPricing()
 	return nil
 }
 
-func profileDocToRow(capability string, doc map[string]interface{}, sortOrder int) (*model.ModelUiParamProfile, error) {
+func profileDocToRow(capability string, doc map[string]interface{}) (*model.ModelUiParamProfile, []string, error) {
 	profileId, _ := doc["id"].(string)
 	if strings.TrimSpace(profileId) == "" {
-		return nil, fmt.Errorf("profile missing id at sort_order %d", sortOrder)
+		return nil, nil, fmt.Errorf("profile missing id")
 	}
 
-	match := service.MustJSONString(doc["match"], "[]")
+	matchTokens := []string{}
+	if rawMatch, ok := doc["match"].([]interface{}); ok {
+		for _, item := range rawMatch {
+			if token, ok := item.(string); ok && strings.TrimSpace(token) != "" {
+				matchTokens = append(matchTokens, token)
+			}
+		}
+	}
+
 	params := service.MustJSONString(doc["params"], "{}")
 
 	row := &model.ModelUiParamProfile{
-		Capability: capability,
-		ProfileId:  profileId,
-		Match:      match,
-		SortOrder:  sortOrder,
-		Params:     params,
-		OptionRules: "[]",
-		Hints:       "[]",
-		Poll:          "{}",
-		ReferenceLimits: "{}",
+		Capability:      capability,
+		ProfileId:         profileId,
+		Params:            params,
+		OptionRules:       "[]",
+		Hints:             "[]",
+		Poll:              "{}",
+		ReferenceLimits:   "{}",
 	}
 
 	if capability == model.ModelUiParamCapabilityVideo {
@@ -164,5 +178,5 @@ func profileDocToRow(capability string, doc map[string]interface{}, sortOrder in
 		}
 	}
 
-	return row, nil
+	return row, matchTokens, nil
 }

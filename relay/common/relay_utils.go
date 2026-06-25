@@ -137,9 +137,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	if seconds == 0 {
 		seconds = req.Duration
 	}
-	if req.InputReference != "" {
-		req.Images = []string{req.InputReference}
-	}
+	normalizeTaskSubmitImages(&req)
 
 	if strings.TrimSpace(req.Model) == "" {
 		return createTaskError(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest, true)
@@ -183,14 +181,16 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 
 func isKnownTaskField(field string) bool {
 	knownFields := map[string]bool{
-		"prompt":          true,
-		"model":           true,
-		"mode":            true,
-		"image":           true,
-		"images":          true,
-		"size":            true,
-		"duration":        true,
-		"input_reference": true, // Sora 特有字段
+		"prompt":               true,
+		"model":                true,
+		"mode":                 true,
+		"image":                true,
+		"images":               true,
+		"image_urls":           true,
+		"reference_image_urls": true,
+		"size":                 true,
+		"duration":             true,
+		"input_reference":      true, // Sora 特有字段
 	}
 	return knownFields[field]
 }
@@ -214,10 +214,7 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return taskErr
 	}
 
-	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
-		// 兼容单图上传
-		req.Images = []string{req.Image}
-	}
+	normalizeTaskSubmitImages(&req)
 
 	storeTaskRequest(c, info, action, req)
 	return nil

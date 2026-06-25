@@ -1,30 +1,14 @@
 package controller
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
-
-func GetModelUiParamsRegistry(c *gin.Context) {
-	capability := strings.TrimSpace(c.Param("capability"))
-	if capability != model.ModelUiParamCapabilityVideo && capability != model.ModelUiParamCapabilityImage {
-		common.ApiErrorMsg(c, "invalid capability")
-		return
-	}
-	data, err := service.BuildModelUiParamRegistryJSON(capability)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	common.ApiSuccess(c, data)
-}
 
 func GetModelUiParamRegistrySettings(c *gin.Context) {
 	capability := strings.TrimSpace(c.Param("capability"))
@@ -59,9 +43,6 @@ func UpdateModelUiParamRegistrySettings(c *gin.Context) {
 	if strings.TrimSpace(payload.DefaultProfileId) != "" {
 		item.DefaultProfileId = strings.TrimSpace(payload.DefaultProfileId)
 	}
-	if strings.TrimSpace(payload.CapabilityFallback) != "" {
-		item.CapabilityFallback = payload.CapabilityFallback
-	}
 	if capability == model.ModelUiParamCapabilityVideo && strings.TrimSpace(payload.PollDefaults) != "" {
 		item.PollDefaults = payload.PollDefaults
 	}
@@ -69,6 +50,7 @@ func UpdateModelUiParamRegistrySettings(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.RefreshPricing()
 	common.ApiSuccess(c, item)
 }
 
@@ -98,15 +80,6 @@ func CreateModelUiParamProfile(c *gin.Context) {
 		common.ApiErrorMsg(c, "invalid capability")
 		return
 	}
-	matchTokens, err := service.ParseJSONStringArray(item.Match)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if err := service.ValidateModelUiParamMatchTokens(matchTokens); err != nil {
-		common.ApiErrorMsg(c, err.Error())
-		return
-	}
 	dup, err := model.IsModelUiParamProfileDuplicated(0, item.Capability, item.ProfileId)
 	if err != nil {
 		common.ApiError(c, err)
@@ -119,13 +92,11 @@ func CreateModelUiParamProfile(c *gin.Context) {
 	if strings.TrimSpace(item.Params) == "" {
 		item.Params = "{}"
 	}
-	if strings.TrimSpace(item.Match) == "" {
-		item.Match = "[]"
-	}
 	if err := item.Insert(); err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	model.RefreshPricing()
 	common.ApiSuccess(c, item)
 }
 
@@ -145,15 +116,6 @@ func UpdateModelUiParamProfile(c *gin.Context) {
 		common.ApiErrorMsg(c, "profile_id is required")
 		return
 	}
-	matchTokens, err := service.ParseJSONStringArray(item.Match)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if err := service.ValidateModelUiParamMatchTokens(matchTokens); err != nil {
-		common.ApiErrorMsg(c, err.Error())
-		return
-	}
 	dup, err := model.IsModelUiParamProfileDuplicated(item.Id, item.Capability, item.ProfileId)
 	if err != nil {
 		common.ApiError(c, err)
@@ -166,13 +128,11 @@ func UpdateModelUiParamProfile(c *gin.Context) {
 	if strings.TrimSpace(item.Params) == "" {
 		item.Params = "{}"
 	}
-	if strings.TrimSpace(item.Match) == "" {
-		item.Match = "[]"
-	}
 	if err := item.Update(); err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	model.RefreshPricing()
 	common.ApiSuccess(c, item)
 }
 
@@ -182,53 +142,19 @@ func DeleteModelUiParamProfile(c *gin.Context) {
 		common.ApiErrorMsg(c, "invalid id")
 		return
 	}
-	if err := model.DeleteModelUiParamProfile(id); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	common.ApiSuccess(c, nil)
-}
-
-func ReorderModelUiParamProfiles(c *gin.Context) {
-	var payload struct {
-		Capability string                              `json:"capability"`
-		Items      []model.ModelUiParamProfileReorderItem `json:"items"`
-	}
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if payload.Capability != model.ModelUiParamCapabilityVideo && payload.Capability != model.ModelUiParamCapabilityImage {
-		common.ApiErrorMsg(c, "invalid capability")
-		return
-	}
-	if len(payload.Items) == 0 {
-		common.ApiErrorMsg(c, "items is required")
-		return
-	}
-	if err := model.ReorderModelUiParamProfiles(payload.Capability, payload.Items); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	c.Status(http.StatusOK)
-	common.ApiSuccess(c, nil)
-}
-
-func PreviewModelUiParamMatch(c *gin.Context) {
-	capability := strings.TrimSpace(c.Query("capability"))
-	modelName := strings.TrimSpace(c.Query("model_name"))
-	if capability != model.ModelUiParamCapabilityVideo && capability != model.ModelUiParamCapabilityImage {
-		common.ApiErrorMsg(c, "invalid capability")
-		return
-	}
-	if modelName == "" {
-		common.ApiErrorMsg(c, "model_name is required")
-		return
-	}
-	out, err := service.PreviewModelUiParamMatch(capability, modelName)
+	profile, err := model.GetModelUiParamProfileByID(id)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, out)
+	if err := model.ClearModelProfileBinding(profile.Capability, profile.ProfileId); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.DeleteModelUiParamProfile(id); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RefreshPricing()
+	common.ApiSuccess(c, nil)
 }

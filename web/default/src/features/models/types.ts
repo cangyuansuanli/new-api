@@ -46,6 +46,8 @@ export interface Model {
   created_time: number
   updated_time: number
   name_rule: number
+  video_profile_id?: string
+  image_profile_id?: string
   // Runtime fields
   bound_channels?: BoundChannel[]
   enable_groups?: string[]

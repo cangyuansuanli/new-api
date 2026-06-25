@@ -682,23 +682,44 @@ type TaskRelayInfo struct {
 }
 
 type TaskSubmitReq struct {
-	Prompt         string                 `json:"prompt"`
-	Model          string                 `json:"model,omitempty"`
-	Mode           string                 `json:"mode,omitempty"`
-	Image          string                 `json:"image,omitempty"`
-	Images         []string               `json:"images,omitempty"`
-	Size           string                 `json:"size,omitempty"`
-	Duration       int                    `json:"duration,omitempty"`
-	Seconds        string                 `json:"seconds,omitempty"`
-	InputReference string                 `json:"input_reference,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	Prompt              string                 `json:"prompt"`
+	Model               string                 `json:"model,omitempty"`
+	Mode                string                 `json:"mode,omitempty"`
+	Image               string                 `json:"image,omitempty"`
+	Images              []string               `json:"images,omitempty"`
+	ImageUrls           []string               `json:"image_urls,omitempty"`
+	ReferenceImageUrls  []string               `json:"reference_image_urls,omitempty"`
+	Size                string                 `json:"size,omitempty"`
+	Duration            int                    `json:"duration,omitempty"`
+	Seconds             string                 `json:"seconds,omitempty"`
+	InputReference      string                 `json:"input_reference,omitempty"`
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 }
 
 func (t *TaskSubmitReq) GetPrompt() string {
 	return t.Prompt
 }
 
+func normalizeTaskSubmitImages(req *TaskSubmitReq) {
+	if req == nil {
+		return
+	}
+	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
+		req.Images = []string{req.Image}
+	}
+	if len(req.Images) == 0 && strings.TrimSpace(req.InputReference) != "" {
+		req.Images = []string{req.InputReference}
+	}
+	if len(req.Images) == 0 && len(req.ImageUrls) > 0 {
+		req.Images = append([]string(nil), req.ImageUrls...)
+	}
+	if len(req.Images) == 0 && len(req.ReferenceImageUrls) > 0 {
+		req.Images = append([]string(nil), req.ReferenceImageUrls...)
+	}
+}
+
 func (t *TaskSubmitReq) HasImage() bool {
+	normalizeTaskSubmitImages(t)
 	return len(t.Images) > 0
 }
 

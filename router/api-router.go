@@ -393,8 +393,6 @@ func SetApiRouter(router *gin.Engine) {
 			modelPublicNameRoute.GET("/status", controller.GetModelPublicNameRegistryStatus)
 		}
 
-		apiRouter.GET("/model_ui_params/:capability", controller.GetModelUiParamsRegistry)
-
 		modelUiParamRegistryRoute := apiRouter.Group("/model_ui_param_registries")
 		modelUiParamRegistryRoute.Use(middleware.AdminAuth())
 		{
@@ -406,10 +404,8 @@ func SetApiRouter(router *gin.Engine) {
 		modelUiParamProfileRoute.Use(middleware.AdminAuth())
 		{
 			modelUiParamProfileRoute.GET("/", controller.GetAllModelUiParamProfiles)
-			modelUiParamProfileRoute.GET("/preview-match", controller.PreviewModelUiParamMatch)
 			modelUiParamProfileRoute.POST("/", controller.CreateModelUiParamProfile)
 			modelUiParamProfileRoute.PUT("/", controller.UpdateModelUiParamProfile)
-			modelUiParamProfileRoute.POST("/reorder", controller.ReorderModelUiParamProfiles)
 			modelUiParamProfileRoute.DELETE("/:id", controller.DeleteModelUiParamProfile)
 		}
 

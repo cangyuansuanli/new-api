@@ -14,13 +14,12 @@ const (
 )
 
 type ModelUiParamRegistry struct {
-	Id                 int            `json:"id" gorm:"primaryKey;autoIncrement"`
-	Capability         string         `json:"capability" gorm:"size:16;not null;uniqueIndex:uk_model_ui_param_registry_capability"`
-	DefaultProfileId   string         `json:"default_profile_id" gorm:"size:128;not null"`
-	CapabilityFallback string         `json:"capability_fallback" gorm:"type:text;not null;default:'[]'"`
-	PollDefaults       string         `json:"poll_defaults" gorm:"type:text;not null;default:'{}'"`
-	UpdatedTime        int64          `json:"updated_time" gorm:"bigint"`
-	DeletedAt          gorm.DeletedAt `json:"-" gorm:"index"`
+	Id               int            `json:"id" gorm:"primaryKey;autoIncrement"`
+	Capability       string         `json:"capability" gorm:"size:16;not null;uniqueIndex:uk_model_ui_param_registry_capability"`
+	DefaultProfileId string         `json:"default_profile_id" gorm:"size:128;not null"`
+	PollDefaults     string         `json:"poll_defaults" gorm:"type:text;not null;default:'{}'"`
+	UpdatedTime      int64          `json:"updated_time" gorm:"bigint"`
+	DeletedAt        gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (item *ModelUiParamRegistry) Insert() error {
@@ -38,10 +37,9 @@ func (item *ModelUiParamRegistry) Update() error {
 	}
 	item.UpdatedTime = common.GetTimestamp()
 	return DB.Model(item).Where("id = ?", item.Id).Updates(map[string]interface{}{
-		"default_profile_id":  item.DefaultProfileId,
-		"capability_fallback": item.CapabilityFallback,
-		"poll_defaults":       item.PollDefaults,
-		"updated_time":        item.UpdatedTime,
+		"default_profile_id": item.DefaultProfileId,
+		"poll_defaults":      item.PollDefaults,
+		"updated_time":       item.UpdatedTime,
 	}).Error
 }
 

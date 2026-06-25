@@ -37,6 +37,8 @@ type Pricing struct {
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
 	RequestUnit            string                  `json:"request_unit,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
+	VideoUiParams          map[string]interface{}  `json:"video_ui_params,omitempty"`
+	ImageUiParams          map[string]interface{}  `json:"image_ui_params,omitempty"`
 }
 
 type PricingVendor struct {
@@ -287,6 +289,7 @@ func updatePricing() {
 	}
 
 	pricingMap = make([]Pricing, 0)
+	uiParamCtx, _ := LoadUiParamResolveContext()
 	for model, groups := range modelGroupsMap {
 		pricing := Pricing{
 			ModelName:              model,
@@ -304,6 +307,13 @@ func updatePricing() {
 			pricing.Icon = meta.Icon
 			pricing.Tags = meta.Tags
 			pricing.VendorID = meta.VendorID
+			if uiParamCtx != nil {
+				pricing.VideoUiParams = ResolveVideoUiParams(meta, uiParamCtx)
+				pricing.ImageUiParams = ResolveImageUiParams(meta, uiParamCtx)
+			}
+		} else if uiParamCtx != nil {
+			pricing.VideoUiParams = ResolveVideoUiParams(nil, uiParamCtx)
+			pricing.ImageUiParams = ResolveImageUiParams(nil, uiParamCtx)
 		}
 		modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
 		if findPrice {
@@ -353,7 +363,7 @@ func updatePricing() {
 
 	// 防止大更新后数据不通用
 	if len(pricingMap) > 0 {
-		pricingMap[0].PricingVersion = "5a90f2b86c08bd983a9a2e6d66c255f4eaef9c4bc934386d2b6ae84ef0ff1f1f"
+		pricingMap[0].PricingVersion = "model-ui-params-v2-per-model-binding"
 	}
 
 	// 刷新缓存映射，供高并发快速查询

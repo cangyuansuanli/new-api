@@ -7,7 +7,6 @@ export interface ModelUiParamRegistry {
   id: number
   capability: ModelUiParamCapability
   default_profile_id: string
-  capability_fallback: string
   poll_defaults: string
   updated_time: number
 }
@@ -16,8 +15,6 @@ export interface ModelUiParamProfile {
   id: number
   capability: ModelUiParamCapability
   profile_id: string
-  match: string
-  sort_order: number
   api_mode?: string
   requires_reference_media: boolean
   poll: string
@@ -31,21 +28,14 @@ export interface ModelUiParamProfile {
   updated_time: number
 }
 
-export interface ModelUiParamMatchPreview {
-  model_name: string
-  matched_profile?: string
-  matched_profiles?: string[]
-  collision: boolean
-}
-
 export const modelParamsQueryKeys = {
   all: ['model-params'] as const,
   registry: (capability: ModelUiParamCapability) =>
     [...modelParamsQueryKeys.all, 'registry', capability] as const,
   profiles: (capability: ModelUiParamCapability) =>
     [...modelParamsQueryKeys.all, 'profiles', capability] as const,
-  preview: (capability: ModelUiParamCapability, modelName: string) =>
-    [...modelParamsQueryKeys.all, 'preview', capability, modelName] as const,
+  modelBindings: (keyword: string) =>
+    [...modelParamsQueryKeys.all, 'model-bindings', keyword] as const,
 }
 
 export const VIDEO_PARAM_KEYS = [
@@ -77,3 +67,6 @@ export const VIDEO_API_MODES = [
   'newapi-chat',
   'newapi-grok',
 ] as const
+
+export const DEFAULT_VIDEO_PROFILE_ID = 'default-video'
+export const DEFAULT_IMAGE_PROFILE_ID = 'default-image'
