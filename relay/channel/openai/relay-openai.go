@@ -25,7 +25,7 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	}
 
 	if !forceFormat && !thinkToContent {
-		return helper.StringData(c, data)
+		return helper.StringData(c, helper.SanitizeStreamChunkForPublicModel(c, data))
 	}
 
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
@@ -285,6 +285,8 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		}
 		responseBody = geminiRespStr
 	}
+
+	responseBody = helper.SanitizeResponseBodyForPublicModel(c, responseBody)
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 

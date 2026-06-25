@@ -95,7 +95,20 @@ func main() {
 			model.InitChannelCache()
 		}()
 
-		go model.SyncChannelCache(common.SyncFrequency)
+		if err := service.RefreshModelPublicNameRegistry(); err != nil {
+			common.SysLog("RefreshModelPublicNameRegistry failed: " + err.Error())
+		}
+
+		go func() {
+			for {
+				time.Sleep(time.Duration(common.SyncFrequency) * time.Second)
+				common.SysLog("syncing channels from database")
+				model.InitChannelCache()
+				if err := service.RefreshModelPublicNameRegistry(); err != nil {
+					common.SysLog("RefreshModelPublicNameRegistry failed: " + err.Error())
+				}
+			}
+		}()
 	}
 
 	// 热更新配置

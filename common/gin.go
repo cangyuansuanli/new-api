@@ -374,6 +374,11 @@ func parseBoundary(contentType string) (string, error) {
 	return boundary, nil
 }
 
+// MultipartMemoryLimit returns configured multipart memory limit in bytes.
+func MultipartMemoryLimit() int64 {
+	return multipartMemoryLimit()
+}
+
 // multipartMemoryLimit returns the configured multipart memory limit in bytes
 func multipartMemoryLimit() int64 {
 	limitMB := constant.MaxFileDownloadMB

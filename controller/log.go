@@ -6,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -50,6 +51,9 @@ func GetUserLogs(c *gin.Context) {
 		return
 	}
 	pageInfo.SetTotal(int(total))
+	for i := range logs {
+		logs[i].ModelName = service.ToPublicModelName(logs[i].ModelName)
+	}
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
 	return

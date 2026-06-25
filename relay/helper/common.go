@@ -110,6 +110,7 @@ func ObjectData(c *gin.Context, object interface{}) error {
 	if object == nil {
 		return errors.New("object is nil")
 	}
+	object = SanitizeObjectForPublicModel(c, object)
 	jsonData, err := common.Marshal(object)
 	if err != nil {
 		return fmt.Errorf("error marshalling object: %w", err)

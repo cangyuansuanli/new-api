@@ -272,9 +272,26 @@ func ListModels(c *gin.Context, modelType int) {
 	if len(ownerGroups) > 0 {
 		ownerByModel = getPreferredModelOwners(userModelNames, ownerGroups)
 	}
-	userOpenAiModels := make([]dto.OpenAIModels, 0, len(userModelNames))
-	for _, modelName := range userModelNames {
-		userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(modelName, ownerByModel))
+
+	var userOpenAiModels []dto.OpenAIModels
+	if service.ModelPublicNameEnabled() {
+		publicNames := service.PublicModelNamesFromInternals(userModelNames)
+		ownerByPublic := make(map[string]string, len(publicNames))
+		for _, internal := range userModelNames {
+			public := service.ToPublicModelName(internal)
+			if owner, ok := ownerByModel[internal]; ok {
+				ownerByPublic[public] = owner
+			}
+		}
+		userOpenAiModels = make([]dto.OpenAIModels, 0, len(publicNames))
+		for _, publicName := range publicNames {
+			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(publicName, ownerByPublic))
+		}
+	} else {
+		userOpenAiModels = make([]dto.OpenAIModels, 0, len(userModelNames))
+		for _, modelName := range userModelNames {
+			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(modelName, ownerByModel))
+		}
 	}
 
 	switch modelType {
@@ -338,7 +355,17 @@ func EnabledListModels(c *gin.Context) {
 
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
-	if aiModel, ok := openAIModelsMap[modelId]; ok {
+	resolvedID := modelId
+	if service.ModelPublicNameEnabled() {
+		if internal, clientPublic, err := service.ResolveInternalModelName(modelId); err == nil {
+			resolvedID = internal
+			service.SetClientModelNameContext(c, clientPublic)
+			modelId = clientPublic
+		}
+	}
+	if found, ok := openAIModelsMap[resolvedID]; ok {
+		aiModel := found
+		aiModel.Id = modelId
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
 			c.JSON(200, dto.AnthropicModel{

@@ -369,6 +369,15 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 
+		modelPublicAliasRoute := apiRouter.Group("/model_public_aliases")
+		modelPublicAliasRoute.Use(middleware.AdminAuth())
+		{
+			modelPublicAliasRoute.GET("/", controller.GetAllModelPublicAliases)
+			modelPublicAliasRoute.POST("/", controller.CreateModelPublicAlias)
+			modelPublicAliasRoute.PUT("/", controller.UpdateModelPublicAlias)
+			modelPublicAliasRoute.DELETE("/:id", controller.DeleteModelPublicAlias)
+		}
+
 		// Deployments (model deployment management)
 		deploymentsRoute := apiRouter.Group("/deployments")
 		deploymentsRoute.Use(middleware.AdminAuth())
