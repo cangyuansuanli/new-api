@@ -16,19 +16,19 @@
         "ctlove"
     ],
     "poll": {
-        "registry": {
+        "videos-json-gz": {
             "delayMs": 4000,
             "maxAttempts": 150
         },
-        "openai": {
+        "videos-form": {
             "delayMs": 2500,
             "maxAttempts": 120
         },
-        "newapi-async": {
+        "videos-json-async": {
             "delayMs": 5000,
             "maxAttempts": 120
         },
-        "newapi-grok": {
+        "video-generations": {
             "delayMs": 5000,
             "maxAttempts": 60
         }
@@ -39,7 +39,7 @@
             "match": [
                 "video-grok"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "referenceLimits": {
                 "images": 7,
                 "videos": 0,
@@ -132,7 +132,7 @@
             "match": [
                 "video-veo"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "referenceLimits": {
                 "images": 3,
                 "videos": 0,
@@ -207,7 +207,7 @@
             "match": [
                 "video-omni-flash"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "referenceLimits": {
                 "images": 7,
                 "videos": 0,
@@ -282,7 +282,7 @@
             "match": [
                 "video-seedance"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "referenceLimits": {
                 "images": 9,
                 "videos": 3,
@@ -386,7 +386,7 @@
             "match": [
                 "video-sora"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "referenceLimits": {
                 "images": 1,
                 "videos": 0,
@@ -476,7 +476,7 @@
             "match": [
                 "video-kling"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "referenceLimits": {
                 "images": 4,
                 "videos": 0,
@@ -549,7 +549,7 @@
             "match": [
                 "video-wan"
             ],
-            "apiMode": "openai",
+            "apiMode": "videos-form",
             "requiresReferenceMedia": true,
             "referenceLimits": {
                 "images": 1,
@@ -1272,7 +1272,7 @@
         },
         {
             "id": "newapi-chat-wan-i2v",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "wan-i2v-2.6",
                 "wan-i2v-2.5"
@@ -1317,7 +1317,7 @@
         },
         {
             "id": "newapi-chat-sora",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "sora-2-pro",
                 "sora-2"
@@ -1361,7 +1361,7 @@
         },
         {
             "id": "newapi-chat-gemini-omni-flash-4s",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "gemini-omni-flash-portrait-4s",
                 "gemini-omni-flash-landscape-4s"
@@ -1405,7 +1405,7 @@
         },
         {
             "id": "newapi-chat-gemini-omni-flash-6s",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "gemini-omni-flash-portrait-6s"
             ],
@@ -1448,7 +1448,7 @@
         },
         {
             "id": "newapi-chat-gemini-omni-flash-10s",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "gemini-omni-flash-landscape-10s"
             ],
@@ -1491,7 +1491,7 @@
         },
         {
             "id": "newapi-chat-kling",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "kling-omni-video",
                 "kling-video"
@@ -1535,7 +1535,7 @@
         },
         {
             "id": "newapi-grok-image-video",
-            "apiMode": "newapi-grok",
+            "apiMode": "video-generations",
             "match": [
                 "grok-video",
                 "grok-video-1.0"
@@ -1629,7 +1629,7 @@
         },
         {
             "id": "newapi-grok-video-1.5",
-            "apiMode": "newapi-grok",
+            "apiMode": "video-generations",
             "match": [
                 "grok-video-1.5"
             ],
@@ -1703,7 +1703,7 @@
         },
         {
             "id": "newapi-async-veo-fast-oriented",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "veo-fast-landscape",
                 "veo-fast-portrait",
@@ -1749,7 +1749,7 @@
         },
         {
             "id": "newapi-async-veo",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "veo-pro-4k",
                 "veo-4k",
@@ -1795,7 +1795,7 @@
         },
         {
             "id": "oairegbox-omni-fast",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "omni-fast",
                 "omni-fast-no-water"
@@ -1854,7 +1854,7 @@
         },
         {
             "id": "oairegbox-omni-v2v",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "omni-v2v",
                 "omni-v2v-no-water"
@@ -1911,7 +1911,7 @@
         },
         {
             "id": "oairegbox-veo-clean",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "veo-clean"
             ],
@@ -1954,7 +1954,7 @@
         },
         {
             "id": "oairegbox-seedance-2",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "seedance-480p",
                 "seedance-fast-480p",
@@ -2072,7 +2072,7 @@
         },
         {
             "id": "oairegbox-grok-imagine-video",
-            "apiMode": "newapi-chat",
+            "apiMode": "chat-completions",
             "match": [
                 "grok-imagine-video"
             ],
@@ -2115,7 +2115,7 @@
         },
         {
             "id": "oairegbox-grok-cli",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "grok-video-cli",
                 "grok-video-cli-edit"
@@ -2209,7 +2209,7 @@
         },
         {
             "id": "oairegbox-grok-cli-1.5",
-            "apiMode": "newapi-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "grok-video-1.5-cli"
             ],

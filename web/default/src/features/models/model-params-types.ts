@@ -61,11 +61,11 @@ export const IMAGE_PARAM_KEYS = [
 ] as const
 
 export const VIDEO_API_MODES = [
-  'registry',
-  'openai',
-  'newapi-async',
-  'newapi-chat',
-  'newapi-grok',
+  'videos-json-gz',
+  'videos-form',
+  'videos-json-async',
+  'chat-completions',
+  'video-generations',
 ] as const
 
 export const DEFAULT_VIDEO_PROFILE_ID = 'default-video'
