@@ -87,7 +87,7 @@ function TextPricingTable(props: {
               {t('Official pricing')}
             </th>
             <th className={cn('px-4 py-3.5 text-right font-medium', mkt.muted)}>
-              {t('Save')}
+              {t('Discount')}
             </th>
           </tr>
         </thead>
@@ -211,7 +211,7 @@ function UnitPricingTable(props: {
 
 function PricingSectionBlock(props: {
   title: string
-  unitLabel: string
+  unitLabel?: string
   description?: string
   children: ReactNode
 }) {
@@ -221,7 +221,9 @@ function PricingSectionBlock(props: {
         <h3 className={cn('text-base font-semibold md:text-lg', mkt.heading)}>
           {props.title}
         </h3>
-        <p className={cn('mt-0.5 text-xs', mkt.muted)}>{props.unitLabel}</p>
+        {props.unitLabel ? (
+          <p className={cn('mt-0.5 text-xs', mkt.muted)}>{props.unitLabel}</p>
+        ) : null}
         {props.description ? (
           <p className={cn('mt-1 text-xs leading-relaxed', mkt.muted)}>
             {props.description}
@@ -274,10 +276,7 @@ export function PricingPreview() {
 
         <AnimateInView animation='fade-up' className='space-y-10'>
           {(isLoading || sections.text.length > 0) && (
-            <PricingSectionBlock
-              title={t('Home text pricing title')}
-              unitLabel={t('USD per 1M tokens')}
-            >
+            <PricingSectionBlock title={t('Home text pricing title')}>
               <TextPricingTable
                 rows={sections.text}
                 isLoading={isLoading}
@@ -289,7 +288,6 @@ export function PricingPreview() {
           {(isLoading || sections.image.length > 0) && (
             <PricingSectionBlock
               title={t('Home image pricing title')}
-              unitLabel={t('Home image pricing unit')}
               description={t('Home image pricing description')}
             >
               <UnitPricingTable
@@ -303,7 +301,6 @@ export function PricingPreview() {
           {(isLoading || sections.video.length > 0) && (
             <PricingSectionBlock
               title={t('Home video pricing title')}
-              unitLabel={t('Home video pricing unit')}
               description={t('Home video pricing description')}
             >
               <UnitPricingTable
