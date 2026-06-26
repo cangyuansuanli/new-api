@@ -24,6 +24,7 @@ service/       — Business logic
 model/         — Data models and DB access (GORM)
 relay/         — AI API relay/proxy with provider adapters
   relay/channel/ — Provider-specific adapters (openai/, claude/, gemini/, aws/, etc.)
+  relay/helper/vendorpatch/ — Vendor-specific request patches (same protocol, per-model-prefix tweaks)
 middleware/    — Auth, rate limiting, CORS, logging, distribution
 setting/       — Configuration management (ratio, model, operation, system, performance)
 common/        — Shared utilities (JSON, crypto, Redis, env, rate-limit, etc.)
@@ -105,6 +106,20 @@ Use `bun` as the preferred package manager and script runner for the frontend (`
 When implementing a new channel:
 - Confirm whether the provider supports `StreamOptions`.
 - If supported, add the channel to `streamSupportedChannels`.
+
+### Rule 4b: Vendor request patches (`relay/helper/vendorpatch/`)
+
+Use this layer when a **DB channel** shares an existing protocol adaptor (e.g. OpenAI image) but needs **code** to adjust the outbound request or consume-log metadata. Do **not** add a new `relay/channel/<vendor>/` package unless the upstream protocol differs.
+
+| Tool | Use when |
+|------|----------|
+| Channel `param_override` | Config-only JSON/header tweaks |
+| `vendorpatch` | Size clamp, prompt injection, strip fields, log-size overrides |
+| `relay/channel/` | New upstream API shape |
+
+**Image patches:** implement `ImagePatcher` in `vendorpatch/image_<vendor>.go`, register in `init()` via `registerImagePatcher`, match on internal model prefix (e.g. `kedaya-`). Handlers call `vendorpatch.ApplyImage(originModel, request)` after `ModelMappedHelper`, before `ConvertImageRequest`.
+
+**Order:** `ModelMappedHelper` → `vendorpatch` → adaptor convert → `param_override` → upstream.
 
 ### Rule 5: Protected Project Information — DO NOT Modify or Delete
 

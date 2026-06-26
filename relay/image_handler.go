@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/relay/helper/vendorpatch"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -36,6 +37,11 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	err = helper.ModelMappedHelper(c, info, request)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
+	}
+
+	imagePatch, err := vendorpatch.ApplyImage(info.OriginModelName, request)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
 
 	adaptor := GetAdaptor(info.ApiType)
@@ -147,10 +153,14 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	var logContent []string
 
-	if len(request.Size) > 0 {
-		logContent = append(logContent, fmt.Sprintf("大小 %s", request.Size))
+	logSize := request.Size
+	if imagePatch.LogSize != "" {
+		logSize = imagePatch.LogSize
 	}
-	if len(quality) > 0 {
+	if len(logSize) > 0 {
+		logContent = append(logContent, fmt.Sprintf("大小 %s", logSize))
+	}
+	if len(quality) > 0 && !imagePatch.SuppressQualityLog {
 		logContent = append(logContent, fmt.Sprintf("品质 %s", quality))
 	}
 	if imageN > 0 {

@@ -12,6 +12,74 @@
     ],
     "profiles": [
         {
+            "id": "image-tpl-kedaya-1k",
+            "match": [
+                "kedaya-"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": false
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "1:1",
+                            "label": "1:1",
+                            "size": "1024x1024",
+                            "width": 1024,
+                            "height": 1024,
+                            "icon": "square"
+                        },
+                        {
+                            "value": "3:2",
+                            "label": "3:2",
+                            "size": "1536x1024",
+                            "width": 1536,
+                            "height": 1024,
+                            "icon": "landscape"
+                        },
+                        {
+                            "value": "2:3",
+                            "label": "2:3",
+                            "size": "1024x1536",
+                            "width": 1024,
+                            "height": 1536,
+                            "icon": "portrait"
+                        },
+                        {
+                            "value": "auto",
+                            "label": "自动",
+                            "width": 0,
+                            "height": 0,
+                            "icon": "auto"
+                        }
+                    ]
+                },
+                "customDimensions": {
+                    "enabled": false
+                },
+                "count": {
+                    "enabled": true,
+                    "min": 1,
+                    "max": 10,
+                    "quickCount": 10
+                },
+                "background": {
+                    "enabled": false
+                },
+                "outputFormat": {
+                    "enabled": false
+                },
+                "outputCompression": {
+                    "enabled": false
+                },
+                "moderation": {
+                    "enabled": false
+                }
+            }
+        },
+        {
             "id": "image-tpl-full-quality-export",
             "match": [
                 "image-2"
