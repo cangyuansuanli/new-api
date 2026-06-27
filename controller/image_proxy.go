@@ -8,12 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -75,9 +73,9 @@ func ImageProxy(c *gin.Context) {
 		return
 	}
 
-	fetchSetting := system_setting.GetFetchSetting()
-	if err := common.ValidateURLWithFetchSetting(imageURL, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, fetchSetting.ApplyIPFilterForDomain); err != nil {
-		imageProxyError(c, http.StatusForbidden, "invalid_request_error", fmt.Sprintf("request blocked: %v", err))
+	// 结果 URL 来自本系统异步任务落库，非代理接口入参；SSRF 端口白名单会误拦渠道方 URL（如 gulie:3001）。
+	if !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
+		imageProxyError(c, http.StatusBadRequest, "invalid_request_error", "invalid image URL scheme")
 		return
 	}
 
