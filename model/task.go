@@ -180,17 +180,20 @@ type SyncTaskQueryParams struct {
 func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) *Task {
 	properties := Properties{}
 	privateData := TaskPrivateData{}
-	if relayInfo != nil && relayInfo.ChannelMeta != nil {
+	if relayInfo == nil {
+		relayInfo = &commonRelay.RelayInfo{}
+	}
+	if relayInfo.ChannelMeta != nil {
 		if relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeGemini ||
 			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVertexAi {
 			privateData.Key = relayInfo.ChannelMeta.ApiKey
 		}
-		if relayInfo.UpstreamModelName != "" {
-			properties.UpstreamModelName = relayInfo.UpstreamModelName
-		}
-		if relayInfo.OriginModelName != "" {
-			properties.OriginModelName = relayInfo.OriginModelName
-		}
+	}
+	if relayInfo.UpstreamModelName != "" {
+		properties.UpstreamModelName = relayInfo.UpstreamModelName
+	}
+	if relayInfo.OriginModelName != "" {
+		properties.OriginModelName = relayInfo.OriginModelName
 	}
 
 	// 使用预生成的公开 ID（如果有），否则新生成
@@ -201,6 +204,11 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 		taskID = GenerateTaskID()
 	}
 
+	channelId := 0
+	if relayInfo.ChannelMeta != nil {
+		channelId = relayInfo.ChannelMeta.ChannelId
+	}
+
 	t := &Task{
 		TaskID:      taskID,
 		UserId:      relayInfo.UserId,
@@ -208,7 +216,7 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 		SubmitTime:  time.Now().Unix(),
 		Status:      TaskStatusNotStart,
 		Progress:    "0%",
-		ChannelId:   relayInfo.ChannelId,
+		ChannelId:   channelId,
 		Platform:    platform,
 		Properties:  properties,
 		PrivateData: privateData,

@@ -101,6 +101,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 			break
 		}
 		addUsedChannel(c, channel.Id)
+		relayInfo.InitChannelMeta(c)
 
 		priceData, err := helper.ModelPriceHelperPerCall(c, relayInfo)
 		if err != nil {
