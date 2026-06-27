@@ -374,11 +374,14 @@ func TestRecalculate_ZeroDelta(t *testing.T) {
 
 	RecalculateTaskQuota(ctx, task, preConsumed, "exact match")
 
-	// No change to user quota
+	// No wallet change (already pre-consumed)
 	assert.Equal(t, initQuota, getUserQuota(t, userID))
 
-	// No log created (delta is zero)
-	assert.Equal(t, int64(0), countLogs(t))
+	// Consume log recorded for visibility
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeConsume, log.Type)
+	assert.Equal(t, preConsumed, log.Quota)
 }
 
 func TestRecalculate_ActualQuotaZero(t *testing.T) {
@@ -723,8 +726,9 @@ func TestShouldRefundTaskOnFailure(t *testing.T) {
 
 	assert.False(t, ShouldRefundTaskOnFailure("Generated video rejected by content moderation.", moderationBody))
 	assert.False(t, ShouldRefundTaskOnFailure("", moderationBody))
-	assert.False(t, ShouldRefundTaskOnFailure("The generated images appear to be unsafe. Try modifying the prompts or the seeds.", unsafeImageBody))
-	assert.False(t, ShouldRefundTaskOnFailure("", unsafeImageBody))
+	assert.True(t, ShouldRefundTaskOnFailure("The generated images appear to be unsafe. Try modifying the prompts or the seeds.", unsafeImageBody))
+	assert.True(t, ShouldRefundTaskOnFailure("", unsafeImageBody))
+	assert.True(t, ShouldRefundTaskOnFailure("unexpected end of JSON input", nil))
 	assert.True(t, ShouldRefundTaskOnFailure("upstream timeout", nil))
 	assert.True(t, ShouldRefundTaskOnFailure("network error", []byte(`{"error":"connection reset"}`)))
 }
@@ -736,7 +740,7 @@ func TestShouldRefundRelayError_UnsafeImage(t *testing.T) {
 		Code:    "content_policy_violation",
 	}, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 
-	assert.False(t, ShouldRefundRelayError(apiErr))
+	assert.True(t, ShouldRefundRelayError(apiErr))
 }
 
 func TestShouldRefundRelayError_UpstreamTimeout(t *testing.T) {
@@ -745,7 +749,7 @@ func TestShouldRefundRelayError_UpstreamTimeout(t *testing.T) {
 	assert.True(t, ShouldRefundRelayError(apiErr))
 }
 
-func TestRefundTaskQuota_SkipUnsafeImageFailure(t *testing.T) {
+func TestRefundTaskQuota_UnsafeImageFailure(t *testing.T) {
 	truncate(t)
 	ctx := context.Background()
 	seedUser(t, 18, 100000)
@@ -757,7 +761,10 @@ func TestRefundTaskQuota_SkipUnsafeImageFailure(t *testing.T) {
 
 	RefundTaskQuota(ctx, task, "The generated images appear to be unsafe. Try modifying the prompts or the seeds.")
 
-	assert.Equal(t, initQuota, getUserQuota(t, 18))
-	assert.Equal(t, initToken, getTokenRemainQuota(t, 63))
-	assert.Nil(t, getLastLog(t))
+	assert.Equal(t, initQuota+5555, getUserQuota(t, 18))
+	assert.Equal(t, initToken+5555, getTokenRemainQuota(t, 63))
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeRefund, log.Type)
+	assert.Equal(t, 5555, log.Quota)
 }
