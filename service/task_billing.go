@@ -181,6 +181,12 @@ func taskModelName(task *model.Task) string {
 	return task.Properties.OriginModelName
 }
 
+// upstreamRefundableTaskFailureMarkers Geek2 等上游确认不扣费的失败（生成前/生成后审查拦截）。
+var upstreamRefundableTaskFailureMarkers = []string{
+	"unexpected end of json input",
+	"appear to be unsafe",
+}
+
 // nonRefundableTaskFailureMarkers 上游内容审核/策略类失败：上游已扣费且不退款，我们也不应退还预扣额度。
 var nonRefundableTaskFailureMarkers = []string{
 	"content moderation",
@@ -189,7 +195,6 @@ var nonRefundableTaskFailureMarkers = []string{
 	"content_policy_violation",
 	"usage guidelines",
 	"safety_check",
-	"appear to be unsafe",
 	"moderation_blocked",
 }
 
@@ -199,8 +204,25 @@ var nonRefundableUpstreamErrorCodes = []string{
 	"moderation_blocked",
 }
 
+// IsUpstreamRefundableTaskFailure 判断任务失败是否属于上游确认不扣费、我们需退预扣的场景。
+func IsUpstreamRefundableTaskFailure(reason string) bool {
+	lower := strings.ToLower(strings.TrimSpace(reason))
+	if lower == "" {
+		return false
+	}
+	for _, marker := range upstreamRefundableTaskFailureMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // IsNonRefundableTaskFailure 判断任务失败是否属于上游不退款的策略/审核类错误。
 func IsNonRefundableTaskFailure(reason string) bool {
+	if IsUpstreamRefundableTaskFailure(reason) {
+		return false
+	}
 	lower := strings.ToLower(strings.TrimSpace(reason))
 	if lower == "" {
 		return false
@@ -255,6 +277,9 @@ func upstreamErrorFieldsFromBody(raw map[string]any) (message, code string) {
 
 // ShouldRefundTaskOnFailure 决定异步/同步失败时是否退还预扣额度。
 func ShouldRefundTaskOnFailure(reason string, responseBody []byte) bool {
+	if IsUpstreamRefundableTaskFailure(reason) {
+		return true
+	}
 	if IsNonRefundableTaskFailure(reason) {
 		return false
 	}
@@ -266,18 +291,29 @@ func ShouldRefundTaskOnFailure(reason string, responseBody []byte) bool {
 		return true
 	}
 	msg, code := upstreamErrorFieldsFromBody(raw)
+	if IsUpstreamRefundableTaskFailure(msg) {
+		return true
+	}
 	if IsNonRefundableUpstreamErrorCode(code) || IsNonRefundableTaskFailure(msg) {
 		return false
 	}
 	if errVal, ok := raw["error"]; ok {
 		switch v := errVal.(type) {
 		case string:
+			if IsUpstreamRefundableTaskFailure(v) {
+				return true
+			}
 			if IsNonRefundableTaskFailure(v) {
 				return false
 			}
 		case map[string]any:
-			if m, ok := v["message"].(string); ok && IsNonRefundableTaskFailure(m) {
-				return false
+			if m, ok := v["message"].(string); ok {
+				if IsUpstreamRefundableTaskFailure(m) {
+					return true
+				}
+				if IsNonRefundableTaskFailure(m) {
+					return false
+				}
 			}
 		}
 	}
@@ -295,6 +331,9 @@ func ShouldRefundRelayError(apiErr *types.NewAPIError) bool {
 		reason = strings.TrimSpace(apiErr.Error())
 	}
 	code := strings.TrimSpace(fmt.Sprintf("%v", oai.Code))
+	if IsUpstreamRefundableTaskFailure(reason) {
+		return true
+	}
 	if IsNonRefundableUpstreamErrorCode(code) || IsNonRefundableTaskFailure(reason) {
 		return false
 	}
@@ -368,6 +407,30 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	})
 }
 
+func recordTaskBillingConsumeLog(ctx context.Context, task *model.Task, quota int, reason string, preConsumedQuota int) {
+	if quota <= 0 {
+		return
+	}
+	other := taskBillingOther(task)
+	other["task_id"] = task.TaskID
+	other["pre_consumed_quota"] = preConsumedQuota
+	other["actual_quota"] = quota
+	other["is_task"] = true
+	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		UserId:    task.UserId,
+		LogType:   model.LogTypeConsume,
+		Content:   reason,
+		ChannelId: task.ChannelId,
+		ModelName: taskModelName(task),
+		Quota:     quota,
+		TokenId:   task.PrivateData.TokenId,
+		Group:     task.Group,
+		Other:     other,
+	})
+	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, quota)
+	model.UpdateChannelUsedQuota(task.ChannelId, quota)
+}
+
 // RecalculateTaskQuota 通用的异步差额结算。
 // actualQuota 是任务完成后的实际应扣额度，与预扣额度 (task.Quota) 做差额结算。
 // reason 用于日志记录（例如 "token重算" 或 "adaptor调整"）。
@@ -381,6 +444,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	if quotaDelta == 0 {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 预扣费准确（%s，%s）",
 			task.TaskID, logger.LogQuota(actualQuota), reason))
+		recordTaskBillingConsumeLog(ctx, task, actualQuota, reason, preConsumedQuota)
 		return
 	}
 

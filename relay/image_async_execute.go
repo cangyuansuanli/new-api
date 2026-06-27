@@ -84,6 +84,7 @@ func ExecuteImageTaskUpstream(task *model.Task) ([]dto.ImageData, *dto.Usage, er
 	}
 	relayInfo.TaskRelayInfo.PublicTaskID = task.TaskID
 	relayInfo.IsStream = false
+	relayInfo.SkipConsumeQuota = true
 
 	useURLResponse := imageAsyncUsesURLResponse(task.Properties.OriginModelName)
 	if imageReq, ok := relayInfo.Request.(*dto.ImageRequest); ok {
