@@ -122,19 +122,23 @@ func processImageAsyncTask(taskID string) {
 func resolveTaskImageResultURLs(ctx context.Context, task *model.Task, images []dto.ImageData) ([]string, error) {
 	resultURLs := make([]string, 0, len(images))
 	for index, item := range images {
-		data, remoteURL, err := DecodeImageDataItemExported(item)
+		data, mimeOrURL, err := DecodeImageDataItemExported(item)
 		if err != nil {
 			return nil, err
 		}
 		if len(data) > 0 {
-			uploaded, err := service.UploadGeneratedImageBytes(ctx, task.UserId, task.TaskID, index, data, "image/png")
+			mimeType := mimeOrURL
+			if !strings.HasPrefix(mimeType, "image/") {
+				mimeType = "image/png"
+			}
+			uploaded, err := service.UploadGeneratedImageBytes(ctx, task.UserId, task.TaskID, index, data, mimeType)
 			if err != nil {
 				return nil, err
 			}
 			resultURLs = append(resultURLs, uploaded.PublicURL)
 			continue
 		}
-		if remoteURL != "" {
+		if mimeOrURL != "" {
 			return nil, fmt.Errorf("upstream returned url without b64_json; use response_format=b64_json")
 		}
 	}
