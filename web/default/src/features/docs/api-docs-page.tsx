@@ -19,6 +19,7 @@ import { DocsNavLink, DocsShell } from './docs-shell'
 const apiDocsNavItems = [
   { id: 'api-video-api', titleKey: 'apiDocs.nav.videoApi' },
   { id: 'api-image-api', titleKey: 'apiDocs.nav.imageApi' },
+  { id: 'api-model-docs', titleKey: 'apiDocs.nav.modelDocs' },
 ] as const
 
 const PRICING_NOTE = '具体单价与计费方式（按次 / 按秒）以模型广场为准；失败任务通常不计费。'
@@ -86,9 +87,6 @@ export function ApiDocsPage() {
             ['GET /v1/videos/{task_id}/content', '下载成片（部分模型）'],
           ]}
         />
-
-        <h3 className='mt-8 text-lg font-semibold'>单模型 API 说明</h3>
-        <ModelDocPicker siteOrigin={siteOrigin} capability='video' />
 
         <h3 className='mt-8 text-lg font-semibold'>快速示例</h3>
         <CodeBlock
@@ -159,9 +157,6 @@ export function ApiDocsPage() {
           ]}
         />
 
-        <h3 className='mt-8 text-lg font-semibold'>单模型 API 说明</h3>
-        <ModelDocPicker siteOrigin={siteOrigin} capability='image' />
-
         <h3 className='mt-8 text-lg font-semibold'>快速示例</h3>
         <CodeBlock
           title='异步文生图（画布默认）'
@@ -187,6 +182,14 @@ export function ApiDocsPage() {
           <li>completed 后从 data[0].url 取图；status 为 failed 时查看 error.message</li>
           <li>仅成功出图才计费</li>
         </ul>
+      </DocsSection>
+
+      <DocsSection
+        id='api-model-docs'
+        title='单模型 API 说明'
+        description='按供应商与能力分类；点击模型名查看该模型的接口地址、请求 JSON 与字段说明（与模型广场「查看文档」相同）。'
+      >
+        <ModelDocPicker siteOrigin={siteOrigin} capability='all' />
       </DocsSection>
     </DocsShell>
   )
