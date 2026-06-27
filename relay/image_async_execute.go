@@ -261,7 +261,7 @@ func decodeImageDataItem(item dto.ImageData) ([]byte, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		return data, "image/png", nil
+		return data, detectImageBytesMimeType(data), nil
 	}
 	if item.Url == "" {
 		return nil, "", fmt.Errorf("image item has no url or b64_json")
@@ -292,7 +292,21 @@ func decodeDataURI(uri string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	if !strings.HasPrefix(mimeType, "image/") {
+		mimeType = detectImageBytesMimeType(data)
+	}
 	return data, mimeType, nil
+}
+
+func detectImageBytesMimeType(data []byte) string {
+	if len(data) == 0 {
+		return "image/png"
+	}
+	mimeType := http.DetectContentType(data)
+	if strings.HasPrefix(mimeType, "image/") {
+		return mimeType
+	}
+	return "image/png"
 }
 
 func SnapshotAsyncImageEditRequest(c *gin.Context) ([]byte, error) {
