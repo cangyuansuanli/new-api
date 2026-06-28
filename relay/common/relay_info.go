@@ -728,17 +728,17 @@ func (t *TaskSubmitReq) HasImage() bool {
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	type Alias TaskSubmitReq
 	aux := &struct {
-		Metadata json.RawMessage `json:"metadata,omitempty"`
-		Duration json.RawMessage `json:"duration,omitempty"`
-		Seconds  json.RawMessage `json:"seconds,omitempty"`
-		*Alias
-	}{
-		Alias: (*Alias)(t),
-	}
+		InputReference json.RawMessage `json:"input_reference,omitempty"`
+		Metadata     json.RawMessage `json:"metadata,omitempty"`
+		Duration     json.RawMessage `json:"duration,omitempty"`
+		Seconds      json.RawMessage `json:"seconds,omitempty"`
+		Alias
+	}{}
 
 	if err := common.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	*t = TaskSubmitReq(aux.Alias)
 
 	if len(aux.Duration) > 0 {
 		if v, ok := unmarshalFlexibleInt(aux.Duration); ok {
@@ -749,6 +749,16 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	if len(aux.Seconds) > 0 {
 		if v, ok := unmarshalFlexibleInt(aux.Seconds); ok {
 			t.Seconds = strconv.Itoa(v)
+		}
+	}
+
+	if len(aux.InputReference) > 0 {
+		if refs, ok := unmarshalFlexibleStringSlice(aux.InputReference); ok {
+			if len(refs) == 1 {
+				t.InputReference = refs[0]
+			} else {
+				t.Images = append([]string(nil), refs...)
+			}
 		}
 	}
 
@@ -783,6 +793,21 @@ func unmarshalFlexibleInt(raw json.RawMessage) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func unmarshalFlexibleStringSlice(raw json.RawMessage) ([]string, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var strVal string
+	if err := common.Unmarshal(raw, &strVal); err == nil && strings.TrimSpace(strVal) != "" {
+		return []string{strVal}, true
+	}
+	var sliceVal []string
+	if err := common.Unmarshal(raw, &sliceVal); err == nil && len(sliceVal) > 0 {
+		return sliceVal, true
+	}
+	return nil, false
 }
 
 func (t *TaskSubmitReq) UnmarshalMetadata(v any) error {
