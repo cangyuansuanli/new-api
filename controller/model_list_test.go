@@ -210,6 +210,39 @@ func TestListModelsIncludesTieredBillingModel(t *testing.T) {
 	require.Empty(t, missingExprPricing.BillingExpr)
 }
 
+func TestListModelsAnthropicEmptyListDoesNotPanic(t *testing.T) {
+	withSelfUseModeDisabled(t)
+
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1002,
+		Username: "anthropic-empty-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set("id", 1002)
+
+	ListModels(ctx, constant.ChannelTypeAnthropic)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload struct {
+		Data    []dto.AnthropicModel `json:"data"`
+		FirstID string               `json:"first_id"`
+		LastID  string               `json:"last_id"`
+		HasMore bool                 `json:"has_more"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Empty(t, payload.Data)
+	require.False(t, payload.HasMore)
+	require.Empty(t, payload.FirstID)
+	require.Empty(t, payload.LastID)
+}
+
 func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{

@@ -305,12 +305,15 @@ func ListModels(c *gin.Context, modelType int) {
 				Type:        "model",
 			}
 		}
-		c.JSON(200, gin.H{
+		resp := gin.H{
 			"data":     useranthropicModels,
-			"first_id": useranthropicModels[0].ID,
 			"has_more": false,
-			"last_id":  useranthropicModels[len(useranthropicModels)-1].ID,
-		})
+		}
+		if len(useranthropicModels) > 0 {
+			resp["first_id"] = useranthropicModels[0].ID
+			resp["last_id"] = useranthropicModels[len(useranthropicModels)-1].ID
+		}
+		c.JSON(200, resp)
 	case constant.ChannelTypeGemini:
 		userGeminiModels := make([]dto.GeminiModel, len(userOpenAiModels))
 		for i, model := range userOpenAiModels {

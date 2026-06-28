@@ -38,11 +38,13 @@ import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
+  DataTableToolbar,
   useDebouncedColumnFilter,
   useDataTable,
 } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { getApiKeys, searchApiKeys } from '../api'
+import { ApiEndpointHints } from './api-endpoint-hints'
 import {
   API_KEY_STATUS,
   API_KEY_STATUS_OPTIONS,
@@ -287,26 +289,32 @@ export function ApiKeysTable() {
       )}
       skeletonKeyPrefix='api-keys-skeleton'
       applyHeaderSize
-      toolbarProps={{
-        searchPlaceholder: t('Filter by name...'),
-        additionalSearch: (
-          <Input
-            placeholder={t('Filter by API key...')}
-            aria-label={t('Filter by API key...')}
-            value={tokenFilterInput}
-            onChange={(e) => setTokenFilterInput(e.target.value)}
-            className='w-full sm:w-50 lg:w-60'
+      toolbar={
+        <div className='flex w-full flex-col gap-2'>
+          <DataTableToolbar
+            table={table}
+            searchPlaceholder={t('Filter by name...')}
+            additionalSearch={
+              <Input
+                placeholder={t('Filter by API key...')}
+                aria-label={t('Filter by API key...')}
+                value={tokenFilterInput}
+                onChange={(e) => setTokenFilterInput(e.target.value)}
+                className='w-full sm:w-50 lg:w-60'
+              />
+            }
+            filters={[
+              {
+                columnId: 'status',
+                title: t('Status'),
+                options: API_KEY_STATUS_OPTIONS,
+                singleSelect: true,
+              },
+            ]}
           />
-        ),
-        filters: [
-          {
-            columnId: 'status',
-            title: t('Status'),
-            options: API_KEY_STATUS_OPTIONS,
-            singleSelect: true,
-          },
-        ],
-      }}
+          <ApiEndpointHints />
+        </div>
+      }
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
       getRowClassName={(row) =>
         isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
