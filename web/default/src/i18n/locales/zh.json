@@ -2336,6 +2336,8 @@
     "Log files older than {{value}} days will be deleted.": "将删除 {{value}} 天前的日志文件。",
     "Log IP address for usage and error logs": "记录用于使用和错误日志的 IP 地址",
     "Log Maintenance": "日志维护",
+    "Task log retention": "任务日志保留天数",
+    "Automatically delete finished async task logs older than this many days. Set to 0 to disable scheduled cleanup.": "自动清理超过该天数的已完成异步任务日志，设为 0 表示关闭定时清理。",
     "Log Type": "日志类型",
     "Logged in successfully via {{method}}": "登录成功（通过 {{method}}）",
     "Logic": "逻辑",

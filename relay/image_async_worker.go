@@ -110,6 +110,7 @@ func processImageAsyncTask(taskID string) {
 	task.Status = model.TaskStatusSuccess
 	task.Progress = taskcommon.ProgressComplete
 	task.FinishTime = time.Now().Unix()
+	task.ReleaseRequestSnapshot()
 	if _, err := task.UpdateWithStatus(model.TaskStatusInProgress); err != nil {
 		logger.LogError(ctx, "image async mark success failed: "+err.Error())
 		return
@@ -159,6 +160,7 @@ func failImageAsyncTask(ctx context.Context, task *model.Task, reason string) {
 	task.Progress = taskcommon.ProgressComplete
 	task.FailReason = reason
 	task.FinishTime = time.Now().Unix()
+	task.ReleaseRequestSnapshot()
 	if _, err := task.UpdateWithStatus(snap.Status); err != nil {
 		common.SysLog("image async mark failure failed: " + err.Error())
 	}

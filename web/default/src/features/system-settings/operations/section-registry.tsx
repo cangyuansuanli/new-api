@@ -100,6 +100,9 @@ const OPERATIONS_SECTIONS = [
     build: (settings: OperationsSettings) => (
       <LogSettingsSection
         defaultEnabled={Boolean(settings.LogConsumeEnabled)}
+        defaultTaskRetentionDays={
+          settings['task_setting.retention_days'] ?? 30
+        }
       />
     ),
   },

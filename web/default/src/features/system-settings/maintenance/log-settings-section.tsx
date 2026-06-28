@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/form'
 import { Switch } from '@/components/ui/switch'
 import { DateTimePicker } from '@/components/datetime-picker'
+import { Input } from '@/components/ui/input'
 import { deleteLogsBefore } from '../api'
 import {
   SettingsControlGroup,
@@ -57,12 +58,14 @@ import { useUpdateOption } from '../hooks/use-update-option'
 
 const logSettingsSchema = z.object({
   LogConsumeEnabled: z.boolean(),
+  taskRetentionDays: z.coerce.number().min(0),
 })
 
 type LogSettingsFormValues = z.infer<typeof logSettingsSchema>
 
 type LogSettingsSectionProps = {
   defaultEnabled: boolean
+  defaultTaskRetentionDays: number
 }
 
 const HOURS_IN_DAY = 24
@@ -92,6 +95,7 @@ const quickSelectOptions = [
 
 export function LogSettingsSection({
   defaultEnabled,
+  defaultTaskRetentionDays,
 }: LogSettingsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
@@ -99,6 +103,7 @@ export function LogSettingsSection({
     resolver: zodResolver(logSettingsSchema),
     defaultValues: {
       LogConsumeEnabled: defaultEnabled,
+      taskRetentionDays: defaultTaskRetentionDays,
     },
   })
 
@@ -109,8 +114,11 @@ export function LogSettingsSection({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   useEffect(() => {
-    form.reset({ LogConsumeEnabled: defaultEnabled })
-  }, [defaultEnabled, form])
+    form.reset({
+      LogConsumeEnabled: defaultEnabled,
+      taskRetentionDays: defaultTaskRetentionDays,
+    })
+  }, [defaultEnabled, defaultTaskRetentionDays, form])
 
   const purgeTimestamp = useMemo(() => {
     if (!purgeDate) return null
@@ -123,11 +131,27 @@ export function LogSettingsSection({
   }, [purgeDate])
 
   const onSubmit = async (values: LogSettingsFormValues) => {
-    if (values.LogConsumeEnabled === defaultEnabled) return
-    await updateOption.mutateAsync({
-      key: 'LogConsumeEnabled',
-      value: values.LogConsumeEnabled,
-    })
+    const updates: Array<{ key: string; value: string | boolean | number }> = []
+    if (values.LogConsumeEnabled !== defaultEnabled) {
+      updates.push({
+        key: 'LogConsumeEnabled',
+        value: values.LogConsumeEnabled,
+      })
+    }
+    if (values.taskRetentionDays !== defaultTaskRetentionDays) {
+      updates.push({
+        key: 'task_setting.retention_days',
+        value: values.taskRetentionDays,
+      })
+    }
+    if (!updates.length) return
+
+    for (const item of updates) {
+      await updateOption.mutateAsync({
+        key: item.key,
+        value: item.value,
+      })
+    }
   }
 
   const handleRequestCleanLogs = () => {
@@ -196,6 +220,35 @@ export function LogSettingsSection({
                 </FormControl>
                 <FormMessage />
               </SettingsSwitchItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='taskRetentionDays'
+            render={({ field }) => (
+              <SettingsControlGroup className='space-y-3'>
+                <div>
+                  <FormLabel>{t('Task log retention')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Automatically delete finished async task logs older than this many days. Set to 0 to disable scheduled cleanup.'
+                    )}
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    className='max-w-xs'
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(Number(event.target.value))
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </SettingsControlGroup>
             )}
           />
 

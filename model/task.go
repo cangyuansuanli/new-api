@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"strings"
@@ -140,6 +141,11 @@ func (t *Task) GetResultURL() string {
 		return t.PrivateData.ResultURL
 	}
 	return t.FailReason
+}
+
+// ReleaseRequestSnapshot drops the async request body snapshot after a task finishes.
+func (t *Task) ReleaseRequestSnapshot() {
+	t.PrivateData.RequestSnapshot = nil
 }
 
 // GenerateTaskID 生成对外暴露的 task_xxxx 格式 ID
@@ -580,6 +586,83 @@ func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	_ = query.Count(&total).Error
 	return total
 }
+
+// DeleteOldTasks removes finished tasks submitted before targetTimestamp.
+// Only SUCCESS/FAILURE rows are deleted so in-flight tasks are preserved.
+func DeleteOldTasks(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
+	if targetTimestamp <= 0 || limit <= 0 {
+		return 0, nil
+	}
+
+	var total int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+
+		result := DB.Where("submit_time < ?", targetTimestamp).
+			Where("status IN ?", []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).
+			Limit(limit).
+			Delete(&Task{})
+		if result.Error != nil {
+			return total, result.Error
+		}
+
+		total += result.RowsAffected
+		if result.RowsAffected < int64(limit) {
+			break
+		}
+	}
+
+	return total, nil
+}
+
+// StripFinishedTaskRequestSnapshots clears request_snapshot from finished tasks.
+func StripFinishedTaskRequestSnapshots(ctx context.Context, maxUpdates int) (int64, error) {
+	if maxUpdates <= 0 {
+		return 0, nil
+	}
+
+	var updated int64
+	var lastID int64
+	for updated < int64(maxUpdates) {
+		if err := ctx.Err(); err != nil {
+			return updated, err
+		}
+
+		var batch []*Task
+		err := DB.Select("id", "private_data").
+			Where("status IN ?", []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).
+			Where("id > ?", lastID).
+			Order("id ASC").
+			Limit(32).
+			Find(&batch).Error
+		if err != nil {
+			return updated, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		for _, task := range batch {
+			lastID = task.ID
+			if len(task.PrivateData.RequestSnapshot) == 0 {
+				continue
+			}
+			task.ReleaseRequestSnapshot()
+			if err := DB.Model(&Task{}).Where("id = ?", task.ID).Update("private_data", task.PrivateData).Error; err != nil {
+				return updated, err
+			}
+			updated++
+			if updated >= int64(maxUpdates) {
+				break
+			}
+		}
+	}
+
+	return updated, nil
+}
+
 func (t *Task) ToOpenAIVideo() *dto.OpenAIVideo {
 	openAIVideo := dto.NewOpenAIVideo()
 	openAIVideo.ID = t.TaskID
