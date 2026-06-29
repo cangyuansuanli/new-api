@@ -168,7 +168,7 @@ export default function CCSwitchModal({
         </div>
 
         {currentConfig.modelFields.map((field) => (
-          <div key={field.key}>
+          <div key={`${app}-${field.key}`}>
             <div style={fieldLabelStyle}>
               {t(field.label)}
               {field.key === 'model' && (
@@ -176,6 +176,7 @@ export default function CCSwitchModal({
               )}
             </div>
             <Select
+              key={`${app}-${field.key}`}
               placeholder={t('请选择模型')}
               optionList={modelOptions}
               value={models[field.key] || undefined}
