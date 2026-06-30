@@ -41,3 +41,26 @@ func TestIsLegacyEpayUsdTopUpAmount(t *testing.T) {
 		Money:           19.6,
 	}))
 }
+
+func TestValidateEpayModernTopUpQuota_blocksOverCredit(t *testing.T) {
+	oldRate := operation_setting.USDExchangeRate
+	t.Cleanup(func() {
+		operation_setting.USDExchangeRate = oldRate
+	})
+	operation_setting.USDExchangeRate = 1
+
+	topUp := &TopUp{
+		PaymentProvider: PaymentProviderEpay,
+		Amount:          20,
+		Money:           19.6,
+	}
+	okQuota := EpayTopUpQuota(topUp)
+	require.NoError(t, ValidateEpayModernTopUpQuota(topUp, okQuota))
+
+	// Simulates the cc22pp bug: ~4.5× over-credit
+	require.Error(t, ValidateEpayModernTopUpQuota(topUp, okQuota*5))
+}
+
+func TestEpayModernTopUpQuotaCeiling(t *testing.T) {
+	require.Equal(t, int(20*500_000*1.15), EpayModernTopUpQuotaCeiling(20))
+}

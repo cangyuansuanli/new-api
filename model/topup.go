@@ -365,6 +365,11 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 		if quotaToAdd <= 0 {
 			return errors.New("无效的充值额度")
 		}
+		if topUp.PaymentProvider == PaymentProviderEpay {
+			if err := ValidateEpayModernTopUpQuota(topUp, quotaToAdd); err != nil {
+				return err
+			}
+		}
 
 		// 标记完成
 		topUp.CompleteTime = common.GetTimestamp()
