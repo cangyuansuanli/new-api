@@ -337,7 +337,7 @@ def enrich_prefixed_descriptions() -> None:
             VENDOR_GOOGLE,
         ),
         "tengd-Seedance-2.0": (
-            "腾达 Seedance 2.0 特惠。文生/首帧/首尾帧/多参考图/参考音频，480P/720P，4–15 秒；渠道映射上游 manxue-2.0。",
+            "Seedance 2.0 特惠。文生/图生/933 全能参考/首尾帧，480P/720P，4–15 秒。",
             "video,seedance,tengd,geeknow,special-offer",
             VENDOR_GOOGLE,
         ),

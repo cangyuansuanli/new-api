@@ -172,6 +172,13 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		var bodyMap map[string]interface{}
 		if err := common.Unmarshal(cachedBody, &bodyMap); err == nil {
 			bodyMap["model"] = info.UpstreamModelName
+			if IsTengdaSeedanceRelay(info.OriginModelName, info.UpstreamModelName) {
+				converted, convErr := maybeConvertTengdaSeedanceBody(bodyMap, info.UpstreamModelName)
+				if convErr != nil {
+					return nil, convErr
+				}
+				bodyMap = converted
+			}
 			if newBody, err := common.Marshal(bodyMap); err == nil {
 				return bytes.NewReader(newBody), nil
 			}
