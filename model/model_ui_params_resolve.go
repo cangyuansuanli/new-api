@@ -112,10 +112,10 @@ func profileToDocument(profile ModelUiParamProfile) (map[string]interface{}, err
 	}
 	doc["params"] = params
 
+	if profile.ApiMode != "" {
+		doc["apiMode"] = profile.ApiMode
+	}
 	if profile.Capability == ModelUiParamCapabilityVideo {
-		if profile.ApiMode != "" {
-			doc["apiMode"] = profile.ApiMode
-		}
 		if profile.RequiresReferenceMedia {
 			doc["requiresReferenceMedia"] = true
 		}

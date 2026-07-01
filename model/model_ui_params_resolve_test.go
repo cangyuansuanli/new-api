@@ -19,6 +19,22 @@ func TestProfileToDocumentImageHints(t *testing.T) {
 	}
 }
 
+func TestProfileToDocumentImageApiMode(t *testing.T) {
+	doc, err := profileToDocument(ModelUiParamProfile{
+		ProfileId:  "image-tpl-aspect-count-extended",
+		Capability: ModelUiParamCapabilityImage,
+		ApiMode:    "chat-completions",
+		Params:     `{"quality":{"enabled":true}}`,
+		Hints:      "[]",
+	})
+	if err != nil {
+		t.Fatalf("profileToDocument() error = %v", err)
+	}
+	if doc["apiMode"] != "chat-completions" {
+		t.Fatalf("apiMode = %#v, want chat-completions", doc["apiMode"])
+	}
+}
+
 func TestApplyImagePollDefaults(t *testing.T) {
 	registry := &ModelUiParamRegistry{
 		PollDefaults: `{"images-json-async":{"delayMs":5000,"maxAttempts":72},"images-edits-async":{"delayMs":5000,"maxAttempts":72}}`,
