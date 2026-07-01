@@ -1,41 +1,48 @@
--- 腾达 Seedance 2.0 特惠视频：profile + 模型绑定（源站 SSH 执行）
--- vps-94: docker exec -i newapi-postgres psql -U root -d new-api < migrate_tengda_seedance_2.0_ssh.sql
+-- 腾达 Seedance 2.0：绑定统一 seedance profile（源站 SSH 执行）
+-- contabo: docker exec -i newapi-postgres psql -U root -d new-api < migrate_tengda_seedance_2.0_ssh.sql
 
 BEGIN;
 
-INSERT INTO model_ui_param_profiles (
-    capability, profile_id, api_mode, requires_reference_media,
-    poll, poll_status, reference_limits, params, option_rules, hints,
-    created_time, updated_time
-) VALUES (
-    'video',
-    'video-tpl-tengda-seedance-2.0-async',
-    'videos-json-async',
-    FALSE,
-    '{}',
-    NULL,
-    '{"images":9,"videos":0,"audios":1}',
-    '{"resolution":{"enabled":true,"options":[{"value":"480p","label":"480P"},{"value":"720p","label":"720P"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"21:9","label":"宽银幕"},{"value":"3:4","label":"3:4"},{"value":"4:3","label":"4:3"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true,"hint":"参考音频场景建议开启；纯文生可关闭"},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首帧/首尾帧与多参考图二选一；参考图请在提示词中用 @image1、@image2 引用"}}',
-    '[]',
-    '[{"text":"腾达 Seedance 2.0 特惠：文生/首帧/首尾帧/多参考图/参考音频；480P/720P，4–15 秒；图片须公网 URL，勿传 Base64。"}]',
-    EXTRACT(EPOCH FROM NOW())::BIGINT,
-    EXTRACT(EPOCH FROM NOW())::BIGINT
-)
-ON CONFLICT (capability, profile_id) DO UPDATE SET
-    api_mode = EXCLUDED.api_mode,
-    reference_limits = EXCLUDED.reference_limits,
-    params = EXCLUDED.params,
-    hints = EXCLUDED.hints,
-    updated_time = EXCLUDED.updated_time;
-
+-- 1. 绑定统一 profile（与 oairegbox / ctlove Seedance 2.0 相同）
 UPDATE models SET
-    video_profile_id = 'video-tpl-tengda-seedance-2.0-async',
-    description = '腾达 Geeknow Seedance 2.0 特惠。文生/首帧/首尾帧/多参考图/参考音频，480P/720P，4–15 秒。',
-    tags = 'video,seedance,tengda,geeknow,special-offer',
+    video_profile_id = 'video-tpl-seedance-async',
+    description = 'Seedance 2.0 特惠。文生/图生/933 全能参考/首尾帧，480P/720P，4–15 秒。',
+    tags = 'video,seedance,tengd,geeknow,special-offer',
     vendor_id = 6,
     endpoints = '{"openai-video":{"path":"/v1/videos","method":"POST"}}',
+    sync_official = 0,
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 WHERE model_name = 'tengd-Seedance-2.0' AND deleted_at IS NULL;
+
+-- 2. 统一 profile：tengd 仅 480P/720P
+UPDATE model_ui_param_profiles SET
+    option_rules = (
+        SELECT COALESCE(jsonb_agg(DISTINCT elem ORDER BY elem), '[]'::jsonb)::text
+        FROM (
+            SELECT jsonb_array_elements(COALESCE(option_rules::jsonb, '[]'::jsonb)) AS elem
+            UNION ALL
+            SELECT * FROM jsonb_array_elements('[
+                {"param":"resolution","value":"1080p","disabledWhen":{"modelIncludes":"tengd-"}},
+                {"param":"resolution","value":"4k","disabledWhen":{"modelIncludes":"tengd-"}}
+            ]'::jsonb)
+        ) merged(elem)
+    ),
+    hints = (
+        SELECT COALESCE(jsonb_agg(DISTINCT elem ORDER BY elem), '[]'::jsonb)::text
+        FROM (
+            SELECT jsonb_array_elements(COALESCE(hints::jsonb, '[]'::jsonb)) AS elem
+            UNION ALL
+            SELECT * FROM jsonb_array_elements('[
+                {"text":"Seedance 2.0 特惠：480P/720P，4–15 秒；933 全能参考与首尾帧；模式由素材字段自动判定。","when":{"modelIncludes":"tengd-"}}
+            ]'::jsonb)
+        ) merged(elem)
+    ),
+    updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
+WHERE capability = 'video' AND profile_id = 'video-tpl-seedance-async';
+
+-- 3. 清理已废弃的独立 profile
+DELETE FROM model_ui_param_profiles
+WHERE capability = 'video' AND profile_id = 'video-tpl-tengda-seedance-2.0-async';
 
 COMMIT;
 

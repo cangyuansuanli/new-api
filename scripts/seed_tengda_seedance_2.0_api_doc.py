@@ -1,150 +1,220 @@
 #!/usr/bin/env python3
-"""写入 tengda-seedance-2.0 的 api_doc 与 video_profile_id（源站执行）。"""
+"""写入 tengd-Seedance-2.0 的 api_doc（与 oairegbox Seedance 2.0 文档结构对齐，源站执行）。"""
 
 from __future__ import annotations
 
 import json
 import subprocess
+import time
 
-PROFILE = "video-tpl-tengda-seedance-2.0-async"
+PROFILE = "video-tpl-seedance-async"
 MODEL = "tengd-Seedance-2.0"
-PUBLIC_MODEL = "Seedance-2.0"
-UPSTREAM_MODEL = "manxue-2.0"
+VENDOR_ID = 6
+PRICE_PER_JOB = 4.50
 
-SHARED_PARAMS = [
+ENDPOINTS = [
+    {"method": "POST", "path": "{{base}}/videos", "description": "创建视频任务（application/json 或 multipart/form-data）。"},
+    {"method": "GET", "path": "{{base}}/videos/{task_id}", "description": "查询任务状态与结果。"},
+    {"method": "GET", "path": "{{base}}/videos/{task_id}/content", "description": "下载成片（亦可直接使用响应中的 video_url）。"},
+]
+
+PARAMS = [
+    {"name": "model", "description": "必填，固定传 {{model}}（与模型广场展示名一致）。"},
+    {"name": "prompt", "description": "必填。视频描述，≤5000 字符。多素材时用 @image1…@image9 / @video1…@video3 / @audio1…@audio3 引用。"},
+    {"name": "aspect_ratio", "description": "画幅，默认 16:9。支持 16:9、9:16、1:1、21:9、3:4、4:3。"},
+    {"name": "duration", "description": "时长秒数，4–15 任意整数。"},
+    {"name": "resolution", "description": "清晰度：480p 或 720p。"},
+    {"name": "image_url", "description": "单张主参考图（公网 URL 或 data:image/...;base64,...）。与 reference_image_urls 传 1 张效果相同。"},
+    {"name": "reference_image_urls", "description": "参考图 URL 数组，与 image_url 合计 ≤9。元素可为字符串，或 {\"url\",\"name\"} 对象。"},
+    {"name": "reference_images", "description": "推荐写法：[{\"url\":\"…\",\"name\":\"志强\"},…]，用于 @人物 绑定。"},
+    {"name": "reference_image_names", "description": "与 reference_image_urls 同序一一对应的人物名；不传则需在 prompt 自行声明绑定关系。"},
+    {"name": "reference_videos", "description": "参考视频数组 ≤3（mp4/mov，单条 2–15s，24–60fps，≤50MB，多条总 ≤15s）。"},
+    {"name": "reference_audios", "description": "参考音频数组 ≤3（mp3/wav/m4a 等），须搭配 ≥1 张主图。"},
+    {"name": "first_image_url", "description": "首尾帧：开始画面（须与 last_image_url 成对；该模式不接受额外参考图）。"},
+    {"name": "last_image_url", "description": "首尾帧：结束画面（须与 first_image_url 成对）。"},
+    {"name": "image", "description": "multipart 单图上传（-F image=@photo.jpg）；多图请用 JSON 数组。"},
+]
+
+GENERATION_MODES = [
+    {"label": "文生视频", "minimum": "prompt", "trigger": "不带任何素材字段", "prompt_refs": "—"},
     {
-        "name": "model",
-        "description": f"必填，对外 public 名 {PUBLIC_MODEL}（剥 tengd- 前缀）；internal 为 {MODEL}；渠道映射上游 {UPSTREAM_MODEL}。",
-    },
-    {"name": "prompt", "description": "必填。使用参考图时建议在 prompt 中加入 @image1、@image2 等引用。"},
-    {"name": "seconds", "description": "时长秒数，建议字符串形式，支持 4–15。"},
-    {"name": "ratio", "description": "画幅：16:9、9:16、1:1、3:4、4:3、21:9。"},
-    {"name": "resolution", "description": "清晰度：480P 或 720P（兼容 480p/720p）。"},
-    {
-        "name": "generate_audio",
-        "description": "是否生成音频；使用 content[].audio_url 参考音频时建议 true；纯文生可 false。",
-    },
-    {
-        "name": "content",
-        "description": "图生/参考图/参考音频时使用的内容数组。首项通常为 text；首帧/首尾帧与多参考图二选一（勿混用 first_frame 与 reference_image）。",
-    },
-    {
-        "name": "content[].type",
-        "description": "内容类型：text（文本项）、image_url（图片项）、audio_url（音频项）。",
-    },
-    {
-        "name": "content[].text",
-        "description": "文本项内容，通常与顶层 prompt 一致；多参考图时在 text 中用 @image1、@image2 引用顺序。",
-    },
-    {
-        "name": "content[].role",
-        "description": "素材角色。图片：first_frame（首帧）、last_frame（尾帧，须与 first_frame 成对）、reference_image（多参考图，≤9）；音频：reference_audio。",
-    },
-    {
-        "name": "content[].image_url.url",
-        "description": "公网图片 URL；勿传 Base64 data URI。首帧/尾帧/参考图均走 image_url 项。",
+        "label": "图生视频",
+        "minimum": "prompt + ≥1 张图",
+        "trigger": "image_url 或 reference_image_urls（1–9 张，统一写法）",
+        "prompt_refs": "@image1 … @image9",
     },
     {
-        "name": "content[].audio_url.url",
-        "description": "公网音频 URL；type 须为 audio_url，role 须为 reference_audio；须至少 1 张 reference_image 配合使用。",
+        "label": "全能参考（933）",
+        "minimum": "prompt + ≥1 张主图",
+        "trigger": "上 + reference_videos ≤3 + reference_audios ≤3",
+        "prompt_refs": "@image1 … @video3 / @audio3",
+        "notes": "带视频/音频参考时必须同时提供 ≥1 张主图",
+    },
+    {
+        "label": "首尾帧",
+        "minimum": "prompt + 首帧 + 尾帧",
+        "trigger": "first_image_url + last_image_url（成对）",
+        "prompt_refs": "—",
+        "notes": "与参考图/视频/音频互斥，不接受额外 reference_* 字段",
     },
 ]
 
 CREATE_RESP = {
-    "id": "video_abc123",
-    "task_id": "video_abc123",
-    "object": "video",
-    "model": PUBLIC_MODEL,
+    "id": "task_01HZX8A2...",
     "status": "queued",
     "progress": 0,
-    "created_at": 1735689600,
-    "video_url": "",
+    "created_at": "2026-05-17T08:00:00Z",
 }
 
 QUERY_RESP = {
-    "id": "video_abc123",
+    "id": "task_01HZX8A2...",
     "status": "completed",
     "progress": 100,
     "video_url": "https://example.com/output.mp4",
 }
 
-API_DOC = {
-    "dispatch_mode": "async",
-    "intro": (
-        "腾达 Geeknow Seedance 2.0 特惠。JSON POST /v1/videos 提交异步任务，"
-        "支持文生、首帧、首尾帧、多参考图与参考音频；480P/720P，4–15 秒。"
-        f"渠道 model_mapping：{MODEL} → 上游 {UPSTREAM_MODEL}。"
-        "上游文档：https://apidoc.geeknow.top/api-reference/videos/special-offer/generation"
-    ),
-    "params": SHARED_PARAMS,
-    "basic_request_json": {
-        "model": PUBLIC_MODEL,
-        "prompt": "清晨海边，航拍镜头掠过浪花，阳光穿过薄雾，电影感",
-        "seconds": "8",
-        "ratio": "16:9",
-        "resolution": "720P",
-        "generate_audio": False,
-    },
-    "request_json": {
-        "model": PUBLIC_MODEL,
-        "prompt": "@image1；根据音频内容自动拆分场景，镜头节奏跟随语气和情绪变化。",
-        "seconds": "15",
-        "ratio": "16:9",
-        "resolution": "720P",
-        "generate_audio": True,
-        "content": [
-            {
-                "type": "text",
-                "text": "@image1；请根据音频内容生成分镜、场景、动作和镜头变化，整体偏自然真实。",
-            },
-            {
-                "type": "image_url",
-                "role": "reference_image",
-                "image_url": {"url": "https://example.com/assets/reference-image.png"},
-            },
-            {
-                "type": "audio_url",
-                "role": "reference_audio",
-                "audio_url": {"url": "https://example.com/assets/reference-audio.mp3"},
-            },
-        ],
-    },
-    "create_response_json": CREATE_RESP,
-    "query_response_json": QUERY_RESP,
+QUERY_FAILED_RESP = {
+    "id": "task_01HZX8A2...",
+    "status": "failed",
+    "video_url": None,
+    "error": {"code": "400017", "message": "参考图不符合要求，请更换后重试"},
+    "error_code": "400017",
 }
 
 
-def psql(sql: str) -> None:
-    subprocess.run(
-        [
-            "docker",
-            "exec",
-            "newapi-postgres",
-            "psql",
-            "-U",
-            "root",
-            "-d",
-            "new-api",
-            "-v",
-            "ON_ERROR_STOP=1",
-            "-c",
-            sql,
-        ],
-        check=True,
+def model_intro() -> str:
+    return (
+        "Seedance 2.0 视频生成 · 特惠档\n"
+        f"模型：{{{{model}}}}\n"
+        f"计费：按条 ¥{PRICE_PER_JOB:.2f}/次，失败不计费\n\n"
+        "调用流程\n"
+        "1. POST /v1/videos 提交任务\n"
+        "2. GET /v1/videos/{task_id} 轮询（建议间隔 5–10 秒）\n"
+        "3. status=completed 后从 video_url 下载成片\n\n"
+        "输出规格\n"
+        "480P/720P，H.264 / 24fps，含 AAC 立体声\n"
+        "时长 4–15 秒任意整数\n"
+        "画幅支持 16:9、9:16、1:1、21:9、3:4、4:3\n\n"
+        "生成模式\n"
+        "服务端按请求中的素材字段自动判定模式，无需传 mode 参数。详见下方「四种生成模式」表格与请求示例。\n\n"
+        "参考图要求\n"
+        "JPEG/PNG/WEBP，长边 ≤4000px、每边 ≥300px，宽高比 0.4–2.5，≤30MB\n"
+        "支持公网 URL、data:image Base64 或 multipart 字段 image\n\n"
+        "参考视频要求\n"
+        "mp4/mov，单条 2–15s、24–60fps、≤50MB，多条总时长 ≤15s\n\n"
+        "参考音频要求\n"
+        "mp3 等格式，须搭配 ≥1 张主图\n\n"
+        "prompt 上限 5000 字符\n\n"
+        "常见错误码\n"
+        "400017 · 参数或参考素材不合规\n"
+        "400018 · 提示词超过 5000 字符\n"
+        "500341 · 参考视频不符合要求\n"
+        "GENERATION_FAILED · 生成失败或内容策略拦截\n"
+        "TIMEOUT · 生成超时\n"
+        "NO_ACCOUNT · 服务繁忙\n"
+        "PROMPT_BLOCKED · 提示词违禁（不扣费）"
     )
+
+
+def build_examples() -> list[dict]:
+    model = "{{model}}"
+    return [
+        {
+            "title": "文生视频",
+            "request_json": {
+                "model": model,
+                "prompt": "雨夜霓虹街道，镜头缓慢推进，电影感光影",
+                "aspect_ratio": "16:9",
+                "duration": 8,
+                "resolution": "720p",
+            },
+        },
+        {
+            "title": "图生视频（公网 URL）",
+            "request_json": {
+                "model": model,
+                "prompt": "保持人物一致，缓慢走动",
+                "image_url": "https://cdn.example.com/photo.jpg",
+                "aspect_ratio": "16:9",
+                "duration": 5,
+            },
+        },
+        {
+            "title": "多参考图（@image1 / @image2）",
+            "request_json": {
+                "model": model,
+                "prompt": "@image1 的人物在 @image2 的场景中行走",
+                "image_url": "https://cdn.example.com/person.jpg",
+                "reference_image_urls": ["https://cdn.example.com/scene.jpg"],
+                "duration": 5,
+            },
+        },
+        {
+            "title": "全能参考（图 + 视频 + 音频）",
+            "request_json": {
+                "model": model,
+                "prompt": "以 @image1 的人物、@video1 的运镜，配合 @audio1 的节奏生成广告",
+                "image_url": "https://cdn.example.com/main.jpg",
+                "reference_image_urls": ["https://cdn.example.com/ref.jpg"],
+                "reference_videos": ["https://cdn.example.com/ref.mp4"],
+                "reference_audios": ["https://cdn.example.com/ref.mp3"],
+                "aspect_ratio": "16:9",
+                "duration": 10,
+            },
+        },
+        {
+            "title": "首尾帧过渡",
+            "request_json": {
+                "model": model,
+                "prompt": "平滑电影感过渡",
+                "first_image_url": "https://cdn.example.com/start.jpg",
+                "last_image_url": "https://cdn.example.com/end.jpg",
+                "duration": 5,
+            },
+        },
+    ]
+
+
+def build_api_doc() -> dict:
+    examples = build_examples()
+    return {
+        "dispatch_mode": "async",
+        "intro": model_intro(),
+        "generation_modes": GENERATION_MODES,
+        "endpoints": ENDPOINTS,
+        "params": PARAMS,
+        "basic_request_json": examples[0]["request_json"],
+        "request_json": examples[0]["request_json"],
+        "examples": examples,
+        "create_response_json": CREATE_RESP,
+        "query_response_json": QUERY_RESP,
+        "query_failed_response_json": QUERY_FAILED_RESP,
+    }
+
+
+def psql(sql: str) -> str:
+    return subprocess.check_output(
+        ["docker", "exec", "newapi-postgres", "psql", "-U", "root", "-d", "new-api", "-t", "-A", "-v", "ON_ERROR_STOP=1", "-c", sql],
+        text=True,
+    ).strip()
 
 
 def main() -> None:
-    esc = json.dumps(API_DOC, ensure_ascii=False, separators=(",", ":")).replace("'", "''")
+    payload = build_api_doc()
+    esc = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("'", "''")
+    now = int(time.time())
     psql(
         f"UPDATE models SET api_doc = '{esc}', video_profile_id = '{PROFILE}', "
-        f"updated_time = extract(epoch from now())::bigint "
+        f"vendor_id = {VENDOR_ID}, sync_official = 0, "
+        f"updated_time = {now} "
         f"WHERE model_name = '{MODEL}' AND deleted_at IS NULL;"
     )
-    print(f"updated {MODEL}")
-    psql(
-        "SELECT model_name, video_profile_id, length(api_doc) AS doc_len "
-        f"FROM models WHERE model_name = '{MODEL}' AND status=1;"
+    print(f"updated {MODEL} ({len(esc)} bytes, {len(payload['examples'])} examples)")
+    print(
+        psql(
+            "SELECT model_name, video_profile_id, length(api_doc) AS doc_len "
+            f"FROM models WHERE model_name = '{MODEL}' AND status=1;"
+        )
     )
 
 
