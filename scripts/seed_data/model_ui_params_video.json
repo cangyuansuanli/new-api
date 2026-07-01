@@ -13,7 +13,8 @@
         "seedance",
         "grok-imagine",
         "happyhorse",
-        "ctlove"
+        "ctlove",
+        "tengda-seedance"
     ],
     "poll": {
         "videos-form": {
@@ -1638,6 +1639,103 @@
                 },
                 {
                     "text": "Seedance 视频，按秒计费；支持多参考图、参考视频与首尾帧。"
+                }
+            ]
+        },
+        {
+            "id": "video-tpl-tengda-seedance-2.0-async",
+            "apiMode": "videos-json-async",
+            "match": [
+                "tengd-Seedance-2.0"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 0,
+                "audios": 1
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "480p",
+                            "label": "480P"
+                        },
+                        {
+                            "value": "720p",
+                            "label": "720P"
+                        }
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "21:9",
+                            "label": "宽银幕"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15
+                    ],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": true,
+                    "hint": "参考音频场景建议开启；纯文生可关闭"
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首帧/首尾帧与多参考图二选一；参考图请在提示词中用 @image1、@image2 引用"
+                }
+            },
+            "hints": [
+                {
+                    "text": "腾达 Seedance 2.0 特惠：文生/首帧/首尾帧/多参考图/参考音频；480P/720P，4–15 秒；图片须公网 URL，勿传 Base64。"
                 }
             ]
         },

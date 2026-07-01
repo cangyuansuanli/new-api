@@ -336,6 +336,11 @@ def enrich_prefixed_descriptions() -> None:
             "video,veo,tengda,geeknow,fast",
             VENDOR_GOOGLE,
         ),
+        "tengd-Seedance-2.0": (
+            "腾达 Seedance 2.0 特惠。文生/首帧/首尾帧/多参考图/参考音频，480P/720P，4–15 秒；渠道映射上游 manxue-2.0。",
+            "video,seedance,tengd,geeknow,special-offer",
+            VENDOR_GOOGLE,
+        ),
     }
     for name, (desc, tags, vendor) in patches.items():
         upsert_model_meta(name, desc, tags, vendor)
