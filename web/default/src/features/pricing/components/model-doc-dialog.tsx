@@ -31,16 +31,31 @@ function modeLabel(t: (key: string) => string, mode: ModelApiDocVariant['mode'])
   return mode === 'async' ? t('modelDoc.modeAsync') : t('modelDoc.modeSync')
 }
 
+function JsonBlock(props: { label: string; value: string; copyLabel: string }) {
+  return (
+    <div className='space-y-2'>
+      <div className='flex items-center justify-between gap-2'>
+        <h4 className='text-sm font-semibold'>{props.label}</h4>
+        <CopyButton value={props.value} tooltip={props.copyLabel} />
+      </div>
+      <pre className='bg-muted/40 overflow-x-auto rounded-lg border p-3 font-mono text-xs leading-relaxed'>
+        {props.value}
+      </pre>
+    </div>
+  )
+}
+
 function VariantBody(props: {
   variant: ModelApiDocVariant
   t: (key: string) => string
 }) {
   const { variant, t } = props
+  const hasExamples = variant.examples.length > 0
 
   return (
     <div className='space-y-5'>
       <div className='space-y-2'>
-        <p className='text-muted-foreground text-sm leading-relaxed'>
+        <p className='text-muted-foreground whitespace-pre-line text-sm leading-relaxed'>
           {variant.intro}
         </p>
       </div>
@@ -67,13 +82,7 @@ function VariantBody(props: {
       </div>
 
       <div className='space-y-2'>
-        <div className='flex items-center justify-between gap-2'>
-          <h4 className='text-sm font-semibold'>{t('Request fields')}</h4>
-          <CopyButton value={variant.requestJson} tooltip={t('Copy')} />
-        </div>
-        <pre className='bg-muted/40 overflow-x-auto rounded-lg border p-3 font-mono text-xs leading-relaxed'>
-          {variant.requestJson}
-        </pre>
+        <h4 className='text-sm font-semibold'>{t('Request fields')}</h4>
         <ul className='space-y-1.5 text-sm'>
           {variant.params.map((param) => (
             <li key={param.name}>
@@ -85,6 +94,26 @@ function VariantBody(props: {
           ))}
         </ul>
       </div>
+
+      {hasExamples ? (
+        <div className='space-y-4'>
+          <h4 className='text-sm font-semibold'>{t('modelDoc.requestExamples')}</h4>
+          {variant.examples.map((example) => (
+            <JsonBlock
+              key={example.title}
+              label={example.title}
+              value={example.requestJson}
+              copyLabel={t('Copy')}
+            />
+          ))}
+        </div>
+      ) : (
+        <JsonBlock
+          label={t('modelDoc.requestJson')}
+          value={variant.requestJson}
+          copyLabel={t('Copy')}
+        />
+      )}
 
       <div className='space-y-3'>
         <h4 className='text-sm font-semibold'>{t('Response fields')}</h4>
@@ -99,14 +128,18 @@ function VariantBody(props: {
           </pre>
         </div>
         {variant.queryResponseJson ? (
-          <div className='space-y-2'>
-            <p className='text-muted-foreground text-xs font-medium uppercase tracking-wide'>
-              {t('Query task response')}
-            </p>
-            <pre className='bg-muted/40 overflow-x-auto rounded-lg border p-3 font-mono text-xs leading-relaxed'>
-              {variant.queryResponseJson}
-            </pre>
-          </div>
+          <JsonBlock
+            label={t('Query task response')}
+            value={variant.queryResponseJson}
+            copyLabel={t('Copy')}
+          />
+        ) : null}
+        {variant.queryFailedResponseJson ? (
+          <JsonBlock
+            label={t('modelDoc.queryFailedResponse')}
+            value={variant.queryFailedResponseJson}
+            copyLabel={t('Copy')}
+          />
         ) : null}
       </div>
     </div>

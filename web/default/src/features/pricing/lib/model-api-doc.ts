@@ -76,15 +76,22 @@ export type ModelDocEndpoint = {
   description: string
 }
 
+export type ModelDocExample = {
+  title: string
+  requestJson: string
+}
+
 export type ModelApiDocVariant = {
   mode: 'async' | 'sync'
   intro: string
   endpoints: ModelDocEndpoint[]
   requestJson: string
   basicRequestJson: string | null
+  examples: ModelDocExample[]
   params: ModelDocParam[]
   createResponseJson: string
   queryResponseJson: string | null
+  queryFailedResponseJson: string | null
 }
 
 /** 单模型 API 文档；variants 可含 async + sync 两种（如 gpt-image-2） */
@@ -94,6 +101,11 @@ export type ModelApiDoc = {
   variants: ModelApiDocVariant[]
 }
 
+export type RawModelApiDocExample = {
+  title: string
+  request_json?: unknown
+}
+
 export type RawModelApiDocSlice = {
   dispatch_mode?: 'async' | 'sync'
   intro?: string
@@ -101,10 +113,12 @@ export type RawModelApiDocSlice = {
   request_json?: unknown
   doc_request_json?: unknown
   basic_request_json?: unknown
+  examples?: RawModelApiDocExample[]
   params?: ModelDocParam[]
   doc_params_json?: ModelDocParam[]
   create_response_json?: unknown
   query_response_json?: unknown
+  query_failed_response_json?: unknown
 }
 
 export type RawModelApiDoc = RawModelApiDocSlice & {
@@ -330,6 +344,22 @@ function normalizeSingleVariant(
       ? null
       : applyPlaceholdersToJson(basicRaw, modelName, base)
 
+  const examples: ModelDocExample[] = (slice.examples ?? [])
+    .map((item) => {
+      const title = item.title?.trim()
+      if (!title) return null
+      const json = applyPlaceholdersToJson(item.request_json, modelName, base)
+      if (!json.trim()) return null
+      return { title, requestJson: json }
+    })
+    .filter(Boolean) as ModelDocExample[]
+
+  const queryFailedRaw = slice.query_failed_response_json
+  const queryFailedResponseJson =
+    queryFailedRaw == null || queryFailedRaw === ''
+      ? null
+      : applyPlaceholdersToJson(queryFailedRaw, modelName, base)
+
   const endpoints = normalizeEndpoints(slice.endpoints, base, modelName)
   const isVideo =
     model.supported_endpoint_types?.includes('openai-video') ||
@@ -358,6 +388,7 @@ function normalizeSingleVariant(
     endpoints: endpoints.length > 0 ? endpoints : defaultEndpoints,
     requestJson,
     basicRequestJson,
+    examples,
     params: normalizeParams(paramsSource),
     createResponseJson:
       applyPlaceholdersToJson(slice.create_response_json, modelName, base) ||
@@ -365,6 +396,7 @@ function normalizeSingleVariant(
           data: [{ url: 'https://example.com/image.png' }],
         })),
     queryResponseJson,
+    queryFailedResponseJson,
   }
 }
 
@@ -472,6 +504,7 @@ function buildUnifiedVideoDoc(
           duration: body.duration,
           ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
         }),
+        examples: [],
         params,
         createResponseJson: VIDEO_POLL_CREATE,
         queryResponseJson: formatJson({
@@ -479,6 +512,7 @@ function buildUnifiedVideoDoc(
           status: 'completed',
           data: [{ url: `${base}/videos/task_01HZX8A2.../content` }],
         }),
+        queryFailedResponseJson: null,
       },
     ],
   }
@@ -531,6 +565,7 @@ function buildAsyncImageVariant(
       n: 1,
       async: true,
     }),
+    examples: [],
     params,
     createResponseJson: formatJson({
       id: 'task_img_01HZX8A2...',
@@ -547,6 +582,7 @@ function buildAsyncImageVariant(
       progress: '100%',
       data: [{ url: 'https://example.com/image.png' }],
     }),
+    queryFailedResponseJson: null,
   }
 }
 
@@ -590,12 +626,14 @@ function buildSyncImageVariant(
       n: 1,
       response_format: 'url',
     }),
+    examples: [],
     params,
     createResponseJson: formatJson({
       created: 1715923200,
       data: [{ url: 'https://example.com/image.png' }],
     }),
     queryResponseJson: null,
+    queryFailedResponseJson: null,
   }
 }
 
@@ -672,6 +710,7 @@ function buildMinimalFallback(
           messages: [{ role: 'user', content: '你好，请介绍一下你自己。' }],
         }),
         basicRequestJson: null,
+        examples: [],
         params: [
           { name: 'model', description: `固定传 ${modelName}。` },
           { name: 'messages', description: '对话消息数组。' },
@@ -680,6 +719,7 @@ function buildMinimalFallback(
           choices: [{ message: { role: 'assistant', content: '...' } }],
         }),
         queryResponseJson: null,
+        queryFailedResponseJson: null,
       },
     ],
   }

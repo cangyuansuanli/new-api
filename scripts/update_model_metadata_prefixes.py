@@ -47,22 +47,22 @@ GZ_DUP_DELETE = [
     "gz-video-pro-15s-2",
 ]
 
-OAIREGBOX_META = [
-    {
-        "model_name": "oairegbox-seedance-pro-720p",
-        "description": "OAIREGBox Seedance 满血 Pro 720p。按秒计费，支持 @Image/@Video/@Audio 全参考（9/3/3）。",
-        "tags": "video,seedance,oairegbox,720p,pro,full",
-    },
-    {
-        "model_name": "oairegbox-seedance-fast-720p",
-        "description": "OAIREGBox Seedance 满血 Fast 720p。按秒计费，支持 @Image/@Video/@Audio 全参考（9/3/3）。",
-        "tags": "video,seedance,oairegbox,720p,fast,full",
-    },
-    {
-        "model_name": "oairegbox-seedance-pro-1080p",
-        "description": "OAIREGBox Seedance 满血 Pro 1080p。按秒计费，支持 @Image/@Video/@Audio 全参考（9/3/3）。",
-        "tags": "video,seedance,oairegbox,1080p,pro,full",
-    },
+OAIREGBOX_SEEDANCE_2_META = [
+    {"model_name": "oairegbox-seedance-2.0-mini-480p", "description": "OAIREGBox Seedance 2.0 mini 480p。按秒 ¥0.20/s。", "tags": "video,seedance,oairegbox,480p,mini"},
+    {"model_name": "oairegbox-seedance-2.0-fast-480p", "description": "OAIREGBox Seedance 2.0 fast 480p。按秒 ¥0.25/s。", "tags": "video,seedance,oairegbox,480p,fast"},
+    {"model_name": "oairegbox-seedance-2.0-480p", "description": "OAIREGBox Seedance 2.0 标准 480p。按秒 ¥0.45/s。", "tags": "video,seedance,oairegbox,480p"},
+    {"model_name": "oairegbox-seedance-2.0-mini-720p", "description": "OAIREGBox Seedance 2.0 mini 720p。按秒 ¥0.35/s。", "tags": "video,seedance,oairegbox,720p,mini"},
+    {"model_name": "oairegbox-seedance-2.0-fast-720p", "description": "OAIREGBox Seedance 2.0 fast 720p。按秒 ¥0.50/s。", "tags": "video,seedance,oairegbox,720p,fast"},
+    {"model_name": "oairegbox-seedance-2.0-720p", "description": "OAIREGBox Seedance 2.0 标准 720p。按秒 ¥0.65/s。", "tags": "video,seedance,oairegbox,720p"},
+    {"model_name": "oairegbox-seedance-2.0-1080p", "description": "OAIREGBox Seedance 2.0 1080p 超清。按秒 ¥1.50/s。", "tags": "video,seedance,oairegbox,1080p"},
+    {"model_name": "oairegbox-seedance-2.0-4k", "description": "OAIREGBox Seedance 2.0 4K 超高清。按秒 ¥3.00/s。", "tags": "video,seedance,oairegbox,4k"},
+]
+
+# 已下线：满血 video-pro/fast 由 oairegbox-seedance-2.0-* 替代
+OAIREGBOX_SEEDANCE_PRO_DELETE = [
+    "oairegbox-seedance-pro-720p",
+    "oairegbox-seedance-fast-720p",
+    "oairegbox-seedance-pro-1080p",
 ]
 
 CTLOVE_SEEDANCE_META = [
@@ -392,9 +392,12 @@ def main() -> None:
     print("Removing duplicate gz-video metadata …")
     soft_delete_models(GZ_DUP_DELETE)
 
-    print("Upserting OAIREGBox metadata …")
-    for item in OAIREGBOX_META:
+    print("Upserting OAIREGBox Seedance 2.0 metadata …")
+    for item in OAIREGBOX_SEEDANCE_2_META:
         upsert_model_meta(item["model_name"], item["description"], item["tags"], VENDOR_BYTE)
+
+    print("Removing deprecated OAIREGBox Seedance pro metadata …")
+    soft_delete_models(OAIREGBOX_SEEDANCE_PRO_DELETE)
 
     print("Upserting CTLove Seedance metadata …")
     for item in CTLOVE_SEEDANCE_META:
