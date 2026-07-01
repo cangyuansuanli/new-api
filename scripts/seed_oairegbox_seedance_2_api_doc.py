@@ -76,6 +76,35 @@ LEGACY_PRICE_KEYS = [
     "Seedance-2.0-4k",
 ]
 
+GENERATION_MODES = [
+    {
+        "label": "文生视频",
+        "minimum": "prompt",
+        "trigger": "不带任何素材字段",
+        "prompt_refs": "—",
+    },
+    {
+        "label": "图生视频",
+        "minimum": "prompt + ≥1 张图",
+        "trigger": "image_url 或 reference_image_urls（1–9 张，统一写法）",
+        "prompt_refs": "@image1 … @image9",
+    },
+    {
+        "label": "全能参考（933）",
+        "minimum": "prompt + ≥1 张主图",
+        "trigger": "上 + reference_videos ≤3 + reference_audios ≤3",
+        "prompt_refs": "@image1 … @video3 / @audio3",
+        "notes": "带视频/音频参考时必须同时提供 ≥1 张主图",
+    },
+    {
+        "label": "首尾帧",
+        "minimum": "prompt + 首帧 + 尾帧",
+        "trigger": "first_image_url + last_image_url（成对）",
+        "prompt_refs": "—",
+        "notes": "与参考图/视频/音频互斥，不接受额外 reference_* 字段",
+    },
+]
+
 
 def model_intro(reg_name: str) -> str:
     tier, rmb = MODEL_META[reg_name]
@@ -91,11 +120,8 @@ def model_intro(reg_name: str) -> str:
         "H.264 / 24fps，含 AAC 立体声，无水印\n"
         "时长 4–15 秒任意整数\n"
         "画幅支持 16:9、9:16、1:1、21:9、3:4、4:3\n\n"
-        "四种生成模式（按素材字段自动判定，无需传 mode）\n"
-        "① 文生视频：仅 prompt\n"
-        "② 图生视频：prompt + ≥1 张图\n"
-        "③ 全能参考（933）：prompt + ≥1 图，可叠加 ≤3 视频 + ≤3 音频\n"
-        "④ 首尾帧：prompt + first_image_url + last_image_url（成对，不接受额外参考图）\n\n"
+        "生成模式\n"
+        "服务端按请求中的素材字段自动判定模式，无需传 mode 参数。详见下方「四种生成模式」表格与请求示例。\n\n"
         "参考图要求\n"
         "JPEG/PNG/WEBP，长边 ≤4000px、每边 ≥300px，宽高比 0.4–2.5，≤30MB\n"
         "支持公网 URL、data:image Base64 或 multipart 字段 image\n\n"
@@ -228,6 +254,7 @@ def build_api_doc(reg_name: str) -> dict:
     return {
         "dispatch_mode": "async",
         "intro": model_intro(reg_name),
+        "generation_modes": GENERATION_MODES,
         "endpoints": ENDPOINTS,
         "params": PARAMS,
         "basic_request_json": examples[0]["request_json"],

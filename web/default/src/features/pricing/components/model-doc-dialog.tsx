@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CopyButton } from '@/components/copy-button'
-import { buildModelApiDoc, type ModelApiDocVariant } from '../lib/model-api-doc'
+import { buildModelApiDoc, type ModelApiDocVariant, type ModelDocGenerationMode } from '../lib/model-api-doc'
 import type { PricingModel } from '../types'
 
 type ModelDocDialogProps = {
@@ -45,6 +45,49 @@ function JsonBlock(props: { label: string; value: string; copyLabel: string }) {
   )
 }
 
+function GenerationModesTable(props: {
+  modes: ModelDocGenerationMode[]
+  t: (key: string) => string
+}) {
+  if (!props.modes.length) return null
+
+  return (
+    <div className='space-y-2'>
+      <div>
+        <h4 className='text-sm font-semibold'>{props.t('modelDoc.generationModesTitle')}</h4>
+        <p className='text-muted-foreground text-xs'>{props.t('modelDoc.generationModesHint')}</p>
+      </div>
+      <div className='overflow-x-auto rounded-lg border'>
+        <table className='w-full min-w-[520px] text-left text-sm'>
+          <thead className='bg-muted/40 text-muted-foreground text-xs'>
+            <tr>
+              <th className='px-3 py-2 font-medium'>{props.t('modelDoc.generationModeLabel')}</th>
+              <th className='px-3 py-2 font-medium'>{props.t('modelDoc.generationModeMinimum')}</th>
+              <th className='px-3 py-2 font-medium'>{props.t('modelDoc.generationModeTrigger')}</th>
+              <th className='px-3 py-2 font-medium'>{props.t('modelDoc.generationModePromptRefs')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {props.modes.map((mode) => (
+              <tr key={mode.label} className='border-t align-top'>
+                <td className='px-3 py-2.5 font-medium'>{mode.label}</td>
+                <td className='px-3 py-2.5 font-mono text-xs'>{mode.minimum}</td>
+                <td className='px-3 py-2.5 text-muted-foreground text-xs leading-relaxed'>
+                  {mode.trigger}
+                  {mode.notes ? (
+                    <p className='text-foreground/70 mt-1 text-[11px] leading-relaxed'>{mode.notes}</p>
+                  ) : null}
+                </td>
+                <td className='px-3 py-2.5 font-mono text-xs'>{mode.promptRefs ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function VariantBody(props: {
   variant: ModelApiDocVariant
   t: (key: string) => string
@@ -59,6 +102,8 @@ function VariantBody(props: {
           {variant.intro}
         </p>
       </div>
+
+      <GenerationModesTable modes={variant.generationModes} t={t} />
 
       <div className='space-y-3'>
         {variant.endpoints.map((endpoint) => (

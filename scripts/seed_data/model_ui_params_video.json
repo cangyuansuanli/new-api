@@ -1580,7 +1580,7 @@
                 },
                 "frameInputs": {
                     "enabled": true,
-                    "hint": "可同时指定开始画面与结束画面，生成过渡视频"
+                    "hint": "首尾帧与多参考图/视频/音频二选一；成对指定 first + last，不接受额外参考素材"
                 }
             },
             "optionRules": [
@@ -1622,9 +1622,16 @@
                     }
                 },
                 {
+                    "text": "Seedance 2.0 经济档（oairegbox-seedance-2.0-*）：按秒计费；支持 933 全能参考、首尾帧与 @image/@video/@audio；四种模式由素材字段自动判定。",
+                    "when": {
+                        "modelIncludes": "oairegbox-seedance-2.0"
+                    }
+                },
+                {
                     "text": "Seedance 经济档，按秒计费；支持多参考图、参考视频与首尾帧；不支持参考音频。",
                     "when": {
-                        "modelIncludes": "seedance-2.0"
+                        "modelIncludes": "seedance-2.0",
+                        "modelExcludes": "oairegbox-seedance-2.0"
                     }
                 },
                 {

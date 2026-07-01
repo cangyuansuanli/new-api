@@ -84,9 +84,18 @@ export type ModelDocExample = {
   requestJson: string
 }
 
+export type ModelDocGenerationMode = {
+  label: string
+  minimum: string
+  trigger: string
+  promptRefs?: string
+  notes?: string
+}
+
 export type ModelApiDocVariant = {
   mode: 'async' | 'sync'
   intro: string
+  generationModes: ModelDocGenerationMode[]
   endpoints: ModelDocEndpoint[]
   requestJson: string
   basicRequestJson: string | null
@@ -109,9 +118,22 @@ export type RawModelApiDocExample = {
   request_json?: unknown
 }
 
+export type RawModelDocGenerationMode = {
+  label?: string
+  name?: string
+  minimum?: string
+  min_required?: string
+  trigger?: string
+  fields?: string
+  prompt_refs?: string
+  promptRefs?: string
+  notes?: string
+}
+
 export type RawModelApiDocSlice = {
   dispatch_mode?: 'async' | 'sync'
   intro?: string
+  generation_modes?: RawModelDocGenerationMode[]
   endpoints?: ModelDocEndpoint[]
   request_json?: unknown
   doc_request_json?: unknown
@@ -240,6 +262,29 @@ function applyPlaceholdersToJson(
   const raw = formatJson(value)
   if (!raw) return ''
   return replacePlaceholders(raw, modelName, base)
+}
+
+function normalizeGenerationModes(raw: unknown): ModelDocGenerationMode[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const row = item as RawModelDocGenerationMode
+      const label = String(row.label ?? row.name ?? '').trim()
+      const minimum = String(row.minimum ?? row.min_required ?? '').trim()
+      const trigger = String(row.trigger ?? row.fields ?? '').trim()
+      if (!label) return null
+      const promptRefs = String(row.prompt_refs ?? row.promptRefs ?? '').trim()
+      const notes = String(row.notes ?? '').trim()
+      return {
+        label,
+        minimum,
+        trigger,
+        ...(promptRefs ? { promptRefs } : {}),
+        ...(notes ? { notes } : {}),
+      }
+    })
+    .filter(Boolean) as ModelDocGenerationMode[]
 }
 
 function normalizeParams(raw: unknown): ModelDocParam[] {
@@ -413,6 +458,7 @@ function normalizeSingleVariant(
           : '单次请求直接返回结果。'),
       modelName
     ),
+    generationModes: normalizeGenerationModes(slice.generation_modes),
     endpoints: endpoints.length > 0 ? endpoints : defaultEndpoints,
     requestJson,
     basicRequestJson,
@@ -524,6 +570,7 @@ function buildUnifiedVideoDoc(
           hints.join(' ') ||
           model.description?.trim() ||
           '统一视频接口：POST /v1/videos 提交任务，GET 轮询至完成后取片。',
+        generationModes: [],
         endpoints: UNIFIED_VIDEO_ENDPOINTS(base),
         requestJson: formatJson(body),
         basicRequestJson: formatJson({
@@ -578,6 +625,7 @@ function buildAsyncImageVariant(
       hints.join(' ') ||
       model.description?.trim() ||
       '异步出图：POST（async: true）提交任务，GET 轮询至 completed 后取图。',
+    generationModes: [],
     endpoints: UNIFIED_IMAGE_ASYNC_ENDPOINTS(base),
     requestJson: formatJson({
       model: modelName,
@@ -639,6 +687,7 @@ function buildSyncImageVariant(
       hints.join(' ') ||
       model.description?.trim() ||
       '同步出图：单次 POST 直接返回图片，无需轮询。',
+    generationModes: [],
     endpoints: UNIFIED_IMAGE_SYNC_ENDPOINTS(base),
     requestJson: formatJson({
       model: modelName,
@@ -726,6 +775,7 @@ function buildMinimalFallback(
         intro:
           model.description?.trim() ||
           'OpenAI 兼容 Chat 接口。',
+        generationModes: [],
         endpoints: [
           {
             method: 'POST',
