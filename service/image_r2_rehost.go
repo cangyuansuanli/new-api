@@ -13,10 +13,12 @@ import (
 	"github.com/QuantumNous/new-api/model"
 )
 
-// ImageModelUsesURLRehost：4K 档位（别名后缀 -4k）上游常回 url；需转存 R2 避免暴露上游地址。
+// ImageModelUsesURLRehost：上游回 url 时需转存 R2，避免暴露渠道地址。
+// - 4K 档位（别名后缀 -4k）
+// - Geek2API FLUX 系列（flux-pro-2 等，前缀 flux-）
 func ImageModelUsesURLRehost(originModel string) bool {
 	name := strings.ToLower(strings.TrimSpace(originModel))
-	return strings.HasSuffix(name, "-4k")
+	return strings.HasSuffix(name, "-4k") || strings.HasPrefix(name, "flux-")
 }
 
 // ImageAsyncAcceptsUpstreamURL：异步 worker 落库时允许上游回 url（如 Gulie loopback、4K），转存 R2 后返回。
@@ -73,7 +75,7 @@ func imageDataNeedsURLRehost(images []dto.ImageData) bool {
 	return false
 }
 
-// RehostImageDataURLs 将 4K 模型上游 url 转存 R2；非 4K 或无 url 时原样返回。
+// RehostImageDataURLs 将需转存的模型上游 url 落 R2；未命中或无 url 时原样返回。
 func RehostImageDataURLs(ctx context.Context, userID int, storeID, channelBaseURL, originModel string, images []dto.ImageData) ([]dto.ImageData, error) {
 	if !ImageModelUsesURLRehost(originModel) || len(images) == 0 || !imageDataNeedsURLRehost(images) {
 		return images, nil
@@ -102,7 +104,7 @@ func RehostImageDataURLs(ctx context.Context, userID int, storeID, channelBaseUR
 	return out, nil
 }
 
-// RehostSyncImageResponseBody 同步生图 JSON 响应：4K + data[].url 时替换为 R2 公网 URL。
+// RehostSyncImageResponseBody 同步生图 JSON 响应：命中模型且 data[].url 时替换为 R2 公网 URL。
 func RehostSyncImageResponseBody(ctx context.Context, userID int, originModel, channelBaseURL string, responseBody []byte) ([]byte, error) {
 	if !ImageModelUsesURLRehost(originModel) || len(responseBody) == 0 {
 		return responseBody, nil

@@ -169,7 +169,7 @@ func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) 
 	return req, relayMode, nil
 }
 
-// imageAsyncUsesURLResponse：仅 4K 档位（别名后缀 -4k）走 url 响应，避免超大 b64_json 被上游截断。
+// imageAsyncUsesURLResponse：4K / Geek2 FLUX 等走 url 响应，避免超大 b64_json 被上游截断。
 func imageAsyncUsesURLResponse(originModel string) bool {
 	return service.ImageModelUsesURLRehost(originModel)
 }

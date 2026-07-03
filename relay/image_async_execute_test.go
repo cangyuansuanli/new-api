@@ -43,8 +43,25 @@ func TestImageAsyncUsesURLResponseOnlyFor4K(t *testing.T) {
 	if !imageAsyncUsesURLResponse("geek2-gpt-image-2-4k") {
 		t.Fatal("expected 4k model to use url response")
 	}
+	if !imageAsyncUsesURLResponse("flux-pro-2") {
+		t.Fatal("expected flux-pro-2 to use url response")
+	}
 	if imageAsyncUsesURLResponse("Gulie-gpt-image-2") {
 		t.Fatal("non-4k model should not use url response")
+	}
+}
+
+func TestNormalizeAsyncGenerationBodyUsesURLResponseFormatForFlux(t *testing.T) {
+	out, err := normalizeAsyncGenerationBody([]byte(`{"model":"flux-pro-2","prompt":"test","async":true,"response_format":"b64_json"}`), true)
+	if err != nil {
+		t.Fatalf("normalizeAsyncGenerationBody: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if string(raw["response_format"]) != `"url"` {
+		t.Fatalf("response_format = %s, want url", raw["response_format"])
 	}
 }
 

@@ -658,6 +658,158 @@
             }
         },
         {
+            "id": "image-tpl-flux-pro-2",
+            "api_mode": "images-json-async",
+            "match": [
+                "flux-pro-2"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "auto",
+                            "label": "自动"
+                        },
+                        {
+                            "value": "high",
+                            "label": "高"
+                        },
+                        {
+                            "value": "medium",
+                            "label": "中"
+                        },
+                        {
+                            "value": "low",
+                            "label": "低"
+                        }
+                    ]
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "1:1",
+                            "label": "1:1",
+                            "size": "1024x1024",
+                            "width": 1024,
+                            "height": 1024,
+                            "icon": "square"
+                        },
+                        {
+                            "value": "3:2",
+                            "label": "3:2",
+                            "size": "1536x1024",
+                            "width": 1536,
+                            "height": 1024,
+                            "icon": "landscape"
+                        },
+                        {
+                            "value": "2:3",
+                            "label": "2:3",
+                            "size": "1024x1536",
+                            "width": 1024,
+                            "height": 1536,
+                            "icon": "portrait"
+                        },
+                        {
+                            "value": "16:9",
+                            "label": "16:9",
+                            "size": "1920x1080",
+                            "width": 1920,
+                            "height": 1080,
+                            "icon": "landscape"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "9:16",
+                            "size": "1080x1920",
+                            "width": 1080,
+                            "height": 1920,
+                            "icon": "portrait"
+                        },
+                        {
+                            "value": "1:1-max",
+                            "label": "1:1(最大)",
+                            "size": "1920x1920",
+                            "width": 1920,
+                            "height": 1920,
+                            "icon": "square"
+                        },
+                        {
+                            "value": "auto",
+                            "label": "自动",
+                            "width": 0,
+                            "height": 0,
+                            "icon": "auto"
+                        }
+                    ]
+                },
+                "customDimensions": {
+                    "enabled": true
+                },
+                "count": {
+                    "enabled": true,
+                    "min": 1,
+                    "max": 1,
+                    "quickCount": 1
+                },
+                "background": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "auto",
+                            "label": "自动"
+                        },
+                        {
+                            "value": "opaque",
+                            "label": "不透明"
+                        }
+                    ]
+                },
+                "outputFormat": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "png",
+                            "label": "PNG"
+                        },
+                        {
+                            "value": "jpeg",
+                            "label": "JPEG"
+                        },
+                        {
+                            "value": "webp",
+                            "label": "WebP"
+                        }
+                    ]
+                },
+                "outputCompression": {
+                    "enabled": true,
+                    "min": 0,
+                    "max": 100,
+                    "default": 100
+                },
+                "moderation": {
+                    "enabled": false
+                }
+            },
+            "hints": [
+                {
+                    "text": "Geek2API FLUX.2 Pro，OpenAI 兼容 /v1/images/generations。"
+                },
+                {
+                    "text": "单边尺寸须在 256–1920px 之间，不支持 2K/4K 超界分辨率。"
+                },
+                {
+                    "text": "同步出图耗时常达 30s–5min，建议 async:true + GET 轮询。"
+                },
+                {
+                    "text": "带参考图/蒙版须 multipart POST /images/edits（image / image[]）。"
+                }
+            ]
+        },
+        {
             "id": "image-tpl-geek2-4k",
             "api_mode": "images-json-async",
             "match": [

@@ -447,7 +447,7 @@ export function ModelMutateDrawer({
           imageRatio,
           audioRatio,
           audioCompletionRatio,
-          ...modelData
+          ...modelPayload
         } = submitData
 
         // Preserve profile bindings not shown in this form; Update() replaces all selected columns.
@@ -461,11 +461,11 @@ export function ModelMutateDrawer({
 
         const response = isEditing
           ? await updateModel({
-              ...modelData,
+              ...modelPayload,
               ...preservedProfileFields,
               id: currentRow!.id,
             })
-          : await createModel(modelData)
+          : await createModel(modelPayload)
 
         if (response.success) {
           // Handle ratio configuration updates in system settings
