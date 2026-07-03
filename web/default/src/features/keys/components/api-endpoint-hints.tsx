@@ -21,28 +21,46 @@ import { CopyButton } from '@/components/copy-button'
 import { useStatus } from '@/hooks/use-status'
 
 const AI_ENDPOINT = 'https://ai.cangyuansuanli.cn'
-const DIRECT_ENDPOINT = 'https://direct-api.cangyuansuanli.cn'
+const DIRECT_ENDPOINT = 'http://direct-api.cangyuansuanli.cn'
 
-function EndpointRow(props: {
+function EndpointBlock(props: {
   url: string
-  label: string
+  audience: string
+  description: string
   copyLabel: string
+  recommended?: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
-    <li className='flex flex-wrap items-center gap-x-1.5 gap-y-1'>
-      <code className='bg-muted rounded px-1 py-0.5 text-[11px] break-all sm:text-xs'>
-        {props.url}
-      </code>
-      <CopyButton
-        value={props.url}
-        size='icon'
-        variant='ghost'
-        className='size-6 shrink-0'
-        iconClassName='size-3'
-        tooltip={props.copyLabel}
-        aria-label={props.copyLabel}
-      />
-      <span className='text-muted-foreground w-full sm:w-auto'>{props.label}</span>
+    <li className='border-border bg-muted/20 space-y-1.5 rounded-lg border px-3 py-2.5'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <p className='text-foreground/90 text-xs font-medium sm:text-sm'>
+          {props.audience}
+        </p>
+        {props.recommended ? (
+          <span className='bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[10px] font-medium sm:text-[11px]'>
+            {t('Recommended')}
+          </span>
+        ) : null}
+      </div>
+      <p className='text-muted-foreground text-[11px] leading-relaxed sm:text-xs'>
+        {props.description}
+      </p>
+      <div className='flex flex-wrap items-center gap-x-1.5 gap-y-1 pt-0.5'>
+        <code className='bg-muted rounded px-1 py-0.5 text-[11px] break-all sm:text-xs'>
+          {props.url}
+        </code>
+        <CopyButton
+          value={props.url}
+          size='icon'
+          variant='ghost'
+          className='size-6 shrink-0'
+          iconClassName='size-3'
+          tooltip={props.copyLabel}
+          aria-label={props.copyLabel}
+        />
+      </div>
     </li>
   )
 }
@@ -58,43 +76,60 @@ export function ApiEndpointHints() {
 
   return (
     <div className='text-muted-foreground w-full space-y-3 text-xs sm:text-sm'>
-      <div className='space-y-1'>
+      <p className='text-muted-foreground text-[11px] leading-relaxed sm:text-xs'>
+        {t(
+          'All endpoints below accept the same API key. Choose based on your usage scenario.'
+        )}
+      </p>
+
+      <div className='space-y-2'>
         <p className='text-foreground/80 font-medium'>
-          {t('API base URL (OpenAI-compatible)')}
+          {t('High-volume API access')}
+        </p>
+        <p className='text-muted-foreground text-[11px] leading-relaxed sm:text-xs'>
+          {t(
+            'For batch jobs, long streaming sessions, and large-scale integrations.'
+          )}
         </p>
         <ul className='space-y-2'>
-          <EndpointRow
-            url={AI_ENDPOINT}
-            label={t('General customers (recommended)')}
-            copyLabel={t('Copy API base URL')}
-          />
-          <EndpointRow
+          {trafficRelayBaseUrl ? (
+            <EndpointBlock
+              url={trafficRelayBaseUrl}
+              audience={t('Dedicated relay node')}
+              description={t(
+                'High-bandwidth dedicated line for API calls. Same API key and billing as the console.'
+              )}
+              copyLabel={t('Copy traffic relay URL')}
+              recommended
+            />
+          ) : null}
+          <EndpointBlock
             url={DIRECT_ENDPOINT}
-            label={t('Origin direct high-volume endpoint')}
+            audience={t('Direct high-bandwidth line')}
+            description={t(
+              'Alternative high-throughput endpoint for integrations with strict bandwidth needs.'
+            )}
             copyLabel={t('Copy API base URL')}
+            recommended={!trafficRelayBaseUrl}
           />
         </ul>
       </div>
 
-      {trafficRelayBaseUrl ? (
-        <div className='border-border bg-muted/30 space-y-1 rounded-lg border px-3 py-2.5'>
-          <p className='text-foreground/80 font-medium'>
-            {t('Traffic relay node entry')}
-          </p>
-          <p className='text-muted-foreground text-[11px] sm:text-xs'>
-            {t(
-              'High-bandwidth relay node; uses the same API keys as the main site.'
+      <div className='space-y-2'>
+        <p className='text-foreground/80 font-medium'>
+          {t('Alternative HTTPS access')}
+        </p>
+        <ul className='space-y-2'>
+          <EndpointBlock
+            url={AI_ENDPOINT}
+            audience={t('Main site HTTPS endpoint')}
+            description={t(
+              'If relay or direct nodes time out or fail to connect, use this address instead.'
             )}
-          </p>
-          <ul className='space-y-2 pt-1'>
-            <EndpointRow
-              url={trafficRelayBaseUrl}
-              label={t('Recommended for large API traffic')}
-              copyLabel={t('Copy traffic relay URL')}
-            />
-          </ul>
-        </div>
-      ) : null}
+            copyLabel={t('Copy API base URL')}
+          />
+        </ul>
+      </div>
     </div>
   )
 }
