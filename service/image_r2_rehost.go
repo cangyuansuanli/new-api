@@ -19,6 +19,15 @@ func ImageModelUsesURLRehost(originModel string) bool {
 	return strings.HasSuffix(name, "-4k")
 }
 
+// ImageAsyncAcceptsUpstreamURL：异步 worker 落库时允许上游回 url（如 Gulie loopback、4K），转存 R2 后返回。
+func ImageAsyncAcceptsUpstreamURL(originModel string) bool {
+	if ImageModelUsesURLRehost(originModel) {
+		return true
+	}
+	name := strings.ToLower(strings.TrimSpace(originModel))
+	return strings.HasPrefix(name, "cy-img1-") || strings.HasPrefix(name, "gulie-")
+}
+
 // RewriteLoopbackUpstreamImageURL 将上游 loopback 图片地址（如 Gulie 127.0.0.1:3001）
 // 映射为渠道主机名 + 原端口，便于服务端下载。
 func RewriteLoopbackUpstreamImageURL(channelBaseURL, imageURL string) string {

@@ -755,15 +755,20 @@ function buildMinimalFallback(
   const displayName = getModelDisplayName(model) || modelName
   const endpoints = model.supported_endpoint_types || []
 
-  if (endpoints.includes('openai-video') || model.video_ui_params) {
+  if (endpoints.includes('openai-video')) {
     return buildUnifiedVideoDoc(model, base, displayName, modelName)
   }
 
   if (
     endpoints.includes('image-generation') ||
+    endpoints.includes('openai-image') ||
     model.image_ui_params
   ) {
     return buildUnifiedImageDoc(model, base, displayName, modelName)
+  }
+
+  if (model.video_ui_params) {
+    return buildUnifiedVideoDoc(model, base, displayName, modelName)
   }
 
   return {

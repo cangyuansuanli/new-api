@@ -13,7 +13,22 @@ func TestImageModelUsesURLRehostOnlyFor4K(t *testing.T) {
 		t.Fatal("expected 4k model to need url rehost")
 	}
 	if ImageModelUsesURLRehost("Gulie-gpt-image-2") {
-		t.Fatal("non-4k model should not need url rehost")
+		t.Fatal("non-4k model should not need sync url rehost")
+	}
+}
+
+func TestImageAsyncAcceptsUpstreamURL(t *testing.T) {
+	if !ImageAsyncAcceptsUpstreamURL("geek2-gpt-image-2-4k") {
+		t.Fatal("expected 4k async to accept upstream url")
+	}
+	if !ImageAsyncAcceptsUpstreamURL("cy-img1-gpt-image-2") {
+		t.Fatal("expected gulie async to accept upstream url")
+	}
+	if !ImageAsyncAcceptsUpstreamURL("Gulie-gpt-image-2") {
+		t.Fatal("expected gulie async to accept upstream url")
+	}
+	if ImageAsyncAcceptsUpstreamURL("go2api-gpt-image-2-1k") {
+		t.Fatal("generic non-gulie model should still require b64_json in async worker")
 	}
 }
 

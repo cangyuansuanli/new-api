@@ -35,6 +35,34 @@ func TestProfileToDocumentImageApiMode(t *testing.T) {
 	}
 }
 
+func TestResolveProfileDocumentRequiresExplicitProfileID(t *testing.T) {
+	profiles := map[string]ModelUiParamProfile{
+		"default-video": {
+			ProfileId:  "default-video",
+			Capability: ModelUiParamCapabilityVideo,
+			Params:     `{"resolution":{"enabled":true}}`,
+			Hints:      "[]",
+		},
+	}
+	registry := &ModelUiParamRegistry{DefaultProfileId: "default-video"}
+
+	doc, err := resolveProfileDocument(ModelUiParamCapabilityVideo, "", profiles, registry)
+	if err != nil {
+		t.Fatalf("resolveProfileDocument() error = %v", err)
+	}
+	if doc != nil {
+		t.Fatalf("empty profileID doc = %#v, want nil", doc)
+	}
+
+	doc, err = resolveProfileDocument(ModelUiParamCapabilityVideo, "default-video", profiles, registry)
+	if err != nil {
+		t.Fatalf("resolveProfileDocument() error = %v", err)
+	}
+	if doc == nil || doc["id"] != "default-video" {
+		t.Fatalf("explicit profile doc = %#v", doc)
+	}
+}
+
 func TestApplyImagePollDefaults(t *testing.T) {
 	registry := &ModelUiParamRegistry{
 		PollDefaults: `{"images-json-async":{"delayMs":5000,"maxAttempts":72},"images-edits-async":{"delayMs":5000,"maxAttempts":72}}`,

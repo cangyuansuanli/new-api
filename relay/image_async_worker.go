@@ -78,26 +78,25 @@ func processImageAsyncTask(taskID string) {
 		return
 	}
 
-	snap := task.Snapshot()
+	fromStatus := task.Snapshot().Status
 	task.Status = model.TaskStatusInProgress
 	task.Progress = taskcommon.ProgressInProgress
 	if task.StartTime == 0 {
 		task.StartTime = time.Now().Unix()
 	}
-	if _, err := task.UpdateWithStatus(snap.Status); err != nil {
-		logger.LogError(ctx, "image async update in_progress failed: "+err.Error())
+	if !imageAsyncTransitionStatus(ctx, task, fromStatus, "in_progress") {
 		return
 	}
 
 	images, _, execErr := ExecuteImageTaskUpstream(task)
 	if execErr != nil {
-		failImageAsyncTask(ctx, task, execErr.Error())
+		failImageAsyncTask(ctx, task, model.TaskStatusInProgress, execErr.Error())
 		return
 	}
 
 	resultURLs, resolveErr := resolveTaskImageResultURLs(ctx, task, images)
 	if resolveErr != nil {
-		failImageAsyncTask(ctx, task, resolveErr.Error())
+		failImageAsyncTask(ctx, task, model.TaskStatusInProgress, resolveErr.Error())
 		return
 	}
 
@@ -111,17 +110,29 @@ func processImageAsyncTask(taskID string) {
 	task.Progress = taskcommon.ProgressComplete
 	task.FinishTime = time.Now().Unix()
 	task.ReleaseRequestSnapshot()
-	if _, err := task.UpdateWithStatus(model.TaskStatusInProgress); err != nil {
-		logger.LogError(ctx, "image async mark success failed: "+err.Error())
+	if !imageAsyncTransitionStatus(ctx, task, model.TaskStatusInProgress, "success") {
 		return
 	}
 
 	service.RecalculateTaskQuota(ctx, task, task.Quota, "image async complete")
 }
 
-// resolveTaskImageResultURLs：b64_json / data URI / 4K 上游 url 均转存 R2 后返回公网 URL；其它模型仍要求 b64_json。
+func imageAsyncTransitionStatus(ctx context.Context, task *model.Task, fromStatus model.TaskStatus, phase string) bool {
+	won, err := task.UpdateWithStatus(fromStatus)
+	if err != nil {
+		logger.LogError(ctx, fmt.Sprintf("image async %s CAS error for task %s: %v", phase, task.TaskID, err))
+		return false
+	}
+	if won {
+		return true
+	}
+	logger.LogInfo(ctx, fmt.Sprintf("image async %s CAS lost for task %s (from %s)", phase, task.TaskID, fromStatus))
+	return false
+}
+
+// resolveTaskImageResultURLs：b64_json / data URI / Gulie·4K 上游 url 均转存 R2 后返回公网 URL。
 func resolveTaskImageResultURLs(ctx context.Context, task *model.Task, images []dto.ImageData) ([]string, error) {
-	useURLResponse := imageAsyncUsesURLResponse(task.Properties.OriginModelName)
+	acceptUpstreamURL := service.ImageAsyncAcceptsUpstreamURL(task.Properties.OriginModelName)
 	resultURLs := make([]string, 0, len(images))
 	for index, item := range images {
 		data, mimeOrURL, err := DecodeImageDataItemExported(item)
@@ -141,7 +152,7 @@ func resolveTaskImageResultURLs(ctx context.Context, task *model.Task, images []
 			continue
 		}
 		if mimeOrURL != "" {
-			if useURLResponse {
+			if acceptUpstreamURL {
 				downloadURL := service.RewriteLoopbackUpstreamImageURL(taskUpstreamBaseURL(task), mimeOrURL)
 				uploaded, err := service.UploadGeneratedImageFromURL(ctx, task.UserId, task.TaskID, index, downloadURL)
 				if err != nil {
@@ -159,15 +170,19 @@ func resolveTaskImageResultURLs(ctx context.Context, task *model.Task, images []
 	return resultURLs, nil
 }
 
-func failImageAsyncTask(ctx context.Context, task *model.Task, reason string) {
-	snap := task.Snapshot()
+func failImageAsyncTask(ctx context.Context, task *model.Task, fromStatus model.TaskStatus, reason string) {
 	task.Status = model.TaskStatusFailure
 	task.Progress = taskcommon.ProgressComplete
 	task.FailReason = reason
 	task.FinishTime = time.Now().Unix()
 	task.ReleaseRequestSnapshot()
-	if _, err := task.UpdateWithStatus(snap.Status); err != nil {
-		common.SysLog("image async mark failure failed: " + err.Error())
+	if !imageAsyncTransitionStatus(ctx, task, fromStatus, "failure") {
+		if reloaded, exist, err := model.GetByOnlyTaskId(task.TaskID); err == nil && exist {
+			if reloaded.Status == model.TaskStatusSuccess {
+				return
+			}
+		}
+		return
 	}
 	service.RefundTaskQuota(ctx, task, reason)
 }
