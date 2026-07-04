@@ -187,7 +187,7 @@ var upstreamRefundableTaskFailureMarkers = []string{
 	"unexpected end of json input",
 }
 
-// nonRefundableTaskFailureMarkers 上游内容审核/策略类失败：上游已扣费且不退款，我们也不应退还预扣额度。
+// nonRefundableTaskFailureMarkers 上游内容审查失败检测 marker（非全局不退费依据；加白用户不退费，非加白用户退费）。
 var nonRefundableTaskFailureMarkers = []string{
 	"appear to be unsafe",
 	"content moderation",
@@ -204,7 +204,7 @@ var nonRefundableTaskFailureMarkers = []string{
 	"第三方内容相似",
 }
 
-// nonRefundableUpstreamErrorCodes OpenAI/Geek2 等内容策略类 error.code，命中时不退预扣费。
+// nonRefundableUpstreamErrorCodes OpenAI/Geek2 等内容策略类 error.code，用于内容审查失败检测。
 var nonRefundableUpstreamErrorCodes = []string{
 	"content_policy_violation",
 	"moderation_blocked",
@@ -232,7 +232,7 @@ var upstreamChargedContentPolicyParseHeuristics = []string{
 	"parse image json",
 }
 
-// IsNonRefundableTaskFailure 判断任务失败是否属于上游不退款的策略/审核类错误。
+// IsNonRefundableTaskFailure 检测任务失败是否属于上游内容审查/策略类错误。
 func IsNonRefundableTaskFailure(reason string) bool {
 	if IsUpstreamRefundableTaskFailure(reason) {
 		return false
@@ -266,7 +266,7 @@ func IsUpstreamChargedContentPolicyFailure(reason string) bool {
 	return true
 }
 
-// IsNonRefundableUpstreamErrorCode 判断上游 error.code 是否属于策略/审核类（通常已计费）。
+// IsNonRefundableUpstreamErrorCode 检测上游 error.code 是否属于内容审查/策略类。
 func IsNonRefundableUpstreamErrorCode(code string) bool {
 	lower := strings.ToLower(strings.TrimSpace(code))
 	if lower == "" || lower == "<nil>" {
@@ -353,8 +353,8 @@ func ShouldRefundTaskOnFailure(userId int, reason string, responseBody []byte) b
 	if IsUpstreamRefundableTaskFailure(reason) {
 		return true
 	}
-	if IsNonRefundableTaskFailure(reason) {
-		return false
+	if isUpstreamContentReviewFailure(reason, "", responseBody) {
+		return true
 	}
 	if len(responseBody) == 0 {
 		return true
@@ -367,8 +367,8 @@ func ShouldRefundTaskOnFailure(userId int, reason string, responseBody []byte) b
 	if IsUpstreamRefundableTaskFailure(msg) {
 		return true
 	}
-	if IsNonRefundableUpstreamErrorCode(code) || IsNonRefundableTaskFailure(msg) {
-		return false
+	if IsNonRefundableUpstreamErrorCode(code) || IsNonRefundableTaskFailure(msg) || IsContentPolicyViolation(msg) {
+		return true
 	}
 	if errVal, ok := raw["error"]; ok {
 		switch v := errVal.(type) {
@@ -376,16 +376,16 @@ func ShouldRefundTaskOnFailure(userId int, reason string, responseBody []byte) b
 			if IsUpstreamRefundableTaskFailure(v) {
 				return true
 			}
-			if IsNonRefundableTaskFailure(v) {
-				return false
+			if IsNonRefundableTaskFailure(v) || IsContentPolicyViolation(v) {
+				return true
 			}
 		case map[string]any:
 			if m, ok := v["message"].(string); ok {
 				if IsUpstreamRefundableTaskFailure(m) {
 					return true
 				}
-				if IsNonRefundableTaskFailure(m) {
-					return false
+				if IsNonRefundableTaskFailure(m) || IsContentPolicyViolation(m) {
+					return true
 				}
 			}
 		}
@@ -421,12 +421,6 @@ func ShouldRefundRelayError(c *gin.Context, apiErr *types.NewAPIError) bool {
 		})
 	}
 	if shouldKeepChargeForWhitelistUpstreamReview(userId, reason, code, body) {
-		return false
-	}
-	if IsUpstreamRefundableTaskFailure(reason) {
-		return true
-	}
-	if IsNonRefundableUpstreamErrorCode(code) || IsNonRefundableTaskFailure(reason) {
 		return false
 	}
 	return ShouldRefundTaskOnFailure(userId, reason, body)
