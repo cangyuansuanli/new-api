@@ -898,7 +898,11 @@ func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 		addNewRecord(BatchUpdateTypeUserQuota, id, quota)
 		return nil
 	}
-	return increaseUserQuota(id, quota)
+	err = increaseUserQuota(id, quota)
+	if err == nil {
+		_ = InvalidateUserCache(id)
+	}
+	return err
 }
 
 func increaseUserQuota(id int, quota int) (err error) {

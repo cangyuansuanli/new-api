@@ -386,9 +386,10 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 	if relayInfo.IsPlayground {
 		return nil
 	}
-	//if relayInfo.TokenUnlimited {
-	//	return nil
-	//}
+	// 无限额度令牌仅扣用户钱包，不在令牌账本重复记账，避免与用户钱包不同步。
+	if relayInfo.TokenUnlimited {
+		return nil
+	}
 	token, err := model.GetTokenByKey(relayInfo.TokenKey, false)
 	if err != nil {
 		return err
@@ -429,7 +430,7 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 		}
 	}
 
-	if !relayInfo.IsPlayground {
+	if !relayInfo.IsPlayground && !relayInfo.TokenUnlimited {
 		if quota > 0 {
 			err = model.DecreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota)
 		} else {

@@ -10,21 +10,16 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 )
 
 func ReturnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo) {
 	if relayInfo.FinalPreConsumedQuota != 0 {
 		logger.LogInfo(c, fmt.Sprintf("用户 %d 请求失败, 返还预扣费额度 %s", relayInfo.UserId, logger.FormatQuota(relayInfo.FinalPreConsumedQuota)))
-		gopool.Go(func() {
-			relayInfoCopy := *relayInfo
-
-			err := PostConsumeQuota(&relayInfoCopy, -relayInfoCopy.FinalPreConsumedQuota, 0, false)
-			if err != nil {
-				common.SysLog("error return pre-consumed quota: " + err.Error())
-			}
-		})
+		relayInfoCopy := *relayInfo
+		if err := PostConsumeQuota(&relayInfoCopy, -relayInfoCopy.FinalPreConsumedQuota, 0, false); err != nil {
+			common.SysLog("error return pre-consumed quota: " + err.Error())
+		}
 	}
 }
 
@@ -64,9 +59,11 @@ func PreConsumeQuota(c *gin.Context, preConsumedQuota int, relayInfo *relaycommo
 	}
 
 	if preConsumedQuota > 0 {
-		err := PreConsumeTokenQuota(relayInfo, preConsumedQuota)
-		if err != nil {
-			return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		if !relayInfo.TokenUnlimited {
+			err := PreConsumeTokenQuota(relayInfo, preConsumedQuota)
+			if err != nil {
+				return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+			}
 		}
 		err = model.DecreaseUserQuota(relayInfo.UserId, preConsumedQuota, false)
 		if err != nil {

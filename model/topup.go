@@ -397,6 +397,81 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 	RecordTopupLog(userId, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney), callerIp, paymentMethod, "admin")
 	return nil
 }
+
+// EpayTopUpCompletion 易支付入账结果（事务提交后用于写日志）。
+type EpayTopUpCompletion struct {
+	UserId        int
+	QuotaToAdd    int
+	PayMoney      float64
+	PaymentMethod string
+	Completed     bool
+}
+
+// CompleteEpayTopUp 在事务内完成易支付订单并将额度写入用户钱包（幂等）。
+func CompleteEpayTopUp(tradeNo string, paymentMethod string) (*EpayTopUpCompletion, error) {
+	if tradeNo == "" {
+		return nil, errors.New("未提供支付单号")
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	result := &EpayTopUpCompletion{}
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		topUp := &TopUp{}
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			return ErrTopUpNotFound
+		}
+		if topUp.PaymentProvider != PaymentProviderEpay {
+			return ErrPaymentMethodMismatch
+		}
+		if topUp.Status == common.TopUpStatusSuccess {
+			return nil
+		}
+		if topUp.Status != common.TopUpStatusPending {
+			return ErrTopUpStatusInvalid
+		}
+
+		if paymentMethod != "" && topUp.PaymentMethod != paymentMethod {
+			topUp.PaymentMethod = paymentMethod
+		}
+
+		quotaToAdd := EpayTopUpQuota(topUp)
+		if quotaToAdd <= 0 {
+			return errors.New("无效的充值额度")
+		}
+		if err := ValidateEpayModernTopUpQuota(topUp, quotaToAdd); err != nil {
+			return err
+		}
+
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).
+			Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {
+			return err
+		}
+
+		result.UserId = topUp.UserId
+		result.QuotaToAdd = quotaToAdd
+		result.PayMoney = topUp.Money
+		result.PaymentMethod = topUp.PaymentMethod
+		result.Completed = true
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.Completed {
+		_ = InvalidateUserCache(result.UserId)
+	}
+	return result, nil
+}
+
 func RechargeCreem(referenceId string, customerEmail string, customerName string, callerIp string) (err error) {
 	if referenceId == "" {
 		return errors.New("未提供支付单号")
