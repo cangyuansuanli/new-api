@@ -342,7 +342,7 @@ def enrich_prefixed_descriptions() -> None:
             VENDOR_GOOGLE,
         ),
         "leonardo-seedance-2.0": (
-            "Leonardo 订阅号 Seedance 2.0。文生/图生/首尾帧，480P/720P/1080P，4–15 秒。",
+            "Leonardo 订阅号 Seedance 2.0。文生/图生/多模态/首尾帧，标准 480p / HD 720p，4–15 秒。",
             "video,seedance,leonardo,subscription",
             VENDOR_GOOGLE,
         ),

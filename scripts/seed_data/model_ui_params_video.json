@@ -13,8 +13,7 @@
         "seedance",
         "grok-imagine",
         "happyhorse",
-        "ctlove",
-        "tengda-seedance"
+        "cy-sd4-seedance"
     ],
     "poll": {
         "videos-form": {
@@ -767,6 +766,7 @@
         {
             "id": "video-tpl-gen-ratio-ref7",
             "apiMode": "video-generations",
+            "validationKey": "grok-generations-ref7",
             "match": [
                 "grok-video",
                 "grok-video-1.0"
@@ -861,6 +861,7 @@
         {
             "id": "video-tpl-gen-ratio-ref1",
             "apiMode": "video-generations",
+            "validationKey": "grok-generations-ref1",
             "match": [
                 "grok-video-1.5"
             ],
@@ -1027,6 +1028,8 @@
         {
             "id": "video-tpl-async-ratio-frame-ref5",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "omni-frame",
+            "validationKey": "omni-frame",
             "match": [
                 "omni-fast",
                 "omni-fast-no-water"
@@ -1086,6 +1089,8 @@
         {
             "id": "video-tpl-async-v2v-ref1",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "omni-v2v",
+            "validationKey": "omni-v2v",
             "match": [
                 "omni-v2v",
                 "omni-v2v-no-water"
@@ -1143,6 +1148,8 @@
         {
             "id": "video-tpl-async-v2v-clean",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "omni-v2v-clean",
+            "validationKey": "omni-v2v",
             "match": [
                 "veo-clean"
             ],
@@ -1186,6 +1193,7 @@
         {
             "id": "video-tpl-chat-ref7",
             "apiMode": "chat-completions",
+            "validationKey": "grok-generations-chat-ref7",
             "match": [
                 "grok-imagine-video"
             ],
@@ -1229,6 +1237,8 @@
         {
             "id": "video-tpl-async-ratio-duration-ref10v1",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "grok-cli",
+            "validationKey": "grok-cli",
             "match": [
                 "grok-video-cli",
                 "grok-video-cli-edit"
@@ -1323,6 +1333,8 @@
         {
             "id": "video-tpl-async-ratio-duration-ref1-veo",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "tengda-veo",
+            "validationKey": "tengda-veo",
             "match": [
                 "veo-3-1"
             ],
@@ -1379,6 +1391,8 @@
         {
             "id": "video-tpl-async-ratio-ref1",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "grok-cli-i2v",
+            "validationKey": "grok-cli-i2v",
             "match": [
                 "grok-video-1.5-cli"
             ],
@@ -1451,67 +1465,277 @@
             ]
         },
         {
-            "id": "video-tpl-seedance-async",
+            "id": "video-tpl-seedance-480p-async",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
             "match": [
-                "seedance-2-0-fast-15s",
-                "seedance-2-0-fast-720p-h",
-                "seedance-2-0-fast-720p-k",
-                "seedance-2.0",
-                "seedance-2.0-ref-15s",
-                "seedance-2.0-vip",
-                "oairegbox-seedance-2.0-mini-480p",
-                "oairegbox-seedance-2.0-fast-480p",
-                "oairegbox-seedance-2.0-480p",
-                "oairegbox-seedance-2.0-mini-720p",
-                "oairegbox-seedance-2.0-fast-720p",
-                "oairegbox-seedance-2.0-720p",
-                "oairegbox-seedance-2.0-1080p",
-                "oairegbox-seedance-2.0-4k",
-                "seedance-480p",
-                "seedance-720p",
-                "seedance-fast-480p",
-                "seedance-fast-720p",
-                "seedance-plain",
-                "seedance-pro-1080p",
-                "seedance-pro-10s",
-                "seedance-pro-15s",
-                "seedance-pro-720p",
-                "seedance-pro-720p-h",
-                "seedance-pro-720p-k",
-                "seedance-sz",
-                "seedance-sz-fast",
-                "seedance-sz-full",
-                "video-art-fast-720",
-                "video-art-pro-720",
-                "video-fast-h",
-                "video-fast-k",
-                "video-pro-10s",
-                "video-pro-15s",
-                "video-pro-15s-2",
-                "video-pro-h",
-                "video-pro-k",
-                "video-xinghe-20",
-                "video-xinghe-fast",
-                "video-xinghe-mini"
+                "cy-sd1-seedance-2.0-480p",
+                "cy-sd1-seedance-2.0-fast-480p",
+                "cy-sd1-seedance-2.0-mini-480p"
             ],
             "referenceLimits": {
                 "images": 9,
                 "videos": 3,
-                "audios": 3
+                "audios": 3,
+                "imageMaxBytes": 31457280,
+                "videoMaxBytes": 52428800,
+                "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 2000,
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000,
+                    "minWidth": 300,
+                    "maxWidth": 6000,
+                    "minHeight": 300,
+                    "maxHeight": 6000,
+                    "minAspectRatio": 0.4,
+                    "maxAspectRatio": 2.5
+                },
+                "fullReferenceMode": {
+                    "label": "全能参考",
+                    "descriptionWithImages": "933：图 + 可选视频/音频"
+                },
+                "validationHint": "参考视频需为 mp4/mov，H.264/H.265，FPS 24-60。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
             },
             "params": {
                 "resolution": {
                     "enabled": true,
+                    "fixedLabel": "480p",
                     "options": [
                         {
                             "value": "480p",
                             "label": "480p"
+                        }
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
                         },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "21:9",
+                            "label": "宽银幕"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15
+                    ],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": false
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧与 933 参考互斥；成对指定 first + last"
+                }
+            },
+            "hints": [
+                {
+                    "text": "Seedance 2.0 · 480p：933 全能参考（9图/3视频/3音频）、首尾帧；按秒计费。"
+                }
+            ]
+        },
+        {
+            "id": "video-tpl-seedance-720p-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match": [
+                "cy-sd1-seedance-2.0-720p",
+                "cy-sd1-seedance-2.0-fast-720p",
+                "cy-sd1-seedance-2.0-mini-720p"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 3,
+                "audios": 3,
+                "imageMaxBytes": 31457280,
+                "videoMaxBytes": 52428800,
+                "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 2000,
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000,
+                    "minWidth": 300,
+                    "maxWidth": 6000,
+                    "minHeight": 300,
+                    "maxHeight": 6000,
+                    "minAspectRatio": 0.4,
+                    "maxAspectRatio": 2.5
+                },
+                "fullReferenceMode": {
+                    "label": "全能参考",
+                    "descriptionWithImages": "933：图 + 可选视频/音频"
+                },
+                "validationHint": "参考视频需为 mp4/mov，H.264/H.265，FPS 24-60。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "fixedLabel": "720p",
+                    "options": [
                         {
                             "value": "720p",
                             "label": "720p"
+                        }
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
                         },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "21:9",
+                            "label": "宽银幕"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15
+                    ],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": false
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧与 933 参考互斥；成对指定 first + last"
+                }
+            },
+            "hints": [
+                {
+                    "text": "Seedance 2.0 · 720p：933 全能参考（9图/3视频/3音频）、首尾帧；按秒计费。"
+                }
+            ]
+        },
+        {
+            "id": "video-tpl-seedance-1080p-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match": [
+                "cy-sd1-seedance-2.0-1080p"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 3,
+                "audios": 3,
+                "imageMaxBytes": 31457280,
+                "videoMaxBytes": 52428800,
+                "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 2000,
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000,
+                    "minWidth": 300,
+                    "maxWidth": 6000,
+                    "minHeight": 300,
+                    "maxHeight": 6000,
+                    "minAspectRatio": 0.4,
+                    "maxAspectRatio": 2.5
+                },
+                "fullReferenceMode": {
+                    "label": "全能参考",
+                    "descriptionWithImages": "933：图 + 可选视频/音频"
+                },
+                "validationHint": "参考视频需为 mp4/mov，H.264/H.265，FPS 24-60。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "fixedLabel": "1080p",
+                    "options": [
                         {
                             "value": "1080p",
                             "label": "1080p"
@@ -1580,93 +1804,163 @@
                 },
                 "frameInputs": {
                     "enabled": true,
-                    "hint": "首尾帧与多参考图/视频/音频二选一；成对指定 first + last，不接受额外参考素材"
+                    "hint": "首尾帧与 933 参考互斥；成对指定 first + last"
                 }
             },
-            "optionRules": [
-                {
-                    "param": "resolution",
-                    "value": "480p",
-                    "disabledWhen": {
-                        "modelExcludes": "480p"
-                    }
-                },
-                {
-                    "param": "resolution",
-                    "value": "1080p",
-                    "disabledWhen": {
-                        "modelExcludes": "1080p"
-                    }
-                },
-                {
-                    "param": "resolution",
-                    "value": "720p",
-                    "disabledWhen": {
-                        "modelIncludes": "480p"
-                    }
-                },
-                {
-                    "param": "resolution",
-                    "value": "720p",
-                    "disabledWhen": {
-                        "modelIncludes": "1080p"
-                    }
-                }
-            ],
             "hints": [
                 {
-                    "text": "480P/720P 经济档，按秒计费；支持多参考图、参考视频与首尾帧；不支持参考音频。",
-                    "when": {
-                        "modelExcludes": "1080p",
-                        "modelIncludes": "480p"
-                    }
-                },
-                {
-                    "text": "Seedance 2.0 经济档（oairegbox-seedance-2.0-*）：按秒计费；支持 933 全能参考、首尾帧与 @image/@video/@audio；四种模式由素材字段自动判定。",
-                    "when": {
-                        "modelIncludes": "oairegbox-seedance-2.0"
-                    }
-                },
-                {
-                    "text": "Seedance 经济档，按秒计费；支持多参考图、参考视频与首尾帧；不支持参考音频。",
-                    "when": {
-                        "modelIncludes": "seedance-2.0",
-                        "modelExcludes": "oairegbox-seedance-2.0"
-                    }
-                },
-                {
-                    "text": "满血 Pro/Fast，按秒计费；支持 @Image/@Video/@Audio 全参考（9图/3视频/3音频）。",
-                    "when": {
-                        "modelIncludes": "1080p"
-                    }
-                },
-                {
-                    "text": "Pro/Fast 720P，按秒计费；支持 @Image/@Video/@Audio 全参考（9图/3视频/3音频）。",
-                    "when": {
-                        "modelIncludes": "pro-720p"
-                    }
-                },
-                {
-                    "text": "Pro/Fast 720P，按秒计费；支持 @Image/@Video/@Audio 全参考（9图/3视频/3音频）。",
-                    "when": {
-                        "modelIncludes": "fast-720p"
-                    }
-                },
-                {
-                    "text": "Seedance 视频，按秒计费；支持多参考图、参考视频与首尾帧。"
+                    "text": "Seedance 2.0 · 1080p：933 全能参考（9图/3视频/3音频）、首尾帧；按秒计费。"
                 }
             ]
         },
         {
-            "id": "video-tpl-tengda-seedance-2.0-async",
+            "id": "video-tpl-seedance-4k-async",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
             "match": [
-                "tengd-Seedance-2.0"
+                "cy-sd1-seedance-2.0-4k"
             ],
             "referenceLimits": {
                 "images": 9,
-                "videos": 0,
-                "audios": 1
+                "videos": 3,
+                "audios": 3,
+                "imageMaxBytes": 31457280,
+                "videoMaxBytes": 52428800,
+                "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 2000,
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000,
+                    "minWidth": 300,
+                    "maxWidth": 6000,
+                    "minHeight": 300,
+                    "maxHeight": 6000,
+                    "minAspectRatio": 0.4,
+                    "maxAspectRatio": 2.5
+                },
+                "fullReferenceMode": {
+                    "label": "全能参考",
+                    "descriptionWithImages": "933：图 + 可选视频/音频"
+                },
+                "validationHint": "参考视频需为 mp4/mov，H.264/H.265，FPS 24-60。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "fixedLabel": "4k",
+                    "options": [
+                        {
+                            "value": "4k",
+                            "label": "4K"
+                        }
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "21:9",
+                            "label": "宽银幕"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15
+                    ],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": false
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧与 933 参考互斥；成对指定 first + last"
+                }
+            },
+            "hints": [
+                {
+                    "text": "Seedance 2.0 · 4K：933 全能参考（9图/3视频/3音频）、首尾帧；按秒计费。"
+                }
+            ]
+        },
+        {
+            "id": "video-tpl-cy-sd4-seedance-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match": [
+                "cy-sd4-seedance"
+            ],
+            "referenceLimits": {
+                "images": 4,
+                "videos": 3,
+                "audios": 1,
+                "imageMaxBytes": 31457280,
+                "videoMaxBytes": 52428800,
+                "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 4000,
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000,
+                    "minWidth": 720,
+                    "maxWidth": 2160,
+                    "minHeight": 720,
+                    "maxHeight": 2160
+                },
+                "audio": {
+                    "maxDurationMs": 15000
+                },
+                "fullReferenceMode": {
+                    "label": "多模态",
+                    "descriptionWithImages": "多模态：图 + 可选视频/音频"
+                },
+                "validationHint": "参考视频 mp4/mov，单条 4–15 秒、最多 3 条总时长 ≤15 秒；参考音频 ≤15 秒；素材宽高 720–2160px。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
             },
             "params": {
                 "resolution": {
@@ -1674,11 +1968,11 @@
                     "options": [
                         {
                             "value": "480p",
-                            "label": "480P"
+                            "label": "标准 480p"
                         },
                         {
                             "value": "720p",
-                            "label": "720P"
+                            "label": "HD 720p"
                         }
                     ]
                 },
@@ -1732,7 +2026,7 @@
                 },
                 "generateAudio": {
                     "enabled": true,
-                    "hint": "参考音频场景建议开启；纯文生可关闭"
+                    "hint": "是否生成原生音频，默认开启"
                 },
                 "watermark": {
                     "enabled": false
@@ -1745,12 +2039,12 @@
                 },
                 "frameInputs": {
                     "enabled": true,
-                    "hint": "首帧/首尾帧与多参考图二选一；参考图请在提示词中用 @image1、@image2 引用"
+                    "hint": "首尾帧与多模态（参考图/视频/音频）二选一；成对指定 first + last"
                 }
             },
             "hints": [
                 {
-                    "text": "腾达 Seedance 2.0 特惠：文生/首帧/首尾帧/多参考图/参考音频；480P/720P，4–15 秒；图片须公网 URL，勿传 Base64。"
+                    "text": "标准 480p（16:9=864×496）/ HD 720p（1280×720）；多模态 4图/3视频（总时长≤15s）/1音频（≤15s）；与首尾帧互斥。"
                 }
             ]
         },

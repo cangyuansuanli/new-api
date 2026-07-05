@@ -10,6 +10,8 @@ USD2RMB = 7.3
 
 # 内部定价（元/次）→ options.ModelPrice 存 USD
 PRICE_RMB = {
+    "cy-sd4-seedance-2.0": 3.00,
+    "cy-sd4-seedance-2.0-fast": 2.00,
     "leonardo-seedance-2.0": 3.00,
     "leonardo-seedance-2.0-fast": 2.00,
 }

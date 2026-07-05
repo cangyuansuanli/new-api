@@ -179,6 +179,18 @@ func profileDocToRow(capability string, doc map[string]interface{}) (*model.Mode
 		if hints, ok := doc["hints"]; ok {
 			row.Hints = service.MustJSONString(hints, "[]")
 		}
+		if payloadBuilder, ok := doc["payloadBuilder"].(string); ok {
+			row.PayloadBuilder = payloadBuilder
+		}
+		if payloadBuilder, ok := doc["payload_builder"].(string); ok && row.PayloadBuilder == "" {
+			row.PayloadBuilder = payloadBuilder
+		}
+		if validationKey, ok := doc["validationKey"].(string); ok {
+			row.ValidationKey = validationKey
+		}
+		if validationKey, ok := doc["validation_key"].(string); ok && row.ValidationKey == "" {
+			row.ValidationKey = validationKey
+		}
 	}
 	if capability == model.ModelUiParamCapabilityImage {
 		if apiMode, ok := doc["apiMode"].(string); ok {

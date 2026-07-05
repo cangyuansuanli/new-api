@@ -131,7 +131,7 @@ export default function SettingsSensitiveWords(props) {
                 <Form.Switch
                   field={'LocalSensitivePromptBlockEnabled'}
                   label={t('本地敏感词前置拦截')}
-                  extraText={t('关闭后直接转发上游；上游内容审查失败仍正常扣费')}
+                  extraText={t('关闭后不拦截提示词，直接转发上游；非加白用户被上游内容审查拒绝时将退还预扣额度')}
                   size='default'
                   checkedText='｜'
                   uncheckedText='〇'
@@ -148,7 +148,7 @@ export default function SettingsSensitiveWords(props) {
               <Col span={24}>
                 <Form.TextArea
                   label={t('审查白名单用户 ID')}
-                  extraText={t('一行一个用户 ID；跳过本地词表拦截，上游内容审查拒绝时仍扣费')}
+                  extraText={t('一行一个用户 ID；跳过本地词表拦截，被上游内容审查拒绝时不退还预扣额度')}
                   placeholder={t('一行一个用户 ID')}
                   field={'SensitiveReviewWhitelistUserIds'}
                   onChange={(value) =>

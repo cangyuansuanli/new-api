@@ -13,6 +13,8 @@ type ModelUiParamProfile struct {
 	Capability             string         `json:"capability" gorm:"size:16;not null;uniqueIndex:uk_model_ui_param_profile_cap_id,priority:1"`
 	ProfileId              string         `json:"profile_id" gorm:"size:128;not null;uniqueIndex:uk_model_ui_param_profile_cap_id,priority:2"`
 	ApiMode                string         `json:"api_mode" gorm:"size:32"`
+	PayloadBuilder         string         `json:"payload_builder" gorm:"size:64"`
+	ValidationKey          string         `json:"validation_key" gorm:"size:64"`
 	RequiresReferenceMedia bool           `json:"requires_reference_media" gorm:"default:false;not null"`
 	Poll                   string         `json:"poll" gorm:"type:text;not null;default:'{}'"`
 	PollStatus             string         `json:"poll_status" gorm:"size:16"`
@@ -50,6 +52,8 @@ func (item *ModelUiParamProfile) Update() error {
 	return DB.Model(item).Where("id = ?", item.Id).Updates(map[string]interface{}{
 		"profile_id":               item.ProfileId,
 		"api_mode":                 item.ApiMode,
+		"payload_builder":          item.PayloadBuilder,
+		"validation_key":           item.ValidationKey,
 		"requires_reference_media": item.RequiresReferenceMedia,
 		"poll":                     item.Poll,
 		"poll_status":              item.PollStatus,

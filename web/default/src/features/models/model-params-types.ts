@@ -16,6 +16,8 @@ export interface ModelUiParamProfile {
   capability: ModelUiParamCapability
   profile_id: string
   api_mode?: string
+  payload_builder?: string
+  validation_key?: string
   requires_reference_media: boolean
   poll: string
   poll_status?: string
