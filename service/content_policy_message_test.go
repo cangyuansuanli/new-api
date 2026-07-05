@@ -151,6 +151,28 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 			raw:  "gpt-image 最长边须 ≤3840（收到 4096×4096）",
 			want: "gpt-image 最长边须 ≤3840（收到 4096×4096）",
 		},
+		{
+			name: "leonardo_reference_download_zh",
+			raw:  `All cookies failed. cookie#8: leonardo: download https://tmp.cangyuansuanli.cn/temp/video-refs/x: OK`,
+			preferChinese: true,
+			want: ReferenceMaterialMessageZH,
+		},
+		{
+			name: "leonardo_audio_upload_en",
+			raw:  "All cookies failed. cookie#8: leonardo: UploadImage: originalFilename is required for audio uploads",
+			want: ReferenceMaterialMessageEN,
+		},
+		{
+			name: "leonardo_pool_depleted_zh",
+			raw:  "All cookies failed. cookie#5: depleted (auto-disabled)",
+			preferChinese: true,
+			want: PoolUnavailableMessageZH,
+		},
+		{
+			name: "leonardo_generic_failure_en",
+			raw:  "All cookies failed.",
+			want: GenerationFailedMessageEN,
+		},
 	}
 
 	for _, tc := range cases {
