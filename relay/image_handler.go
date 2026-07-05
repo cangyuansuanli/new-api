@@ -44,6 +44,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
+	applySyncImageUpstreamB64Override(c, info, request)
 	syncImageRequestStreamToForm(c, request)
 
 	adaptor := GetAdaptor(info.ApiType)
@@ -171,6 +172,34 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), logContent)
 	return nil
+}
+
+// applySyncImageUpstreamB64Override：Gulie 类模型客户要 url 时，对内请求上游 b64_json，响应再转 R2 公网 url。
+func applySyncImageUpstreamB64Override(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest) {
+	if request == nil || info == nil {
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(request.ResponseFormat), "url") {
+		return
+	}
+	if !service.ImageSyncPreferUpstreamB64JSON(info.OriginModelName) {
+		return
+	}
+	info.ImageClientWantsURL = true
+	request.ResponseFormat = "b64_json"
+	syncImageResponseFormatToForm(c, "b64_json")
+}
+
+func syncImageResponseFormatToForm(c *gin.Context, format string) {
+	if c == nil || c.Request == nil {
+		return
+	}
+	if c.Request.MultipartForm != nil {
+		c.Request.MultipartForm.Value["response_format"] = []string{format}
+	}
+	if c.Request.PostForm != nil {
+		c.Request.PostForm.Set("response_format", format)
+	}
 }
 
 func syncImageRequestStreamToForm(c *gin.Context, request *dto.ImageRequest) {
