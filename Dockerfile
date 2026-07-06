@@ -11,6 +11,9 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 
 FROM web-deps AS builder-default
 
+ARG VITE_DEPLOYMENT_REGION
+ENV VITE_DEPLOYMENT_REGION=${VITE_DEPLOYMENT_REGION}
+
 COPY web/default ./default
 COPY VERSION /build/VERSION
 RUN cd default && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build

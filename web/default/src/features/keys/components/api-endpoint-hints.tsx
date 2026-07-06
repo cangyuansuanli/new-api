@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 import { CopyButton } from '@/components/copy-button'
 import { useStatus } from '@/hooks/use-status'
+import { isEuDeployment } from '@/i18n/region'
 
 const AI_ENDPOINT = 'https://ai.cangyuansuanli.cn'
 const DIRECT_ENDPOINT = 'http://direct-api.cangyuansuanli.cn'
@@ -76,6 +77,7 @@ function EndpointBlock(props: {
 export function ApiEndpointHints() {
   const { t } = useTranslation()
   const { status } = useStatus()
+  const euDeployment = isEuDeployment()
 
   const trafficRelayBaseUrl = (() => {
     const fromStatus =
@@ -85,6 +87,48 @@ export function ApiEndpointHints() {
     if (fromStatus) return fromStatus
     return DEFAULT_RELAY_ENDPOINT
   })()
+
+  const euPrimaryEndpoint = (() => {
+    const fromStatus =
+      typeof status?.server_address === 'string'
+        ? status.server_address.trim().replace(/\/$/, '')
+        : ''
+    if (fromStatus) return fromStatus
+    if (trafficRelayBaseUrl && euDeployment) return trafficRelayBaseUrl
+    return 'https://eu-ai.cangyuansuanli.cn'
+  })()
+
+  if (euDeployment) {
+    return (
+      <div className='text-muted-foreground w-full space-y-3 text-xs sm:text-sm'>
+        <p className='text-muted-foreground text-[11px] leading-relaxed sm:text-xs'>
+          {t(
+            'This European deployment accepts the same API key format. Use the endpoint below as your base URL.'
+          )}
+        </p>
+
+        <div className='space-y-2'>
+          <p className='text-foreground/80 font-medium'>
+            {t('European API access')}
+          </p>
+          <ul className='space-y-2'>
+            <EndpointBlock
+              url={euPrimaryEndpoint}
+              audience={t('European primary endpoint')}
+              description={t(
+                'HTTPS entry point hosted in Europe with low latency for EU customers and integrations.'
+              )}
+              whenToUse={t(
+                'You deploy or integrate from Europe — this is the recommended base URL for this site.'
+              )}
+              copyLabel={t('Copy European API URL')}
+              recommended
+            />
+          </ul>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className='text-muted-foreground w-full space-y-3 text-xs sm:text-sm'>

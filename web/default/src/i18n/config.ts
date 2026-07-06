@@ -19,6 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
+import {
+  getDeploymentDefaultLanguage,
+  getI18nLocalStorageKey,
+} from './region'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
 import ja from './locales/ja.json'
@@ -40,6 +44,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
+    lng: getDeploymentDefaultLanguage(),
     fallbackLng: 'en',
     supportedLngs: ['en', 'zh', 'fr', 'ru', 'ja', 'vi'],
     load: 'languageOnly', // Convert zh-CN -> zh
@@ -51,6 +56,7 @@ i18n
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
+      lookupLocalStorage: getI18nLocalStorageKey(),
     },
   })
 

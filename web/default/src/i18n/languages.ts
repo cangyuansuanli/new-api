@@ -29,8 +29,10 @@ export const INTERFACE_LANGUAGE_OPTIONS = [
 export type InterfaceLanguageCode =
   (typeof INTERFACE_LANGUAGE_OPTIONS)[number]['code']
 
+import { getDeploymentDefaultLanguage } from './region'
+
 export function normalizeInterfaceLanguage(value?: string | null): string {
-  if (!value) return 'en'
+  if (!value) return getDeploymentDefaultLanguage() ?? 'en'
 
   const normalized = value.trim().replace(/_/g, '-').toLowerCase()
   if (normalized.startsWith('zh')) return 'zh'

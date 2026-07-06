@@ -21,6 +21,7 @@ type R2Config struct {
 	SecretAccessKey string
 	Bucket          string
 	PublicBase      string
+	Endpoint        string
 }
 
 type R2UploadResult struct {
@@ -30,6 +31,17 @@ type R2UploadResult struct {
 	MimeType  string
 }
 
+func resolveS3Endpoint(accountID string) string {
+	if endpoint := strings.TrimSpace(os.Getenv("S3_ENDPOINT")); endpoint != "" {
+		return strings.TrimRight(endpoint, "/")
+	}
+	accountID = strings.TrimSpace(accountID)
+	if accountID == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+}
+
 func getR2Config() *R2Config {
 	accountID := strings.TrimSpace(os.Getenv("R2_ACCOUNT_ID"))
 	accessKeyID := strings.TrimSpace(os.Getenv("R2_ACCESS_KEY_ID"))
@@ -37,7 +49,8 @@ func getR2Config() *R2Config {
 	// 生图结果与临时参考素材共用 R2_USER_BUCKET（uers-assets / tmp 域名），勿用 pro 运营桶。
 	bucket := strings.TrimSpace(os.Getenv("R2_USER_BUCKET"))
 	publicBase := strings.TrimRight(strings.TrimSpace(os.Getenv("R2_USER_PUBLIC_BASE_URL")), "/")
-	if accountID == "" || accessKeyID == "" || secretAccessKey == "" || bucket == "" || publicBase == "" {
+	endpoint := resolveS3Endpoint(accountID)
+	if endpoint == "" || accessKeyID == "" || secretAccessKey == "" || bucket == "" || publicBase == "" {
 		return nil
 	}
 	return &R2Config{
@@ -46,6 +59,7 @@ func getR2Config() *R2Config {
 		SecretAccessKey: secretAccessKey,
 		Bucket:          bucket,
 		PublicBase:      publicBase,
+		Endpoint:        endpoint,
 	}
 }
 
@@ -53,10 +67,13 @@ func newR2S3Client(cfg *R2Config) (*s3.Client, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("r2 config is nil")
 	}
+	if cfg.Endpoint == "" {
+		return nil, fmt.Errorf("s3 endpoint is empty")
+	}
 	return s3.New(s3.Options{
-		Region: "auto",
-		BaseEndpoint: aws.String(fmt.Sprintf("https://%s.r2.cloudflarestorage.com", cfg.AccountID)),
-		Credentials: credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, ""),
+		Region:       "auto",
+		BaseEndpoint: aws.String(cfg.Endpoint),
+		Credentials:  credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, ""),
 		UsePathStyle: true,
 	}), nil
 }
