@@ -152,13 +152,30 @@ def build_examples(_internal_model: str) -> list[dict]:
             },
         },
         {
-            "title": "图生视频",
+            "title": "图生视频（公网 URL）",
             "request_json": {
                 "model": model,
                 "prompt": "保持人物一致，缓慢走动",
                 "image_url": "https://cdn.example.com/photo.jpg",
                 "aspect_ratio": "16:9",
                 "duration": 5,
+            },
+        },
+        {
+            "title": "图生视频（Base64 免图床）",
+            "request_json": {
+                "model": model,
+                "prompt": "让画面动起来",
+                "duration": 5,
+                "image_url": "data:image/png;base64,iVBORw0KGgo...",
+            },
+        },
+        {
+            "title": "图生视频（multipart 单图上传）",
+            "request_json": {
+                "_note": "使用 multipart/form-data，非 JSON body。示例：curl -X POST {{base}}/videos -H 'Authorization: Bearer sk-...' -F model="
+                + model
+                + " -F prompt=让画面动起来 -F duration=5 -F image=@photo.jpg",
             },
         },
         {
