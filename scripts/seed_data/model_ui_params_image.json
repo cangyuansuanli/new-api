@@ -18,6 +18,10 @@
         "images-edits-async": {
             "delayMs": 5000,
             "maxAttempts": 72
+        },
+        "chat-completions-async": {
+            "delayMs": 5000,
+            "maxAttempts": 72
         }
     },
     "profiles": [
@@ -410,9 +414,7 @@
             "api_mode": "images-json-async",
             "match": [
                 "gemini-image",
-                "gemini-image-pro",
-                "gemini-banana-2.0",
-                "gemini-banana-2.0-pro"
+                "gemini-image-pro"
             ],
             "params": {
                 "quality": {
@@ -478,8 +480,182 @@
             }
         },
         {
+            "id": "image-tpl-banana-chat",
+            "api_mode": "images-json-async",
+            "poll": {
+                "delayMs": 5000,
+                "maxAttempts": 72
+            },
+            "match": [
+                "gemini-banana-2.0",
+                "gemini-banana-2.0-pro",
+                "gemini-banana-pro-4k",
+                "gemini-banana-pro-1/2k",
+                "gemini-banana-2.0-1/2k",
+                "gemini-banana-2.0-4k"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": false
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "1:1",
+                            "label": "方形",
+                            "size": "1024x1024",
+                            "width": 1024,
+                            "height": 1024,
+                            "icon": "square"
+                        },
+                        {
+                            "value": "3:2",
+                            "label": "横屏",
+                            "size": "1536x1024",
+                            "width": 1536,
+                            "height": 1024,
+                            "icon": "landscape"
+                        },
+                        {
+                            "value": "2:3",
+                            "label": "竖屏",
+                            "size": "1024x1536",
+                            "width": 1024,
+                            "height": 1536,
+                            "icon": "portrait"
+                        },
+                        {
+                            "value": "auto",
+                            "label": "自动",
+                            "width": 0,
+                            "height": 0,
+                            "icon": "auto"
+                        }
+                    ]
+                },
+                "customDimensions": {
+                    "enabled": true
+                },
+                "count": {
+                    "enabled": true,
+                    "min": 1,
+                    "max": 4,
+                    "quickCount": 4
+                },
+                "background": {
+                    "enabled": false
+                },
+                "outputFormat": {
+                    "enabled": false
+                },
+                "outputCompression": {
+                    "enabled": false
+                },
+                "moderation": {
+                    "enabled": false
+                }
+            },
+            "hints": [
+                {
+                    "text": "POST /v1/images/generations（async:true）+ GET /v1/images/generations/{task_id} 轮询；参考图 JSON 传 image/images 或 multipart /images/edits。"
+                },
+                {
+                    "text": "（已弃用）POST /v1/chat/completions 仍可用，响应带 Deprecation 头。"
+                }
+            ]
+        },
+        {
+            "id": "image-tpl-banana-chat-flash-lite",
+            "api_mode": "images-json-async",
+            "poll": {
+                "delayMs": 5000,
+                "maxAttempts": 72
+            },
+            "match": [
+                "gemini-banana-flash-lite"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "auto",
+                            "label": "自动"
+                        },
+                        {
+                            "value": "low",
+                            "label": "1K"
+                        }
+                    ]
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "1:1",
+                            "label": "1:1",
+                            "size": "1:1",
+                            "width": 1,
+                            "height": 1,
+                            "icon": "square"
+                        },
+                        {
+                            "value": "16:9",
+                            "label": "16:9",
+                            "size": "16:9",
+                            "width": 16,
+                            "height": 9,
+                            "icon": "landscape"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "9:16",
+                            "size": "9:16",
+                            "width": 9,
+                            "height": 16,
+                            "icon": "portrait"
+                        },
+                        {
+                            "value": "auto",
+                            "label": "自动",
+                            "width": 0,
+                            "height": 0,
+                            "icon": "auto"
+                        }
+                    ]
+                },
+                "customDimensions": {
+                    "enabled": false
+                },
+                "count": {
+                    "enabled": true,
+                    "min": 1,
+                    "max": 4,
+                    "quickCount": 4
+                },
+                "background": {
+                    "enabled": false
+                },
+                "outputFormat": {
+                    "enabled": false
+                },
+                "outputCompression": {
+                    "enabled": false
+                },
+                "moderation": {
+                    "enabled": false
+                }
+            },
+            "hints": [
+                {
+                    "text": "仅支持 1K 出图；async:true 轮询与 gpt-image 异步一致。"
+                }
+            ]
+        },
+        {
             "id": "image-tpl-aspect-count-flash-lite",
-            "api_mode": "chat-completions",
+            "api_mode": "images-json-async",
             "match": [
                 "flash-lite-image"
             ],

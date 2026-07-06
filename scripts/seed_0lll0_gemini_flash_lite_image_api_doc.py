@@ -10,8 +10,23 @@ import time
 ENDPOINTS = [
     {
         "method": "POST",
+        "path": "{{base}}/images/generations",
+        "description": "OpenAI Image API：同步/异步文生图（async 可选，stream 须 false）。",
+    },
+    {
+        "method": "POST",
+        "path": "{{base}}/images/edits",
+        "description": "OpenAI Image API：图生图 multipart（参考图/蒙版）。",
+    },
+    {
+        "method": "GET",
+        "path": "{{base}}/images/generations/{task_id}",
+        "description": "异步任务轮询（async:true 时）。",
+    },
+    {
+        "method": "POST",
         "path": "{{base}}/chat/completions",
-        "description": "OpenAI 兼容：同步文生图/图生图（stream 须为 false）。",
+        "description": "（已弃用）兼容旧 OpenAI chat 出图客户端。",
     },
     {
         "method": "POST",
@@ -22,35 +37,15 @@ ENDPOINTS = [
 
 OPENAI_PARAMS = [
     {"name": "model", "description": "必填，固定传模型广场展示名（{{model}}）。"},
-    {
-        "name": "messages",
-        "description": "必填，OpenAI 消息数组。文生图 user.content 为字符串；图生图/参考图为 content 数组（text + image_url）。",
-    },
-    {
-        "name": "messages[].content[].type=text",
-        "description": "提示词文本；可在 text 中用 @图1、@图2 引用同条消息中的参考图顺序。",
-    },
-    {
-        "name": "messages[].content[].type=image_url",
-        "description": "参考图：公网 URL 或 data:image/...;base64,...。多张参考图可追加多个 image_url 项。",
-    },
-    {
-        "name": "mask",
-        "description": "局部编辑蒙版：作为额外 image_url 传入 content（PNG，透明区域为编辑区），并在 text 中说明蒙版用途。",
-    },
-    {"name": "stream", "description": "须为 false（同步 JSON 响应，非 SSE）。"},
-    {
-        "name": "extra_body.google.image_config.aspect_ratio",
-        "description": "画幅比例：1:1、2:3、3:2、3:4、4:3、4:5、5:4、9:16、16:9、21:9 等；auto 可省略（有参考图时可自动推断）。",
-    },
-    {
-        "name": "extra_body.google.image_config.image_size",
-        "description": "仅支持 1K（K 大写）；省略或 auto 时默认 1K。勿传 2K/4K。",
-    },
-    {
-        "name": "n",
-        "description": "生成张数：客户端可对同一请求多次调用实现 1–4 张（每次返回 1 张图）。",
-    },
+    {"name": "prompt", "description": "必填，文生图提示词。"},
+    {"name": "size", "description": "画幅比例（aspect_ratio）：1:1、16:9 等。"},
+    {"name": "quality", "description": "仅支持 1K（low/auto）；勿传 2K/4K。"},
+    {"name": "image", "description": "单张参考图 URL 或 data URI。"},
+    {"name": "images", "description": "多张参考图 URL 数组。"},
+    {"name": "mask", "description": "局部编辑蒙版 URL 或 data URI（PNG）。"},
+    {"name": "stream", "description": "须为 false。"},
+    {"name": "async", "description": "异步模式传 true，配合 GET /images/generations/{task_id} 轮询。"},
+    {"name": "n", "description": "生成张数：客户端可对同一请求多次调用实现 1–4 张。"},
 ]
 
 GEMINI_PARAMS = [
@@ -77,14 +72,8 @@ GEMINI_PARAMS = [
 ]
 
 CHAT_CREATE_RESP = {
-    "choices": [
-        {
-            "message": {
-                "role": "assistant",
-                "content": "![image](data:image/jpeg;base64,...)",
-            }
-        }
-    ]
+    "created": 1715923200,
+    "data": [{"b64_json": "..."}],
 }
 
 GEMINI_CREATE_RESP = {
@@ -103,28 +92,20 @@ GEMINI_CREATE_RESP = {
 DOC = {
     "dispatch_mode": "sync",
     "intro": (
-        "Gemini 3.1 Flash Lite 图像生成：同步出图，仅支持 1K。"
-        "支持两种调用方式：① OpenAI 兼容 POST /v1/chat/completions（stream 须 false），"
-        "图片嵌在 assistant message 的 Markdown data URI 中，画幅用 extra_body.google.image_config；"
-        "② Gemini 原生 POST /v1beta/models/{model}:generateContent，"
-        "图片在 candidates[].content.parts[].inlineData 中。"
-        "鉴权可用 Authorization: Bearer 或 x-goog-api-key。"
-        "带参考图/蒙版时 OpenAI 路径用 messages content 数组；v1beta 路径用 contents parts 内联图片。"
+        "Gemini 3.1 Flash Lite 图像生成：同步/异步出图，仅支持 1K。"
+        "推荐 POST /v1/images/generations（prompt + size + quality；async 可选），"
+        "响应为标准 OpenAI Image API。"
+        "亦支持 Gemini 原生 POST /v1beta/models/{model}:generateContent。"
+        "（已弃用）POST /v1/chat/completions 仍可用，响应带 Deprecation 头。"
     ),
     "endpoints": ENDPOINTS,
     "params": OPENAI_PARAMS + GEMINI_PARAMS,
     "basic_request_json": {
         "model": "{{model}}",
         "stream": False,
-        "messages": [{"role": "user", "content": "一只橘猫坐在窗台上，水彩画风格，午后阳光"}],
-        "extra_body": {
-            "google": {
-                "image_config": {
-                    "aspect_ratio": "1:1",
-                    "image_size": "1K",
-                }
-            }
-        },
+        "prompt": "一只橘猫坐在窗台上，水彩画风格，午后阳光",
+        "size": "1:1",
+        "quality": "low",
     },
     "request_json": {
         "contents": [
@@ -280,7 +261,7 @@ def upsert_profile() -> None:
             requires_reference_media, poll, reference_limits, params, option_rules, hints,
             created_time, updated_time
         ) VALUES (
-            'image', '{IMAGE_PROFILE}', '["flash-lite-image"]', 0, 'chat-completions',
+            'image', '{IMAGE_PROFILE}', '["flash-lite-image"]', 0, 'images-json-async',
             false, '{{}}', '{{}}', '{params_esc}', '[]', '{hints_esc}',
             {now}, {now}
         )

@@ -251,6 +251,15 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	applyUsagePostProcessing(info, &simpleResponse.Usage, responseBody)
 
+	adaptedBody, adaptErr := manjuBananaAdaptIfNeeded(c.Request.Context(), info, responseBody)
+	if adaptErr != nil {
+		return nil, adaptErr
+	}
+	responseBody = adaptedBody
+	if err := common.Unmarshal(responseBody, &simpleResponse); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
 		if usageModified {

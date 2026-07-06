@@ -95,9 +95,7 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.POST("/completions", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAI)
 		})
-		httpRouter.POST("/chat/completions", func(c *gin.Context) {
-			controller.Relay(c, types.RelayFormatOpenAI)
-		})
+		httpRouter.POST("/chat/completions", controller.RelayOpenAIChatCompletions)
 
 		// response related routes
 		httpRouter.POST("/responses", func(c *gin.Context) {

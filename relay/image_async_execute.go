@@ -18,6 +18,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
+	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -68,6 +69,10 @@ func ExecuteImageTaskUpstream(task *model.Task) ([]dto.ImageData, *dto.Usage, er
 	}
 	c.Set("relay_mode", relayMode)
 
+	if strings.Contains(strings.TrimSpace(task.PrivateData.RequestPath), "/chat/completions") {
+		return executeLegacyAsyncChatImageTask(c, task, w)
+	}
+
 	request, err := helper.GetAndValidateRequest(c, types.RelayFormatOpenAIImage)
 	if err != nil {
 		return nil, nil, err
@@ -107,6 +112,32 @@ func ExecuteImageTaskUpstream(task *model.Task) ([]dto.ImageData, *dto.Usage, er
 	return images, usage, nil
 }
 
+func executeLegacyAsyncChatImageTask(c *gin.Context, task *model.Task, w *httptest.ResponseRecorder) ([]dto.ImageData, *dto.Usage, error) {
+	request, err := helper.GetAndValidateTextRequest(c, relayconstant.RelayModeChatCompletions)
+	if err != nil {
+		return nil, nil, err
+	}
+	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatOpenAI, request, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	relayInfo.InitChannelMeta(c)
+	if relayInfo.TaskRelayInfo == nil {
+		relayInfo.TaskRelayInfo = &relaycommon.TaskRelayInfo{}
+	}
+	relayInfo.TaskRelayInfo.PublicTaskID = task.TaskID
+	relayInfo.IsStream = false
+	relayInfo.SkipConsumeQuota = true
+	if textReq, ok := relayInfo.Request.(*dto.GeneralOpenAIRequest); ok {
+		textReq.Stream = common.GetPointer(false)
+	}
+	apiErr := TextHelper(c, relayInfo)
+	if apiErr != nil {
+		return nil, nil, apiErr.Err
+	}
+	return openai.ParseLegacyChatImageResponse(w.Body.Bytes())
+}
+
 func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) {
 	path := strings.TrimSpace(task.PrivateData.RequestPath)
 	if path == "" {
@@ -115,6 +146,9 @@ func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) 
 	relayMode := relayconstant.RelayModeImagesGenerations
 	if strings.Contains(path, "/edits") {
 		relayMode = relayconstant.RelayModeImagesEdits
+	}
+	if strings.Contains(path, "/chat/completions") {
+		relayMode = relayconstant.RelayModeChatCompletions
 	}
 
 	if relayMode == relayconstant.RelayModeImagesEdits {
@@ -159,6 +193,15 @@ func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) 
 	body := task.PrivateData.RequestSnapshot
 	if len(body) == 0 {
 		return nil, 0, fmt.Errorf("empty request snapshot")
+	}
+	if relayMode == relayconstant.RelayModeChatCompletions {
+		normalized, err := openai.NormalizeAsyncLegacyChatImageBody(body)
+		if err != nil {
+			return nil, 0, err
+		}
+		req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(normalized))
+		req.Header.Set("Content-Type", "application/json")
+		return req, relayMode, nil
 	}
 	normalized, err := normalizeAsyncGenerationBody(body, imageAsyncUsesURLResponse(task.Properties.OriginModelName))
 	if err != nil {
@@ -428,6 +471,11 @@ func IsAsyncImageRequest(c *gin.Context) bool {
 		return false
 	}
 	return probe.Async != nil && *probe.Async
+}
+
+// IsAsyncChatImageRequest 兼容期：POST /chat/completions + async 的 chat 出图（Banana / Flash Image 等）。
+func IsAsyncChatImageRequest(c *gin.Context) bool {
+	return openai.IsAsyncChatImageRequest(c)
 }
 
 func imageJobObjectForPath(path string) string {
