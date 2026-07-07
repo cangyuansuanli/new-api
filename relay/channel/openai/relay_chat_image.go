@@ -27,7 +27,7 @@ var (
 )
 
 // IsChatImageModel：Flash Image 等走 chat upstream、下游 Image API 的出图模型。
-// Manju Gemini Banana（manju-gemini-banana-*）改走上游 POST /v1/images/generations。
+// Manju Gemini Banana 图生图见 ManjuBananaUsesChatCompletionsUpstream。
 func IsChatImageModel(model string) bool {
 	if imagevendor.IsManjuBananaOriginModel(model) {
 		return false
@@ -182,12 +182,20 @@ func hasChatImageReferenceInput(c *gin.Context, info *relaycommon.RelayInfo, req
 	if len(parseJSONStringList(request.Image)) > 0 || len(parseJSONStringList(request.Images)) > 0 {
 		return true
 	}
-	if info.RelayMode == relayconstant.RelayModeImagesEdits && c != nil && c.Request != nil {
-		if c.Request.MultipartForm != nil {
+	if info != nil && info.RelayMode == relayconstant.RelayModeImagesEdits && c != nil && c.Request != nil {
+		if err := ensureMultipartFormParsed(c); err == nil && c.Request.MultipartForm != nil {
 			if files, ok := c.Request.MultipartForm.File["image"]; ok && len(files) > 0 {
 				return true
 			}
 			if files, ok := c.Request.MultipartForm.File["image[]"]; ok && len(files) > 0 {
+				return true
+			}
+			for fieldName, files := range c.Request.MultipartForm.File {
+				if strings.HasPrefix(fieldName, "image[") && len(files) > 0 {
+					return true
+				}
+			}
+			if maskFiles, ok := c.Request.MultipartForm.File["mask"]; ok && len(maskFiles) > 0 {
 				return true
 			}
 		}
@@ -195,37 +203,58 @@ func hasChatImageReferenceInput(c *gin.Context, info *relaycommon.RelayInfo, req
 	return len(parseJSONStringList(request.Mask)) > 0
 }
 
+func ensureMultipartFormParsed(c *gin.Context) error {
+	if c == nil || c.Request == nil || c.Request.MultipartForm != nil {
+		return nil
+	}
+	if !strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		return nil
+	}
+	form, err := common.ParseMultipartFormReusable(c)
+	if err != nil {
+		return err
+	}
+	c.Request.MultipartForm = form
+	c.Request.PostForm = form.Value
+	return nil
+}
+
 func collectChatImageReferenceURLs(c *gin.Context, request dto.ImageRequest) ([]string, error) {
 	var urls []string
 	urls = append(urls, parseJSONStringList(request.Image)...)
 	urls = append(urls, parseJSONStringList(request.Images)...)
 
-	if c != nil && c.Request != nil && c.Request.MultipartForm != nil {
-		for _, key := range []string{"image", "image[]"} {
-			for _, fh := range c.Request.MultipartForm.File[key] {
-				dataURI, err := multipartFileToDataURI(fh)
-				if err != nil {
-					return nil, err
-				}
-				urls = append(urls, dataURI)
-			}
+	if c != nil && c.Request != nil {
+		if err := ensureMultipartFormParsed(c); err != nil {
+			return nil, err
 		}
-		for _, key := range []string{"image[0]", "image[1]", "image[2]", "image[3]"} {
-			for _, fh := range c.Request.MultipartForm.File[key] {
-				dataURI, err := multipartFileToDataURI(fh)
-				if err != nil {
-					return nil, err
+		if c.Request.MultipartForm != nil {
+			for _, key := range []string{"image", "image[]"} {
+				for _, fh := range c.Request.MultipartForm.File[key] {
+					dataURI, err := multipartFileToDataURI(fh)
+					if err != nil {
+						return nil, err
+					}
+					urls = append(urls, dataURI)
 				}
-				urls = append(urls, dataURI)
 			}
-		}
-		if maskFiles, ok := c.Request.MultipartForm.File["mask"]; ok {
-			for _, fh := range maskFiles {
-				dataURI, err := multipartFileToDataURI(fh)
-				if err != nil {
-					return nil, err
+			for _, key := range []string{"image[0]", "image[1]", "image[2]", "image[3]"} {
+				for _, fh := range c.Request.MultipartForm.File[key] {
+					dataURI, err := multipartFileToDataURI(fh)
+					if err != nil {
+						return nil, err
+					}
+					urls = append(urls, dataURI)
 				}
-				urls = append(urls, dataURI)
+			}
+			if maskFiles, ok := c.Request.MultipartForm.File["mask"]; ok {
+				for _, fh := range maskFiles {
+					dataURI, err := multipartFileToDataURI(fh)
+					if err != nil {
+						return nil, err
+					}
+					urls = append(urls, dataURI)
+				}
 			}
 		}
 	}

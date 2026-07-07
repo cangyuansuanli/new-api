@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +23,13 @@ func TestBuildManjuBananaImageBodyJSONRequestSkipsMultipartParse(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	n := uint(1)
-	body, err := buildManjuBananaImageBody(c, "manju-gemini-banana-pro-4k", dto.ImageRequest{
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "manju-gemini-banana-pro-4k",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gemini-3.0-pro-image 4K",
+		},
+	}
+	body, err := buildManjuBananaImageBody(c, info, dto.ImageRequest{
 		Model:   "gemini-banana-pro-4k",
 		Prompt:  "test",
 		Size:    "1:1",
@@ -31,6 +38,9 @@ func TestBuildManjuBananaImageBodyJSONRequestSkipsMultipartParse(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)
+	}
+	if body["model"] != "gemini-3.0-pro-image 4K" {
+		t.Fatalf("model = %v", body["model"])
 	}
 	if body["aspect_ratio"] != "1:1" {
 		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
@@ -64,29 +74,53 @@ func TestBuildManjuBananaImageGenerationBody(t *testing.T) {
 }
 
 func TestBuildManjuBananaImageGenerationBodyWithReferenceImage(t *testing.T) {
-	body := BuildManjuBananaImageGenerationBody("manju-gemini-banana-pro-1/2k", dto.ImageRequest{
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "manju-gemini-banana-pro-1/2k",
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+	}
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	out, err := ConvertManjuBananaImageRequest(c, info, dto.ImageRequest{
 		Model:  "gemini-3.0-pro-image",
 		Prompt: "edit style",
 		Image:  json.RawMessage(`"https://example.com/ref.png"`),
 		Size:   "16:9",
 	})
-	if body["image"] != "https://example.com/ref.png" {
-		t.Fatalf("image = %v", body["image"])
+	if err != nil {
+		t.Fatalf("convert: %v", err)
 	}
-	if body["aspect_ratio"] != "16:9" {
-		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
+	chatReq, ok := out.(dto.GeneralOpenAIRequest)
+	if !ok {
+		t.Fatalf("expected chat request, got %T", out)
+	}
+	if chatReq.Model != "gemini-3.0-pro-image" {
+		t.Fatalf("model = %q", chatReq.Model)
 	}
 }
 
 func TestBuildManjuBananaImageGenerationBodyWithMultipleImages(t *testing.T) {
-	body := BuildManjuBananaImageGenerationBody("manju-gemini-banana-2.0-1/2k", dto.ImageRequest{
-		Model:  "Nano Banana 2",
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "manju-gemini-banana-2.0-1/2k",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "Nano Banana 2",
+		},
+	}
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	out, err := ConvertManjuBananaImageRequest(c, info, dto.ImageRequest{
+		Model:  "gemini-banana-2.0-1/2k",
 		Prompt: "combine",
 		Images: json.RawMessage(`["https://example.com/a.png","https://example.com/b.png"]`),
 	})
-	images, ok := body["images"].([]string)
-	if !ok || len(images) != 2 {
-		t.Fatalf("images = %v", body["images"])
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	chatReq, ok := out.(dto.GeneralOpenAIRequest)
+	if !ok {
+		t.Fatalf("expected chat request, got %T", out)
+	}
+	if chatReq.Model != "Nano Banana 2" {
+		t.Fatalf("model = %q", chatReq.Model)
 	}
 }
 
@@ -101,10 +135,25 @@ func TestResolveManjuBananaOutputResolutionDefault1K(t *testing.T) {
 	}
 }
 
+func TestManjuBananaUsesChatCompletionsUpstreamForEdits(t *testing.T) {
+	info := &relaycommon.RelayInfo{RelayMode: relayconstant.RelayModeImagesEdits}
+	if !ManjuBananaUsesChatCompletionsUpstream(nil, info, dto.ImageRequest{Prompt: "x"}) {
+		t.Fatal("edits should use chat/completions")
+	}
+}
+
+func TestManjuBananaUsesChatCompletionsUpstreamForTextGeneration(t *testing.T) {
+	info := &relaycommon.RelayInfo{RelayMode: relayconstant.RelayModeImagesGenerations}
+	if ManjuBananaUsesChatCompletionsUpstream(nil, info, dto.ImageRequest{Prompt: "x"}) {
+		t.Fatal("text-only generation should use /v1/images/generations")
+	}
+}
+
 func TestAdaptManjuBananaChatCompletionResponseAsyncPoll(t *testing.T) {
 	var polls int
 	imageBody := []byte("fakejpeg")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/files/test.jpg"):
 			w.Header().Set("Content-Type", "image/jpeg")
@@ -130,7 +179,7 @@ func TestAdaptManjuBananaChatCompletionResponseAsyncPoll(t *testing.T) {
 	}`)
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "manju-gemini-banana-pro-4k",
-		ChannelMeta: relaycommon.ChannelMeta{
+		ChannelMeta: &relaycommon.ChannelMeta{
 			ApiKey:         "sk-test",
 			ChannelBaseUrl: srv.URL,
 		},

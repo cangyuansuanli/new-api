@@ -167,6 +167,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	default:
 		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
 			imagevendor.IsManjuBananaOriginModel(info.OriginModelName) {
+			if ManjuBananaUsesChatCompletionsUpstreamFromInfo(info) {
+				return chatImageGetRequestURL(info)
+			}
 			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/images/generations", info.ChannelType), nil
 		}
 		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
@@ -438,7 +441,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	if imagevendor.IsManjuBananaOriginModel(info.OriginModelName) &&
 		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
-		return buildManjuBananaImageBody(c, info.OriginModelName, request)
+		return ConvertManjuBananaImageRequest(c, info, request)
 	}
 	if IsChatImageModel(info.OriginModelName) {
 		return ConvertImageRequestForChatImage(c, info, request)
@@ -653,6 +656,14 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	case relayconstant.RelayModeAudioTranscription:
 		err, usage = OpenaiSTTHandler(c, resp, info, a.ResponseFormat)
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
+		if imagevendor.IsManjuBananaOriginModel(info.OriginModelName) &&
+			ManjuBananaUsesChatCompletionsUpstreamFromInfo(info) {
+			if info.IsStream {
+				return nil, types.NewOpenAIError(fmt.Errorf("chat image models do not support stream"), types.ErrorCodeInvalidRequest, http.StatusBadRequest)
+			}
+			usage, err = OpenaiChatImageHandler(c, info, resp)
+			break
+		}
 		if IsChatImageModel(info.OriginModelName) {
 			if info.IsStream {
 				return nil, types.NewOpenAIError(fmt.Errorf("chat image models do not support stream"), types.ErrorCodeInvalidRequest, http.StatusBadRequest)

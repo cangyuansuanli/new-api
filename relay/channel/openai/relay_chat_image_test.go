@@ -103,8 +103,8 @@ func TestConvertImageRequestForChatImageWithReferences(t *testing.T) {
 	if parts[0].Type != "text" || parts[1].Type != "image_url" {
 		t.Fatalf("parts = %+v", parts)
 	}
-	if parts[1].ImageUrl.Url != "https://example.com/ref.png" {
-		t.Fatalf("image url = %q", parts[1].ImageUrl.Url)
+	if img := parts[1].GetImageMedia(); img == nil || img.Url != "https://example.com/ref.png" {
+		t.Fatalf("image url = %+v", parts[1].ImageUrl)
 	}
 }
 
@@ -201,12 +201,12 @@ func TestOpenaiChatImageHandlerMarkdownToImageResponse(t *testing.T) {
 	respBody := []byte(`{"choices":[{"message":{"content":"![image](data:image/png;base64,cGF5bG9hZA==)"}}],"usage":{"total_tokens":1}}`)
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       ioNopCloser(bytes.NewReader(respBody)),
+		Body:       ioNopCloser{bytes.NewReader(respBody)},
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 	}
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "gemini-banana-2.0",
-		ChannelMeta: relaycommon.ChannelMeta{
+		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelBaseUrl: "https://example.com",
 		},
 	}

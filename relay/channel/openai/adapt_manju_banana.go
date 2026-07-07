@@ -1,14 +1,12 @@
 package openai
 
-// Manju Gemini Banana 适配层。
+// Manju Gemini Banana 适配层（对齐 Manju OpenAI 兼容 API 文档）。
 //
-// 主路径（Image API）：
-//   imagevendor.IsManjuBananaOriginModel → buildManjuBananaImageBody → 上游 POST /v1/images/generations
-//   含 JSON 文生图/图生图（image/images/mask）及 multipart /images/edits（转为 JSON + data URI）
+// 文生图：buildManjuBananaImageBody → 上游 POST /v1/images/generations（model=UpstreamModelName）
+// 图生图（edits / 带参考图）：ConvertImageRequestForChatImage → POST /v1/chat/completions + image_url
 //
-// Legacy 路径（chat/completions，含 async task 快照）：
+// Legacy chat 响应（含 async poll）：
 //   manjuBananaAdaptIfNeeded → AdaptManjuBananaChatCompletionResponse
-//   调用方：relay_openai.go、relay_chat_image.go、IsAsyncChatImageRequest 异步提交
 
 import (
 	"context"
@@ -25,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
@@ -42,14 +41,96 @@ const (
 
 // BuildManjuBananaImageGenerationBody 将 OpenAI Image 请求转为 Manju 上游 /v1/images/generations body。
 func BuildManjuBananaImageGenerationBody(originModel string, request dto.ImageRequest) map[string]any {
-	body, _ := buildManjuBananaImageBody(nil, originModel, request)
+	info := &relaycommon.RelayInfo{
+		OriginModelName: originModel,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: request.Model,
+		},
+	}
+	body, _ := buildManjuBananaImageBody(nil, info, request)
 	return body
 }
 
-// buildManjuBananaImageBody 构建上游 JSON body；c 非 nil 时可从 multipart 读取参考图/蒙版。
-func buildManjuBananaImageBody(c *gin.Context, originModel string, request dto.ImageRequest) (map[string]any, error) {
+// ManjuBananaUsesChatCompletionsUpstream 判断 Manju 图生图是否应走 chat/completions + image_url。
+func ManjuBananaUsesChatCompletionsUpstream(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) bool {
+	if info != nil && info.RelayMode == constant.RelayModeImagesEdits {
+		return true
+	}
+	if hasManjuBananaReferenceInputFromRequest(request) {
+		return true
+	}
+	if c != nil && c.Request != nil && !isJSONRequest(c) {
+		if err := ensureMultipartFormParsed(c); err == nil && hasManjuBananaMultipartReference(c) {
+			return true
+		}
+	}
+	return false
+}
+
+// ManjuBananaUsesChatCompletionsUpstreamFromInfo 供 GetRequestURL / DoResponse 等无完整 request 副本时使用。
+func ManjuBananaUsesChatCompletionsUpstreamFromInfo(info *relaycommon.RelayInfo) bool {
+	if info == nil {
+		return false
+	}
+	if info.RelayMode == constant.RelayModeImagesEdits {
+		return true
+	}
+	req, ok := info.Request.(*dto.ImageRequest)
+	if !ok || req == nil {
+		return false
+	}
+	return hasManjuBananaReferenceInputFromRequest(*req)
+}
+
+func hasManjuBananaReferenceInputFromRequest(request dto.ImageRequest) bool {
+	if len(parseJSONStringList(request.Image)) > 0 || len(parseJSONStringList(request.Images)) > 0 {
+		return true
+	}
+	return len(parseJSONStringList(request.Mask)) > 0
+}
+
+func hasManjuBananaMultipartReference(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.MultipartForm == nil {
+		return false
+	}
+	mf := c.Request.MultipartForm
+	for _, key := range []string{"image", "image[]"} {
+		if files, ok := mf.File[key]; ok && len(files) > 0 {
+			return true
+		}
+	}
+	for fieldName, files := range mf.File {
+		if strings.HasPrefix(fieldName, "image[") && len(files) > 0 {
+			return true
+		}
+	}
+	if maskFiles, ok := mf.File["mask"]; ok && len(maskFiles) > 0 {
+		return true
+	}
+	return false
+}
+
+func resolveManjuBananaUpstreamModel(info *relaycommon.RelayInfo, request dto.ImageRequest) string {
+	if info != nil && info.ChannelMeta != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
+		return strings.TrimSpace(info.UpstreamModelName)
+	}
+	if strings.TrimSpace(request.Model) != "" {
+		return strings.TrimSpace(request.Model)
+	}
+	if info != nil {
+		return strings.TrimSpace(info.OriginModelName)
+	}
+	return ""
+}
+
+// buildManjuBananaImageBody 构建上游文生图 JSON body（无参考图时使用）。
+func buildManjuBananaImageBody(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (map[string]any, error) {
+	originModel := ""
+	if info != nil {
+		originModel = info.OriginModelName
+	}
 	body := map[string]any{
-		"model":  request.Model,
+		"model":  resolveManjuBananaUpstreamModel(info, request),
 		"prompt": request.Prompt,
 	}
 	if aspect := resolveManjuBananaAspectRatio(request.Size); aspect != "" {
@@ -62,10 +143,17 @@ func buildManjuBananaImageBody(c *gin.Context, originModel string, request dto.I
 		body["n"] = *request.N
 	}
 	body["stream"] = false
-	if err := applyManjuBananaReferenceFields(body, c, request); err != nil {
-		return nil, err
-	}
 	return body, nil
+}
+
+// ConvertManjuBananaImageRequest 按 Manju 文档路由文生图或图生图上游格式。
+func ConvertManjuBananaImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if ManjuBananaUsesChatCompletionsUpstream(c, info, request) {
+		chatReq := request
+		chatReq.Model = resolveManjuBananaUpstreamModel(info, request)
+		return ConvertImageRequestForChatImage(c, info, chatReq)
+	}
+	return buildManjuBananaImageBody(c, info, request)
 }
 
 func applyManjuBananaReferenceFields(body map[string]any, c *gin.Context, request dto.ImageRequest) error {
