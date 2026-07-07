@@ -111,16 +111,7 @@ func hasManjuBananaMultipartReference(c *gin.Context) bool {
 }
 
 func resolveManjuBananaUpstreamModel(info *relaycommon.RelayInfo, request dto.ImageRequest) string {
-	if info != nil && info.ChannelMeta != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
-		return strings.TrimSpace(info.UpstreamModelName)
-	}
-	if strings.TrimSpace(request.Model) != "" {
-		return strings.TrimSpace(request.Model)
-	}
-	if info != nil {
-		return strings.TrimSpace(info.OriginModelName)
-	}
-	return ""
+	return resolveChatImageUpstreamModel(info, request)
 }
 
 // buildManjuBananaImageBody 构建上游文生图 JSON body（无参考图时使用）。

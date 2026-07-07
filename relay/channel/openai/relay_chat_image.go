@@ -53,6 +53,19 @@ func chatImageGetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	return base + "/v1/chat/completions", nil
 }
 
+func resolveChatImageUpstreamModel(info *relaycommon.RelayInfo, request dto.ImageRequest) string {
+	if info != nil && info.ChannelMeta != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
+		return strings.TrimSpace(info.UpstreamModelName)
+	}
+	if strings.TrimSpace(request.Model) != "" {
+		return strings.TrimSpace(request.Model)
+	}
+	if info != nil && strings.TrimSpace(info.OriginModelName) != "" {
+		return strings.TrimSpace(info.OriginModelName)
+	}
+	return ""
+}
+
 // ConvertImageRequestForChatImage 将 Image API 请求转为 upstream chat/completions body。
 func ConvertImageRequestForChatImage(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	messages, err := buildChatImageMessages(c, info, request)
@@ -64,8 +77,13 @@ func ConvertImageRequestForChatImage(c *gin.Context, info *relaycommon.RelayInfo
 		return nil, err
 	}
 
+	modelName := resolveChatImageUpstreamModel(info, request)
+	if modelName == "" {
+		return nil, fmt.Errorf("model is required")
+	}
+
 	chatReq := dto.GeneralOpenAIRequest{
-		Model:    request.Model,
+		Model:    modelName,
 		Messages: messages,
 		Stream:   common.GetPointer(false),
 	}

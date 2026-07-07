@@ -48,7 +48,13 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 	} else if info.RelayMode == constant.RelayModeRealtime {
 		// websocket
 	} else {
-		req.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+		// Multipart image edits are converted to JSON upstream bodies; keep client
+		// Content-Type (multipart/form-data) only when the outbound body was not marshaled.
+		if info != nil && info.UpstreamRequestBodySize > 0 {
+			req.Set("Content-Type", "application/json")
+		} else {
+			req.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+		}
 		req.Set("Accept", c.Request.Header.Get("Accept"))
 		if info.IsStream && c.Request.Header.Get("Accept") == "" {
 			req.Set("Accept", "text/event-stream")

@@ -6,9 +6,28 @@ import (
 	"testing"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSetupApiRequestHeaderUsesJSONForMarshaledUpstreamBody(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+	ctx.Request.Header.Set("Content-Type", "multipart/form-data; boundary=abc")
+
+	info := &relaycommon.RelayInfo{
+		RelayMode:               relayconstant.RelayModeImagesEdits,
+		UpstreamRequestBodySize: 128,
+	}
+
+	headers := http.Header{}
+	SetupApiRequestHeader(info, ctx, &headers)
+	require.Equal(t, "application/json", headers.Get("Content-Type"))
+}
 
 func TestProcessHeaderOverride_ChannelTestSkipsPassthroughRules(t *testing.T) {
 	t.Parallel()
