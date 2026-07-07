@@ -284,7 +284,8 @@ func extractVideoURLWithManjuFallback(res responseTask, respBody []byte) string 
 
 func parseResponseTask(respBody []byte) (responseTask, error) {
 	var res responseTask
-	if err := common.Unmarshal(respBody, &res); err == nil {
+	err := common.Unmarshal(respBody, &res)
+	if err == nil {
 		return res, nil
 	}
 	if !IsManjuSora2Response(respBody) {
