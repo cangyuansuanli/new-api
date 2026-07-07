@@ -15,66 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ConvertImageRequestToGeminiGenerateContent 将 OpenAI Image 请求转为 Gemini generateContent body。
-// 用于渠道 58/71：上游 /v1beta/models/gemini-3-pro-image-preview:generateContent。
-func ConvertImageRequestToGeminiGenerateContent(request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
-	prompt := strings.TrimSpace(request.Prompt)
-	if prompt == "" {
-		return nil, errors.New("prompt is required")
-	}
-
-	geminiRequest := &dto.GeminiChatRequest{
-		Contents: []dto.GeminiChatContent{{
-			Role:  "user",
-			Parts: []dto.GeminiPart{{Text: prompt}},
-		}},
-		GenerationConfig: dto.GeminiChatGenerationConfig{
-			ResponseModalities: []string{"TEXT", "IMAGE"},
-		},
-		SafetySettings: buildGeminiSafetySettings(),
-	}
-
-	imageConfig := map[string]any{}
-	if aspect := resolveGeminiImageAspectRatio(request.Size); aspect != "" {
-		imageConfig["aspectRatio"] = aspect
-	}
-	if imageSize := resolveGeminiImageSize(request.Quality); imageSize != "" {
-		imageConfig["imageSize"] = imageSize
-	}
-	if len(imageConfig) > 0 {
-		imageConfigBytes, err := common.Marshal(imageConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal image_config: %w", err)
-		}
-		geminiRequest.GenerationConfig.ImageConfig = imageConfigBytes
-	}
-	return geminiRequest, nil
-}
-
-func resolveGeminiImageAspectRatio(size string) string {
-	value := strings.TrimSpace(size)
-	if value == "" || strings.EqualFold(value, "auto") {
-		return ""
-	}
-	if strings.Contains(value, ":") {
-		return value
-	}
-	return ""
-}
-
-func resolveGeminiImageSize(quality string) string {
-	switch strings.ToLower(strings.TrimSpace(quality)) {
-	case "high", "hd", "4k":
-		return "4K"
-	case "medium", "2k":
-		return "2K"
-	case "low", "standard", "1k", "auto":
-		return "1K"
-	default:
-		return ""
-	}
-}
-
 func imageDataFromGeminiGenerateContent(response *dto.GeminiChatResponse) ([]dto.ImageData, error) {
 	if response == nil {
 		return nil, errors.New("empty response from Gemini API")

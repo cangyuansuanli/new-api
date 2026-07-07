@@ -96,3 +96,25 @@ func TestConvertImageEditRequestMultipart(t *testing.T) {
 		convertAndReplay(t, c, prompt)
 	})
 }
+
+func TestCollectImageEditReferenceDataURIsMultipart(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("prompt", "edit this"))
+	part, err := writer.CreateFormFile("image", "input.png")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("fakepng"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", &body)
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+
+	images, err := CollectImageEditReferenceDataURIs(c, dto.ImageRequest{})
+	require.NoError(t, err)
+	require.Len(t, images, 1)
+	require.Contains(t, images[0], "data:image/png;base64,")
+}

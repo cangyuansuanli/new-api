@@ -305,18 +305,21 @@ func readJSONStringField(event map[string]json.RawMessage, key string) string {
 }
 
 func SnapshotEditRequest(c *gin.Context) ([]byte, error) {
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+	form, err := common.ParseMultipartFormReusable(c)
+	if err != nil {
 		return nil, err
 	}
+	c.Request.MultipartForm = form
+	c.Request.PostForm = form.Value
 	payload := EditPayload{
 		Fields: make(map[string]string),
 	}
-	for key, values := range c.Request.MultipartForm.Value {
+	for key, values := range form.Value {
 		if len(values) > 0 {
 			payload.Fields[key] = values[0]
 		}
 	}
-	for key, files := range c.Request.MultipartForm.File {
+	for key, files := range form.File {
 		for _, fh := range files {
 			file, err := fh.Open()
 			if err != nil {
@@ -385,9 +388,12 @@ func IsAsyncRequest(c *gin.Context) bool {
 	contentType := c.GetHeader("Content-Type")
 	if strings.Contains(contentType, "multipart/form-data") {
 		if c.Request.MultipartForm == nil {
-			if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+			form, err := common.ParseMultipartFormReusable(c)
+			if err != nil {
 				return false
 			}
+			c.Request.MultipartForm = form
+			c.Request.PostForm = form.Value
 		}
 		return strings.EqualFold(c.PostForm("async"), "true")
 	}

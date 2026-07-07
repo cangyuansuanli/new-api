@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/constant"
@@ -193,47 +192,16 @@ func applyManjuBananaReferenceFields(body map[string]any, c *gin.Context, reques
 }
 
 func collectManjuBananaReferenceImages(c *gin.Context, request dto.ImageRequest) (images []string, mask string, err error) {
-	images = append(images, parseJSONStringList(request.Image)...)
-	images = append(images, parseJSONStringList(request.Images)...)
+	images, err = CollectImageEditReferenceDataURIs(c, request)
+	if err != nil {
+		return nil, "", err
+	}
 
-	// JSON 文生图/图生图（image/images 在 body 里）无需解析 multipart；强行 ParseMultipartFormReusable 会在
-	// Content-Type: application/json 时触发 "multipart boundary not found"。
-	if c != nil && c.Request != nil && !isJSONRequest(c) {
-		mf := c.Request.MultipartForm
-		if mf == nil {
-			mf, err = common.ParseMultipartFormReusable(c)
+	if c != nil && c.Request != nil && c.Request.MultipartForm != nil {
+		if maskFiles, ok := c.Request.MultipartForm.File["mask"]; ok && len(maskFiles) > 0 {
+			mask, err = multipartFileToDataURI(maskFiles[0])
 			if err != nil {
 				return nil, "", err
-			}
-			c.Request.MultipartForm = mf
-			c.Request.PostForm = mf.Value
-		}
-		if mf != nil {
-			for _, key := range []string{"image", "image[]"} {
-				for _, fh := range mf.File[key] {
-					dataURI, convErr := multipartFileToDataURI(fh)
-					if convErr != nil {
-						return nil, "", convErr
-					}
-					images = append(images, dataURI)
-				}
-			}
-			for fieldName, files := range mf.File {
-				if strings.HasPrefix(fieldName, "image[") && len(files) > 0 {
-					for _, fh := range files {
-						dataURI, convErr := multipartFileToDataURI(fh)
-						if convErr != nil {
-							return nil, "", convErr
-						}
-						images = append(images, dataURI)
-					}
-				}
-			}
-			if maskFiles, ok := mf.File["mask"]; ok && len(maskFiles) > 0 {
-				mask, err = multipartFileToDataURI(maskFiles[0])
-				if err != nil {
-					return nil, "", err
-				}
 			}
 		}
 	}
