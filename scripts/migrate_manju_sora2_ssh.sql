@@ -5,7 +5,7 @@ BEGIN;
 
 -- 1. 渠道前缀说明（生图 + 视频）
 UPDATE model_channel_prefixes SET
-    note = 'Manju Gemini 生图 / Sora2 视频',
+    note = 'Gemini 生图 / Sora2 视频',
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 WHERE prefix = 'manju-';
 
@@ -29,9 +29,9 @@ SELECT v.model_name, v.description, v.tags, 1, v.endpoints, 1, 0, v.video_profil
 FROM (VALUES
     (
         'manju-openai-sora2',
-        'Manju OpenAI Sora2 视频生成。创建走 POST /v1/chat/completions（Apifox sora2）；GET /v1/videos/{task_id} 轮询取片。',
-        'video,sora,manju,video-sora',
-        '{"openai-chat-video": {"path": "/v1/chat/completions", "method": "POST"}, "openai-video": {"path": "/v1/videos", "method": "GET"}}',
+        'OpenAI Sora2 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持文生视频与单张参考图。',
+        'video,sora,openai,video-sora',
+        '{"openai-video":{"path":"/v1/videos","method":"POST"}}',
         'video-tpl-manju-sora-async'
     )
 ) AS v(model_name, description, tags, endpoints, video_profile_id)
@@ -50,9 +50,9 @@ UPDATE models AS m SET
 FROM (VALUES
     (
         'manju-openai-sora2',
-        'Manju OpenAI Sora2 视频生成。创建走 POST /v1/chat/completions（Apifox sora2）；GET /v1/videos/{task_id} 轮询取片。',
-        'video,sora,manju,video-sora',
-        '{"openai-chat-video": {"path": "/v1/chat/completions", "method": "POST"}, "openai-video": {"path": "/v1/videos", "method": "GET"}}',
+        'OpenAI Sora2 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持文生视频与单张参考图。',
+        'video,sora,openai,video-sora',
+        '{"openai-video":{"path":"/v1/videos","method":"POST"}}',
         'video-tpl-manju-sora-async'
     )
 ) AS v(model_name, description, tags, endpoints, video_profile_id)
@@ -60,7 +60,7 @@ WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 
 COMMIT;
 
--- api_doc + ModelPrice 由 seed_manju_sora2_api_doc.py 写入
+-- api_doc 由 seed_manju_sora2_api_doc.py 写入（不修改 ModelPrice）
 
 SELECT 'channels' AS section, id, name, models FROM channels WHERE id = 70;
 SELECT 'models' AS section, model_name, video_profile_id, tags FROM models WHERE model_name = 'manju-openai-sora2' AND deleted_at IS NULL;

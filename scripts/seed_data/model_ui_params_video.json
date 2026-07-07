@@ -624,7 +624,7 @@
             },
             "hints": [
                 {
-                    "text": "Manju Sora2 异步视频：POST /v1/videos 创建（上游 chat），GET /v1/videos/{id} 轮询取片；支持 1 张参考图。"
+                    "text": "OpenAI Sora2 异步视频：POST /v1/videos 创建，GET /v1/videos/{id} 轮询取片；支持 1 张参考图。"
                 }
             ]
         },
