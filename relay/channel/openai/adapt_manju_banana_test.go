@@ -89,12 +89,24 @@ func TestBuildManjuBananaImageGenerationBodyWithReferenceImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
-	chatReq, ok := out.(dto.GeneralOpenAIRequest)
+	body, ok := out.(map[string]any)
 	if !ok {
-		t.Fatalf("expected chat request, got %T", out)
+		t.Fatalf("expected map body, got %T", out)
 	}
-	if chatReq.Model != "gemini-3.0-pro-image" {
-		t.Fatalf("model = %q", chatReq.Model)
+	if body["model"] != "gemini-3.0-pro-image" {
+		t.Fatalf("model = %q", body["model"])
+	}
+	if body["aspect_ratio"] != "16:9" {
+		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
+	}
+	if body["output_resolution"] != "1K" {
+		t.Fatalf("output_resolution = %v", body["output_resolution"])
+	}
+	if body["stream"] != false {
+		t.Fatalf("stream = %v", body["stream"])
+	}
+	if _, ok := body["extra_body"]; ok {
+		t.Fatalf("extra_body should not be set for Manju chat image body")
 	}
 }
 
@@ -115,12 +127,12 @@ func TestBuildManjuBananaImageGenerationBodyWithMultipleImages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
-	chatReq, ok := out.(dto.GeneralOpenAIRequest)
+	body, ok := out.(map[string]any)
 	if !ok {
-		t.Fatalf("expected chat request, got %T", out)
+		t.Fatalf("expected map body, got %T", out)
 	}
-	if chatReq.Model != "Nano Banana 2" {
-		t.Fatalf("model = %q", chatReq.Model)
+	if body["model"] != "Nano Banana 2" {
+		t.Fatalf("model = %q", body["model"])
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -71,12 +70,18 @@ func TestConvertManjuBananaMultipartEditsMarshalsUpstreamModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
-	chatReq, ok := converted.(dto.GeneralOpenAIRequest)
+	upstreamBody, ok := converted.(map[string]any)
 	if !ok {
-		t.Fatalf("expected GeneralOpenAIRequest, got %T", converted)
+		t.Fatalf("expected map body, got %T", converted)
 	}
-	if chatReq.Model != "gemini-3.0-pro-image 4K" {
-		t.Fatalf("chatReq.Model = %q", chatReq.Model)
+	if upstreamBody["model"] != "gemini-3.0-pro-image 4K" {
+		t.Fatalf("body model = %q", upstreamBody["model"])
+	}
+	if upstreamBody["stream"] != false {
+		t.Fatalf("stream = %v", upstreamBody["stream"])
+	}
+	if _, ok := upstreamBody["extra_body"]; ok {
+		t.Fatalf("extra_body should not be present: %v", upstreamBody["extra_body"])
 	}
 
 	jsonData, err := common.Marshal(converted)
@@ -95,12 +100,28 @@ func TestConvertManjuBananaMultipartEditsMarshalsUpstreamModel(t *testing.T) {
 		t.Fatalf("marshaled model = %s", got)
 	}
 
-	parts, ok := chatReq.Messages[0].Content.([]dto.MediaContent)
-	if !ok || len(parts) < 2 {
-		t.Fatalf("expected multipart content parts, got %#v", chatReq.Messages[0].Content)
+	messagesRaw, ok := payload["messages"]
+	if !ok {
+		t.Fatalf("missing messages: %s", string(jsonData))
 	}
-	if parts[1].Type != "image_url" {
-		t.Fatalf("expected image_url part, got %+v", parts[1])
+	var messages []struct {
+		Role    string `json:"role"`
+		Content []struct {
+			Type     string `json:"type"`
+			Text     string `json:"text,omitempty"`
+			ImageURL *struct {
+				URL string `json:"url"`
+			} `json:"image_url,omitempty"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(messagesRaw, &messages); err != nil {
+		t.Fatalf("messages: %v", err)
+	}
+	if len(messages) != 1 || len(messages[0].Content) < 2 {
+		t.Fatalf("messages = %s", string(messagesRaw))
+	}
+	if messages[0].Content[1].Type != "image_url" || messages[0].Content[1].ImageURL == nil {
+		t.Fatalf("expected image_url part, got %+v", messages[0].Content[1])
 	}
 
 	// body must stay replayable after conversion path touched multipart

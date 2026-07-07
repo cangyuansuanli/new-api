@@ -3,7 +3,8 @@ package openai
 // Manju Gemini Banana 适配层（对齐 Manju OpenAI 兼容 API 文档）。
 //
 // 文生图：buildManjuBananaImageBody → 上游 POST /v1/images/generations（model=UpstreamModelName）
-// 图生图（edits / 带参考图）：ConvertImageRequestForChatImage → POST /v1/chat/completions + image_url
+// 图生图（edits / 带参考图）：buildManjuBananaChatImageBody → POST /v1/chat/completions
+//   （顶层 aspect_ratio / output_resolution + messages[].content[].image_url，见 Manju Apifox）
 //
 // Legacy chat 响应（含 async poll）：
 //   manjuBananaAdaptIfNeeded → AdaptManjuBananaChatCompletionResponse
@@ -137,12 +138,38 @@ func buildManjuBananaImageBody(c *gin.Context, info *relaycommon.RelayInfo, requ
 	return body, nil
 }
 
+// buildManjuBananaChatImageBody 构建 Manju 图生图 chat/completions body（Apifox 03 图生图任务创建）。
+func buildManjuBananaChatImageBody(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (map[string]any, error) {
+	messages, err := buildChatImageMessages(c, info, request)
+	if err != nil {
+		return nil, err
+	}
+	modelName := resolveManjuBananaUpstreamModel(info, request)
+	if modelName == "" {
+		return nil, fmt.Errorf("model is required")
+	}
+	originModel := ""
+	if info != nil {
+		originModel = info.OriginModelName
+	}
+	body := map[string]any{
+		"model":    modelName,
+		"stream":   false,
+		"messages": messages,
+	}
+	if aspect := resolveManjuBananaAspectRatio(request.Size); aspect != "" {
+		body["aspect_ratio"] = aspect
+	}
+	if resolution := resolveManjuBananaOutputResolution(originModel, request.Quality); resolution != "" {
+		body["output_resolution"] = resolution
+	}
+	return body, nil
+}
+
 // ConvertManjuBananaImageRequest 按 Manju 文档路由文生图或图生图上游格式。
 func ConvertManjuBananaImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	if ManjuBananaUsesChatCompletionsUpstream(c, info, request) {
-		chatReq := request
-		chatReq.Model = resolveManjuBananaUpstreamModel(info, request)
-		return ConvertImageRequestForChatImage(c, info, chatReq)
+		return buildManjuBananaChatImageBody(c, info, request)
 	}
 	return buildManjuBananaImageBody(c, info, request)
 }
