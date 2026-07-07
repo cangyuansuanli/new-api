@@ -3,14 +3,14 @@ package openai
 import (
 	"encoding/json"
 
-	tasksora "github.com/QuantumNous/new-api/relay/channel/task/sora"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/relay/channel/task/manjusora"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
 // IsManjuSora2OriginModel Manju 渠道 #70 视频模型。
 func IsManjuSora2OriginModel(originModel string) bool {
-	return tasksora.IsManjuSora2Relay(originModel, "")
+	return manjusora.IsRelay(originModel, "")
 }
 
 func convertManjuSora2OpenAIChatRequest(request *dto.GeneralOpenAIRequest, info *relaycommon.RelayInfo) (any, error) {
@@ -22,7 +22,7 @@ func convertManjuSora2OpenAIChatRequest(request *dto.GeneralOpenAIRequest, info 
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return nil, err
 	}
-	return tasksora.ConvertManjuSora2ChatBody(body, info.UpstreamModelName)
+	return manjusora.ConvertChatBody(body, info.UpstreamModelName)
 }
 
 // manjuSora2PassthroughIfNeeded chat/completions 上游若返回 Manju task 对象，原样透传；失败时转为 OpenAI error。
@@ -30,11 +30,11 @@ func manjuSora2PassthroughIfNeeded(info *relaycommon.RelayInfo, responseBody []b
 	if info == nil || !IsManjuSora2OriginModel(info.OriginModelName) {
 		return responseBody, false
 	}
-	if errBody, ok := tasksora.BuildManjuSoraOpenAIErrorResponse(responseBody); ok {
+	if errBody, ok := manjusora.BuildOpenAIErrorResponse(responseBody); ok {
 		return errBody, true
 	}
-	if !tasksora.IsManjuSora2Response(responseBody) {
-		if reason := tasksora.ExtractManjuSoraFailReasonForChat(responseBody); reason != "" {
+	if !manjusora.IsResponse(responseBody) {
+		if reason := manjusora.ExtractFailReasonForChat(responseBody); reason != "" {
 			out, err := json.Marshal(map[string]any{
 				"error": map[string]any{
 					"message": reason,

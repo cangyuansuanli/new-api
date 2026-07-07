@@ -1,23 +1,16 @@
-package sora
+package seedance
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/openaivideo"
 )
 
-const tengdaSeedanceUpstreamModel = "manxue-2.0"
+const tengdaUpstreamModel = "manxue-2.0"
 
-// IsTengdaSeedanceRelay Seedance 特惠档（cy-sd2- / 上游 manxue-2.0）：flat → content[] 转换。
-func IsTengdaSeedanceRelay(originModel, upstreamModel string) bool {
-	if strings.EqualFold(strings.TrimSpace(upstreamModel), tengdaSeedanceUpstreamModel) {
-		return true
-	}
-	origin := strings.ToLower(strings.TrimSpace(originModel))
-	return strings.HasPrefix(origin, "cy-sd2-seedance") || strings.HasPrefix(origin, "tengd-seedance")
-}
-
-func maybeConvertTengdaSeedanceBody(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
+func maybeConvertTengdaBody(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
 	if body == nil {
 		return body, nil
 	}
@@ -93,13 +86,13 @@ func hasFlatSeedanceFields(body map[string]interface{}) bool {
 }
 
 func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
-	prompt := strings.TrimSpace(asString(body["prompt"]))
+	prompt := strings.TrimSpace(oaivideo.AsString(body["prompt"]))
 	if prompt == "" {
 		return nil, fmt.Errorf("prompt is required")
 	}
 
 	out := map[string]interface{}{
-		"model": upstreamModel,
+		"model":  upstreamModel,
 		"prompt": prompt,
 	}
 
@@ -113,8 +106,8 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 		out["resolution"] = resolution
 	}
 
-	firstURL := strings.TrimSpace(asString(body["first_image_url"]))
-	lastURL := strings.TrimSpace(asString(body["last_image_url"]))
+	firstURL := strings.TrimSpace(oaivideo.AsString(body["first_image_url"]))
+	lastURL := strings.TrimSpace(oaivideo.AsString(body["last_image_url"]))
 	content := make([]map[string]interface{}, 0, 8)
 
 	if firstURL != "" || lastURL != "" {
@@ -134,8 +127,8 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 		}
 	} else {
 		imageURLs := collectImageURLs(body)
-		videoURLs := collectStringList(body["reference_videos"])
-		audioURLs := collectStringList(body["reference_audios"])
+		videoURLs := oaivideo.CollectStringList(body["reference_videos"])
+		audioURLs := oaivideo.CollectStringList(body["reference_audios"])
 
 		if (len(videoURLs) > 0 || len(audioURLs) > 0) && len(imageURLs) == 0 {
 			return nil, fmt.Errorf("带视频/音频参考时至少需要 1 张参考图")
@@ -174,7 +167,7 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 	if hasReferenceAudio {
 		out["generate_audio"] = true
 	} else if v, ok := body["generate_audio"]; ok {
-		out["generate_audio"] = asBool(v)
+		out["generate_audio"] = oaivideo.AsBool(v)
 	}
 
 	if len(content) > 0 {
@@ -188,7 +181,6 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 func collectImageURLs(body map[string]interface{}) []string {
 	seen := map[string]struct{}{}
 	out := make([]string, 0, 9)
-
 	add := func(url string) {
 		url = strings.TrimSpace(url)
 		if url == "" {
@@ -200,59 +192,26 @@ func collectImageURLs(body map[string]interface{}) []string {
 		seen[url] = struct{}{}
 		out = append(out, url)
 	}
-
-	add(asString(body["image_url"]))
-
-	for _, url := range collectStringList(body["reference_image_urls"]) {
+	add(oaivideo.AsString(body["image_url"]))
+	for _, url := range oaivideo.CollectStringList(body["reference_image_urls"]) {
 		add(url)
 	}
-
 	switch refs := body["reference_images"].(type) {
 	case []interface{}:
 		for _, item := range refs {
-			add(extractRefURL(item))
-		}
-	}
-
-	return out
-}
-
-func extractRefURL(item interface{}) string {
-	switch v := item.(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case map[string]interface{}:
-		return strings.TrimSpace(asString(v["url"]))
-	default:
-		return ""
-	}
-}
-
-func collectStringList(raw interface{}) []string {
-	out := make([]string, 0)
-	switch v := raw.(type) {
-	case []interface{}:
-		for _, item := range v {
-			if s := extractRefURL(item); s != "" {
-				out = append(out, s)
+			switch v := item.(type) {
+			case string:
+				add(v)
+			case map[string]interface{}:
+				add(oaivideo.AsString(v["url"]))
 			}
-		}
-	case []string:
-		for _, s := range v {
-			if s = strings.TrimSpace(s); s != "" {
-				out = append(out, s)
-			}
-		}
-	case string:
-		if s := strings.TrimSpace(v); s != "" {
-			out = append(out, s)
 		}
 	}
 	return out
 }
 
 func pickSeconds(body map[string]interface{}) string {
-	if s := strings.TrimSpace(asString(body["seconds"])); s != "" {
+	if s := strings.TrimSpace(oaivideo.AsString(body["seconds"])); s != "" {
 		return s
 	}
 	if d := body["duration"]; d != nil {
@@ -273,14 +232,14 @@ func pickSeconds(body map[string]interface{}) string {
 }
 
 func pickRatio(body map[string]interface{}) string {
-	if r := strings.TrimSpace(asString(body["ratio"])); r != "" {
+	if r := strings.TrimSpace(oaivideo.AsString(body["ratio"])); r != "" {
 		return r
 	}
-	return strings.TrimSpace(asString(body["aspect_ratio"]))
+	return strings.TrimSpace(oaivideo.AsString(body["aspect_ratio"]))
 }
 
 func pickGeeknowResolution(body map[string]interface{}) string {
-	raw := strings.TrimSpace(asString(body["resolution"]))
+	raw := strings.TrimSpace(oaivideo.AsString(body["resolution"]))
 	if raw == "" {
 		return "720P"
 	}
@@ -288,41 +247,6 @@ func pickGeeknowResolution(body map[string]interface{}) string {
 		return "480P"
 	}
 	return "720P"
-}
-
-func asString(v interface{}) string {
-	switch t := v.(type) {
-	case string:
-		return t
-	case float64:
-		if t == float64(int(t)) {
-			return strconv.Itoa(int(t))
-		}
-		return strconv.FormatFloat(t, 'f', -1, 64)
-	case int:
-		return strconv.Itoa(t)
-	case int64:
-		return strconv.FormatInt(t, 10)
-	case bool:
-		return strconv.FormatBool(t)
-	default:
-		return fmt.Sprint(v)
-	}
-}
-
-func asBool(v interface{}) bool {
-	switch t := v.(type) {
-	case bool:
-		return t
-	case string:
-		return strings.EqualFold(strings.TrimSpace(t), "true")
-	case float64:
-		return t != 0
-	case int:
-		return t != 0
-	default:
-		return false
-	}
 }
 
 func cloneBodyMap(body map[string]interface{}) map[string]interface{} {

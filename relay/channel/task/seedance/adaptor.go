@@ -1,15 +1,14 @@
-package sora
+package seedance
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/tidwall/sjson"
 )
 
 type TaskAdaptor struct {
@@ -36,30 +34,11 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.apiKey = info.ApiKey
 }
 
-func validateRemixRequest(c *gin.Context) *dto.TaskError {
-	var req relaycommon.TaskSubmitReq
-	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
-		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
-	}
-	if strings.TrimSpace(req.Prompt) == "" {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("field prompt is required"), "invalid_request", http.StatusBadRequest)
-	}
-	relaycommon.StorePromptInput(c, req.Prompt)
-	c.Set("task_request", req)
-	return nil
-}
-
-func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
-	if info.Action == constant.TaskActionRemix {
-		return validateRemixRequest(c)
-	}
+func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
 	return relaycommon.ValidateMultipartDirect(c, info)
 }
 
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
-	if info.Action == constant.TaskActionRemix {
-		return nil
-	}
 	modelName := info.OriginModelName
 	if service.IsPerRequestTaskBilling(modelName) {
 		return nil
@@ -87,9 +66,6 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if info.Action == constant.TaskActionRemix {
-		return fmt.Sprintf("%s/v1/videos/%s/remix", a.baseURL, info.OriginTaskID), nil
-	}
 	return fmt.Sprintf("%s/v1/videos", a.baseURL), nil
 }
 
@@ -100,6 +76,22 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
+	if IsTengdaRelay(info.OriginModelName, info.UpstreamModelName) {
+		bodyMap, err := readJSONBodyMap(c)
+		if err != nil {
+			return nil, err
+		}
+		converted, convErr := maybeConvertTengdaBody(bodyMap, info.UpstreamModelName)
+		if convErr != nil {
+			return nil, convErr
+		}
+		newBody, err := common.Marshal(converted)
+		if err != nil {
+			return nil, err
+		}
+		c.Request.Header.Set("Content-Type", "application/json")
+		return bytes.NewReader(newBody), nil
+	}
 	return oaivideo.BuildPassthroughRequestBody(c, info.UpstreamModelName)
 }
 
@@ -153,11 +145,11 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
-	return ModelList
+	return nil
 }
 
 func (a *TaskAdaptor) GetChannelName() string {
-	return ChannelName
+	return "seedance"
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
@@ -165,7 +157,6 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	if err != nil {
 		return nil, errors.Wrap(err, "unmarshal task result failed")
 	}
-
 	taskResult := relaycommon.TaskInfo{Code: 0}
 	switch strings.ToLower(strings.TrimSpace(resTask.Status)) {
 	case "queued", "pending":
@@ -225,7 +216,7 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 	if _, ok := bc.OtherRatios["seconds"]; !ok {
 		return 0
 	}
-	actualSeconds := usageSecondsFromTaskData(task.Data)
+	actualSeconds := oaivideo.UsageSecondsFromTaskData(task.Data, nil)
 	if actualSeconds <= 0 && taskResult != nil {
 		if taskResult.CompletionTokens > 0 {
 			actualSeconds = taskResult.CompletionTokens
@@ -233,8 +224,10 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 			actualSeconds = taskResult.TotalTokens
 		}
 	}
-	if actualSeconds <= 0 {
-		actualSeconds = usageSecondsFromBillingContext(bc)
+	if actualSeconds <= 0 && bc.OtherRatios != nil {
+		if seconds, ok := bc.OtherRatios["seconds"]; ok && seconds > 0 {
+			actualSeconds = int(seconds + 0.5)
+		}
 	}
 	if actualSeconds <= 0 {
 		return 0
@@ -251,21 +244,6 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 		multiplier *= ratio
 	}
 	return int(bc.ModelPrice * common.QuotaPerUnit * groupRatio * float64(actualSeconds) * multiplier)
-}
-
-func usageSecondsFromTaskData(data []byte) int {
-	return oaivideo.UsageSecondsFromTaskData(data, nil)
-}
-
-func usageSecondsFromBillingContext(bc *model.TaskBillingContext) int {
-	if bc == nil || bc.OtherRatios == nil {
-		return 0
-	}
-	seconds, ok := bc.OtherRatios["seconds"]
-	if !ok || seconds <= 0 {
-		return 0
-	}
-	return int(math.Round(seconds))
 }
 
 func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
@@ -304,19 +282,44 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 			openAIVideo.Error = &dto.OpenAIVideoError{Message: reason}
 		}
 	}
-	data, err := common.Marshal(openAIVideo)
+	return common.Marshal(openAIVideo)
+}
+
+func readJSONBodyMap(c *gin.Context) (map[string]interface{}, error) {
+	storage, err := common.GetBodyStorage(c)
 	if err != nil {
+		return nil, errors.Wrap(err, "get_request_body_failed")
+	}
+	cachedBody, err := storage.Bytes()
+	if err != nil {
+		return nil, errors.Wrap(err, "read_body_bytes_failed")
+	}
+	var bodyMap map[string]interface{}
+	if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
 		return nil, err
 	}
-	if videoURL != "" {
-		if data, err = sjson.SetBytes(data, "video_url", videoURL); err != nil {
-			return nil, errors.Wrap(err, "set video_url failed")
-		}
+	return bodyMap, nil
+}
+
+// IsRelay Leonardo cy-sd4 或 Tengda cy-sd2 模型。
+func IsRelay(originModel, upstreamModel string) bool {
+	return IsLeonardoRelay(originModel) || IsTengdaRelay(originModel, upstreamModel)
+}
+
+// IsLeonardoRelay Leonardo 订阅号 Seedance（cy-sd4-）。
+func IsLeonardoRelay(originModel string) bool {
+	origin := strings.ToLower(strings.TrimSpace(originModel))
+	return strings.HasPrefix(origin, "cy-sd4-seedance")
+}
+
+// IsTengdaRelay Seedance 特惠档（cy-sd2- / tengd-seedance）。
+func IsTengdaRelay(originModel, upstreamModel string) bool {
+	origin := strings.ToLower(strings.TrimSpace(originModel))
+	if !strings.HasPrefix(origin, "cy-sd2-seedance") && !strings.HasPrefix(origin, "tengd-seedance") {
+		return false
 	}
-	if task.Status == model.TaskStatusFailure && openAIVideo.Error != nil && openAIVideo.Error.Message != "" {
-		if data, err = sjson.SetBytes(data, "fail_reason", openAIVideo.Error.Message); err != nil {
-			return nil, errors.Wrap(err, "set fail_reason failed")
-		}
+	if strings.TrimSpace(upstreamModel) == "" {
+		return true
 	}
-	return data, nil
+	return strings.EqualFold(strings.TrimSpace(upstreamModel), tengdaUpstreamModel)
 }

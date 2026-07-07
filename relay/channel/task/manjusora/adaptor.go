@@ -1,15 +1,16 @@
-package sora
+package manjusora
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
-	"math"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
@@ -20,8 +21,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+const upstreamModel = "sora2"
 
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
@@ -36,30 +40,11 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.apiKey = info.ApiKey
 }
 
-func validateRemixRequest(c *gin.Context) *dto.TaskError {
-	var req relaycommon.TaskSubmitReq
-	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
-		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
-	}
-	if strings.TrimSpace(req.Prompt) == "" {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("field prompt is required"), "invalid_request", http.StatusBadRequest)
-	}
-	relaycommon.StorePromptInput(c, req.Prompt)
-	c.Set("task_request", req)
-	return nil
-}
-
-func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
-	if info.Action == constant.TaskActionRemix {
-		return validateRemixRequest(c)
-	}
+func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
 	return relaycommon.ValidateMultipartDirect(c, info)
 }
 
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
-	if info.Action == constant.TaskActionRemix {
-		return nil
-	}
 	modelName := info.OriginModelName
 	if service.IsPerRequestTaskBilling(modelName) {
 		return nil
@@ -87,10 +72,7 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if info.Action == constant.TaskActionRemix {
-		return fmt.Sprintf("%s/v1/videos/%s/remix", a.baseURL, info.OriginTaskID), nil
-	}
-	return fmt.Sprintf("%s/v1/videos", a.baseURL), nil
+	return fmt.Sprintf("%s/v1/chat/completions", a.baseURL), nil
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
@@ -100,7 +82,20 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
-	return oaivideo.BuildPassthroughRequestBody(c, info.UpstreamModelName)
+	bodyMap, err := readRequestBodyMap(c)
+	if err != nil {
+		return nil, err
+	}
+	converted, convErr := ConvertChatBody(bodyMap, info.UpstreamModelName)
+	if convErr != nil {
+		return nil, convErr
+	}
+	newBody, err := common.Marshal(converted)
+	if err != nil {
+		return nil, err
+	}
+	c.Request.Header.Set("Content-Type", "application/json")
+	return bytes.NewReader(newBody), nil
 }
 
 func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (*http.Response, error) {
@@ -115,22 +110,26 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 	_ = resp.Body.Close()
 
-	dResp, err := oaivideo.ParseResponseTask(responseBody)
+	dResp, err := parseResponseTask(responseBody)
 	if err != nil {
 		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
 		return
 	}
+
 	upstreamID := dResp.ID
 	if upstreamID == "" {
 		upstreamID = dResp.TaskID
 	}
 	if upstreamID == "" {
+		if reason := ExtractFailReason(responseBody); reason != "" {
+			taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("%s", reason), "upstream_error", http.StatusBadRequest)
+			return
+		}
 		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
 		return
 	}
-	dResp.ID = info.PublicTaskID
-	dResp.TaskID = info.PublicTaskID
-	c.JSON(http.StatusOK, dResp)
+
+	c.JSON(http.StatusOK, buildOpenAIVideoCreateResponse(info, dResp, responseBody))
 	return upstreamID, responseBody, nil
 }
 
@@ -153,15 +152,15 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
-	return ModelList
+	return []string{"manju-openai-sora2"}
 }
 
 func (a *TaskAdaptor) GetChannelName() string {
-	return ChannelName
+	return "manju-sora2"
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
-	resTask, err := oaivideo.ParseResponseTask(respBody)
+	resTask, err := parseResponseTask(respBody)
 	if err != nil {
 		return nil, errors.Wrap(err, "unmarshal task result failed")
 	}
@@ -178,10 +177,10 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	case "completed", "succeeded", "success", "done":
 		taskResult.Status = model.TaskStatusSuccess
 		taskResult.Progress = "100%"
-		if videoURL := oaivideo.ExtractVideoURL(resTask); videoURL != "" {
+		if videoURL := extractVideoURL(resTask, respBody); videoURL != "" {
 			taskResult.Url = videoURL
 		}
-		if seconds := oaivideo.UsageSecondsFromResponseTask(resTask); seconds > 0 {
+		if seconds := usageSecondsFromBody(respBody); seconds > 0 {
 			taskResult.CompletionTokens = seconds
 			taskResult.TotalTokens = seconds
 		}
@@ -190,23 +189,28 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Progress = "100%"
 		if msg, _ := oaivideo.ParseErrorField(resTask.Error); msg != "" {
 			taskResult.Reason = msg
-		} else if reason := oaivideo.ExtractErrorMessage(respBody); reason != "" {
+		} else if reason := ExtractFailReason(respBody); reason != "" {
 			taskResult.Reason = reason
 		} else {
 			taskResult.Reason = "task failed"
 		}
 	default:
-		if taskResult.Status == "" {
-			if reason := oaivideo.ExtractErrorMessage(respBody); reason != "" {
-				taskResult.Status = model.TaskStatusFailure
-				taskResult.Progress = "100%"
-				taskResult.Reason = reason
+		if IsResponse(respBody) {
+			status := strings.ToLower(strings.TrimSpace(gjson.GetBytes(respBody, "status").String()))
+			if status == "" || isFailedStatus(status) {
+				if reason := ExtractFailReason(respBody); reason != "" {
+					taskResult.Status = model.TaskStatusFailure
+					taskResult.Progress = "100%"
+					taskResult.Reason = reason
+					break
+				}
 			}
 		}
 	}
 	if resTask.Progress > 0 && resTask.Progress < 100 {
 		taskResult.Progress = fmt.Sprintf("%d%%", resTask.Progress)
 	}
+	enrichTaskResult(&taskResult, respBody)
 	return &taskResult, nil
 }
 
@@ -225,7 +229,7 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 	if _, ok := bc.OtherRatios["seconds"]; !ok {
 		return 0
 	}
-	actualSeconds := usageSecondsFromTaskData(task.Data)
+	actualSeconds := oaivideo.UsageSecondsFromTaskData(task.Data, usageSecondsFromBody)
 	if actualSeconds <= 0 && taskResult != nil {
 		if taskResult.CompletionTokens > 0 {
 			actualSeconds = taskResult.CompletionTokens
@@ -233,8 +237,10 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 			actualSeconds = taskResult.TotalTokens
 		}
 	}
-	if actualSeconds <= 0 {
-		actualSeconds = usageSecondsFromBillingContext(bc)
+	if actualSeconds <= 0 && bc.OtherRatios != nil {
+		if seconds, ok := bc.OtherRatios["seconds"]; ok && seconds > 0 {
+			actualSeconds = int(seconds + 0.5)
+		}
 	}
 	if actualSeconds <= 0 {
 		return 0
@@ -253,23 +259,8 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 	return int(bc.ModelPrice * common.QuotaPerUnit * groupRatio * float64(actualSeconds) * multiplier)
 }
 
-func usageSecondsFromTaskData(data []byte) int {
-	return oaivideo.UsageSecondsFromTaskData(data, nil)
-}
-
-func usageSecondsFromBillingContext(bc *model.TaskBillingContext) int {
-	if bc == nil || bc.OtherRatios == nil {
-		return 0
-	}
-	seconds, ok := bc.OtherRatios["seconds"]
-	if !ok || seconds <= 0 {
-		return 0
-	}
-	return int(math.Round(seconds))
-}
-
 func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
-	dResp, err := oaivideo.ParseResponseTask(task.Data)
+	dResp, err := parseResponseTask(task.Data)
 	if err != nil {
 		return nil, errors.Wrap(err, "unmarshal task data failed")
 	}
@@ -285,7 +276,7 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	} else if dResp.CompletedAt > 0 {
 		openAIVideo.CompletedAt = dResp.CompletedAt
 	}
-	videoURL := oaivideo.ExtractVideoURL(dResp)
+	videoURL := extractVideoURL(dResp, task.Data)
 	if videoURL == "" {
 		videoURL = task.GetResultURL()
 	}
@@ -294,6 +285,11 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	}
 	if task.Status == model.TaskStatusFailure {
 		reason := task.FailReason
+		if reason == "" || oaivideo.IsGenericTaskFailureReason(reason) {
+			if extracted := ExtractFailReason(task.Data); extracted != "" {
+				reason = extracted
+			}
+		}
 		if reason == "" {
 			reason = oaivideo.ExtractErrorMessage(task.Data)
 		}
@@ -319,4 +315,90 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 		}
 	}
 	return data, nil
+}
+
+func readRequestBodyMap(c *gin.Context) (map[string]interface{}, error) {
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "get_request_body_failed")
+	}
+	cachedBody, err := storage.Bytes()
+	if err != nil {
+		return nil, errors.Wrap(err, "read_body_bytes_failed")
+	}
+	contentType := c.GetHeader("Content-Type")
+
+	if strings.HasPrefix(contentType, "application/json") {
+		var bodyMap map[string]interface{}
+		if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
+			return nil, err
+		}
+		return bodyMap, nil
+	}
+
+	if strings.Contains(contentType, "multipart/form-data") {
+		formData, err := common.ParseMultipartFormReusable(c)
+		if err != nil {
+			return nil, err
+		}
+		bodyMap := map[string]interface{}{}
+		for key, values := range formData.Value {
+			if len(values) == 0 {
+				continue
+			}
+			if len(values) == 1 {
+				bodyMap[key] = values[0]
+			} else {
+				bodyMap[key] = values
+			}
+		}
+		if ref, err := firstMultipartFileDataURI(formData, "input_reference", "image"); err != nil {
+			return nil, err
+		} else if ref != "" {
+			if existing := strings.TrimSpace(oaivideo.AsString(bodyMap["input_reference"])); existing == "" {
+				bodyMap["input_reference"] = ref
+			}
+		}
+		return bodyMap, nil
+	}
+
+	var bodyMap map[string]interface{}
+	if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
+		return nil, err
+	}
+	return bodyMap, nil
+}
+
+func firstMultipartFileDataURI(formData *multipart.Form, fieldNames ...string) (string, error) {
+	for _, name := range fieldNames {
+		for _, fh := range formData.File[name] {
+			f, err := fh.Open()
+			if err != nil {
+				return "", err
+			}
+			data, err := io.ReadAll(f)
+			f.Close()
+			if err != nil {
+				return "", err
+			}
+			ct := fh.Header.Get("Content-Type")
+			if ct == "" || ct == "application/octet-stream" {
+				ct = http.DetectContentType(data)
+			}
+			return fmt.Sprintf("data:%s;base64,%s", ct, base64.StdEncoding.EncodeToString(data)), nil
+		}
+	}
+	return "", nil
+}
+
+// IsRelay 仅按 internal 模型名识别 Manju Sora2，避免上游 model 误匹配污染其他渠道。
+func IsRelay(originModel, upstreamModel string) bool {
+	origin := strings.ToLower(strings.TrimSpace(originModel))
+	if origin != "manju-openai-sora2" && !strings.HasPrefix(origin, "manju-openai-sora") {
+		return false
+	}
+	if strings.TrimSpace(upstreamModel) == "" {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(upstreamModel), upstreamModelName)
 }

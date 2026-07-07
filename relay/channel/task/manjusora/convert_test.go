@@ -1,4 +1,4 @@
-package sora
+package manjusora
 
 import (
 	"strings"
@@ -8,17 +8,20 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
-func TestIsManjuSora2Relay(t *testing.T) {
-	if !IsManjuSora2Relay("manju-openai-sora2", "sora2") {
+func TestIsRelay(t *testing.T) {
+	if !IsRelay("manju-openai-sora2", "sora2") {
 		t.Fatal("expected manju sora2 relay")
 	}
-	if IsManjuSora2Relay("sora-2", "sora-2") {
+	if IsRelay("sora-2", "sora-2") {
 		t.Fatal("expected standard sora not manju")
+	}
+	if IsRelay("cy-sd4-seedance-2.0", "sora2") {
+		t.Fatal("leonardo seedance must not match manju relay")
 	}
 }
 
-func TestConvertManjuSora2ChatBody(t *testing.T) {
-	out, err := ConvertManjuSora2ChatBody(map[string]interface{}{
+func TestConvertChatBody(t *testing.T) {
+	out, err := ConvertChatBody(map[string]interface{}{
 		"prompt":  "cat on beach",
 		"seconds": "8",
 		"size":    "1280x720",
@@ -38,13 +41,30 @@ func TestConvertManjuSora2ChatBody(t *testing.T) {
 	if out["sora2_duration"] != "8" {
 		t.Fatalf("expected sora2_duration 8, got %v", out["sora2_duration"])
 	}
+	if out["sora2_output_resolution"] != "720p" {
+		t.Fatalf("expected sora2_output_resolution 720p, got %v", out["sora2_output_resolution"])
+	}
 	msgs, ok := out["messages"].([]map[string]interface{})
 	if !ok || len(msgs) == 0 || msgs[0]["content"] != "cat on beach" {
 		t.Fatalf("expected messages with prompt, got %v", out["messages"])
 	}
 }
 
-func TestParseTaskResult_ManjuSora2Succeeded(t *testing.T) {
+func TestConvertChatBody_InputReference(t *testing.T) {
+	out, err := ConvertChatBody(map[string]interface{}{
+		"prompt":          "cat",
+		"seconds":         "8",
+		"input_reference": "https://example.com/ref.png",
+	}, "sora2")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out["input_reference"] != "https://example.com/ref.png" {
+		t.Fatalf("expected input_reference, got %v", out["input_reference"])
+	}
+}
+
+func TestParseTaskResult_Succeeded(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	body := []byte(`{
 		"id":"sora2-e949ceaef92c",
@@ -71,57 +91,7 @@ func TestParseTaskResult_ManjuSora2Succeeded(t *testing.T) {
 	}
 }
 
-func TestParseTaskResult_ManjuSora2Running(t *testing.T) {
-	adaptor := &TaskAdaptor{}
-	body := []byte(`{"id":"sora2-abc","platform":"sora2","status":"running","progress":13}`)
-	result, err := adaptor.ParseTaskResult(body)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Status != model.TaskStatusInProgress {
-		t.Fatalf("expected IN_PROGRESS, got %s", result.Status)
-	}
-	if result.Progress != "13%" {
-		t.Fatalf("expected 13%%, got %q", result.Progress)
-	}
-}
-
-func TestParseResponseTask_ManjuNestedData(t *testing.T) {
-	body := []byte(`{"id":"sora2-abc","platform":"sora2","status":"running","progress":13,"data":{"id":1,"data":{"video_url":""}}}`)
-	res, err := parseResponseTask(body)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.ID != "sora2-abc" {
-		t.Fatalf("expected id sora2-abc, got %q", res.ID)
-	}
-	if res.Status != "running" {
-		t.Fatalf("expected running, got %q", res.Status)
-	}
-}
-
-func TestBuildOpenAIVideoCreateResponse(t *testing.T) {
-	info := &relaycommon.RelayInfo{
-		PublicTaskID:    "task_public",
-		OriginModelName: "manju-openai-sora2",
-	}
-	out := buildOpenAIVideoCreateResponse(info, responseTask{Status: "running", Progress: 13, Seconds: "8"}, nil)
-	if out["id"] != "task_public" {
-		t.Fatalf("expected public task id")
-	}
-	if out["status"] != "in_progress" {
-		t.Fatalf("expected in_progress, got %v", out["status"])
-	}
-}
-
-func TestExtractManjuSoraVideoURL(t *testing.T) {
-	body := []byte(`{"metadata":{"url":"https://example.com/a.mp4"}}`)
-	if got := extractManjuSoraVideoURL(body); got != "https://example.com/a.mp4" {
-		t.Fatalf("expected metadata url, got %q", got)
-	}
-}
-
-func TestParseTaskResult_ManjuSora2FailedWithMessage(t *testing.T) {
+func TestParseTaskResult_FailedWithMessage(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	body := []byte(`{
 		"id":"sora2-failed001",
@@ -142,13 +112,27 @@ func TestParseTaskResult_ManjuSora2FailedWithMessage(t *testing.T) {
 	}
 }
 
-func TestBuildManjuSoraOpenAIErrorResponse(t *testing.T) {
+func TestBuildOpenAIErrorResponse(t *testing.T) {
 	body := []byte(`{"id":"sora2-failed001","platform":"sora2","status":"failed","message":"审核失败"}`)
-	out, ok := BuildManjuSoraOpenAIErrorResponse(body)
+	out, ok := BuildOpenAIErrorResponse(body)
 	if !ok {
 		t.Fatal("expected error conversion")
 	}
 	if !strings.Contains(string(out), "审核失败") {
 		t.Fatalf("expected message in output, got %s", string(out))
+	}
+}
+
+func TestBuildOpenAIVideoCreateResponse(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		PublicTaskID:    "task_public",
+		OriginModelName: "manju-openai-sora2",
+	}
+	out := buildOpenAIVideoCreateResponse(info, responseTaskFromGJSON([]byte(`{"status":"running","progress":13,"properties":{"duration":"8"}}`)), nil)
+	if out["id"] != "task_public" {
+		t.Fatal("expected public task id")
+	}
+	if out["status"] != "in_progress" {
+		t.Fatalf("expected in_progress, got %v", out["status"])
 	}
 }

@@ -587,6 +587,7 @@
         {
             "id": "video-tpl-manju-sora-async",
             "apiMode": "videos-json-async",
+            "payloadBuilder": "manju-sora",
             "match": [
                 "manju-openai-sora2",
                 "manju-openai-sora"
