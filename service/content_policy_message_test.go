@@ -177,7 +177,13 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 			name: "leonardo_upstream_no_detail_zh",
 			raw:  "leonardo: video generation failed (FAILED, upstream returned no detail; try fewer references or a simpler prompt)",
 			preferChinese: true,
-			want: GenerationFailedNoDetailZH,
+			want: "Leonardo 上游生成失败（未返回具体原因）：任务被拒绝且无输出，建议缩短提示词或减少参考素材后重试。",
+		},
+		{
+			name: "leonardo_upstream_empty_output_zh",
+			raw:  "leonardo: video generation failed (FAILED): upstream rejected the job with no output; try a shorter prompt or fewer references",
+			preferChinese: true,
+			want: "Leonardo 上游拒绝了该任务（无任何输出），建议缩短提示词或减少参考素材后重试。",
 		},
 		{
 			name: "leonardo_upstream_detail_passthrough_zh",
@@ -190,6 +196,17 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 			raw:  "leonardo: video generation failed (FAILED): rejected by content moderation",
 			preferChinese: true,
 			want: ContentPolicyMessageZH,
+		},
+		{
+			name: "leonardo_reference_images_limit_zh",
+			raw:  "All cookies failed. cookie#2: reference images exceed Leonardo limit (5/4)",
+			preferChinese: true,
+			want: "参考图最多 4 张，当前 5 张，请减少后重试。",
+		},
+		{
+			name: "leonardo_reference_videos_limit_en",
+			raw:  "reference videos exceed Leonardo limit (4/3)",
+			want: "At most 3 reference videos allowed; you provided 4. Please remove extras and retry.",
 		},
 	}
 

@@ -27,8 +27,8 @@ const (
 	GenerationFailedMessageZH = "视频生成失败，请稍后重试。"
 	GenerationFailedMessageEN = "Video generation failed, please retry later."
 
-	GenerationFailedNoDetailZH = "Leonardo 上游生成失败（未返回具体原因），建议减少参考素材或简化提示词后重试。"
-	GenerationFailedNoDetailEN = "Leonardo upstream generation failed without details. Try fewer references or a simpler prompt."
+	GenerationFailedNoDetailZH = "Leonardo 上游生成失败（未返回具体原因）：任务被拒绝且无输出，建议缩短提示词或减少参考素材后重试。"
+	GenerationFailedNoDetailEN = "Leonardo upstream generation failed without details: the job was rejected with no output. Try a shorter prompt or fewer references."
 
 	InvalidRequestMessageZH = "请求参数不符合要求，请检查后重试。"
 	InvalidRequestMessageEN = "Request parameters are invalid, please check and retry."
@@ -339,6 +339,9 @@ func NormalizeClientErrorMessageForLang(preferChinese bool, raw string) string {
 		}
 		return ReferenceMaterialMessageEN
 	}
+	if msg, ok := HumanizeLeonardoReferenceLimitError(preferChinese, raw); ok {
+		return msg
+	}
 	if IsLeonardoPoolInvalidRequestError(raw) {
 		if preferChinese {
 			return InvalidRequestMessageZH
@@ -362,6 +365,9 @@ func NormalizeClientErrorMessageForLang(preferChinese bool, raw string) string {
 				return ContentPolicyMessageZH
 			}
 			return ContentPolicyMessageEN
+		}
+		if msg, ok := humanizeLeonardoGenerationFailureDetail(preferChinese, detail); ok {
+			return msg
 		}
 		return detail
 	}
