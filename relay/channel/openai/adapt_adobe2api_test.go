@@ -51,6 +51,72 @@ func TestConvertAdobe2APIImageRequestMapsGenerationParams(t *testing.T) {
 	}
 }
 
+func TestConvertAdobe2APIImageRequestPreservesFrontendOpenAIParams(t *testing.T) {
+	n := uint(1)
+	request := dto.ImageRequest{
+		Model:             "cy-img2-gpt-image-2-4k",
+		Prompt:            "cinematic product photo",
+		N:                 &n,
+		Size:              "3840x2160",
+		Quality:           "high",
+		Background:        json.RawMessage(`"opaque"`),
+		OutputFormat:      json.RawMessage(`"webp"`),
+		OutputCompression: json.RawMessage(`80`),
+		Moderation:        json.RawMessage(`"low"`),
+		ResponseFormat:    "url",
+	}
+
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "cy-img2-gpt-image-2-4k",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:         75,
+			UpstreamModelName: "gpt-image",
+		},
+	}, request)
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "size", "3840x2160")
+	assertAdobe2APIField(t, body, "quality", "high")
+	assertAdobe2APIField(t, body, "background", "opaque")
+	assertAdobe2APIField(t, body, "output_format", "webp")
+	assertAdobe2APIField(t, body, "output_compression", float64(80))
+	assertAdobe2APIField(t, body, "moderation", "low")
+	assertAdobe2APIField(t, body, "response_format", "url")
+	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
+	assertAdobe2APIField(t, body, "image_size", "4K")
+	assertAdobe2APIField(t, body, "output_resolution", "4K")
+}
+
+func TestConvertAdobe2APIImageRequestReadsMetadataAndExtraBodyParams(t *testing.T) {
+	request := dto.ImageRequest{
+		Model:  "nano-banana-pro",
+		Prompt: "a clean poster",
+		Extra: map[string]json.RawMessage{
+			"metadata":   json.RawMessage(`{"aspectRatio":"9:16","outputResolution":"2K","background":"opaque"}`),
+			"extra_body": json.RawMessage(`{"output_format":"jpeg","output_compression":72,"google":{"image_config":{"image_size":"4K"}}}`),
+		},
+	}
+
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "nano-banana-pro",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelBaseUrl: "http://45.67.221.45:6001",
+		},
+	}, request)
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "aspect_ratio", "9:16")
+	assertAdobe2APIField(t, body, "image_size", "4K")
+	assertAdobe2APIField(t, body, "output_resolution", "4K")
+	assertAdobe2APIField(t, body, "background", "opaque")
+	assertAdobe2APIField(t, body, "output_format", "jpeg")
+	assertAdobe2APIField(t, body, "output_compression", float64(72))
+}
+
 func TestAdobe2APIImageRelayMatchesChannel75MappedModel(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "cy-img2-gpt-image-2-4k",
@@ -180,5 +246,12 @@ func TestConvertAdobe2APIOpenAIChatRequestPreservesVideoExtensions(t *testing.T)
 	}
 	if _, exists := body["image_urls"]; exists {
 		t.Fatal("image_urls should not be forwarded after conversion")
+	}
+}
+
+func assertAdobe2APIField(t *testing.T, body map[string]any, key string, want any) {
+	t.Helper()
+	if body[key] != want {
+		t.Fatalf("%s = %#v, want %#v; body = %#v", key, body[key], want, body)
 	}
 }

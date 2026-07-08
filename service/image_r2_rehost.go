@@ -182,8 +182,8 @@ func RewriteLoopbackUpstreamImageURL(channelBaseURL, imageURL string) string {
 }
 
 // RewriteGeneratedUpstreamURLToChannelBase maps self-hosted /generated/* assets
-// back to the configured channel base. Adobe2API may return a public test
-// hostname while the real reachable upstream is the channel base URL.
+// back to the configured channel base. Self-hosted image relays may return
+// an external hostname while the real reachable upstream is the channel base URL.
 func RewriteGeneratedUpstreamURLToChannelBase(channelBaseURL, imageURL string) (string, bool) {
 	channelBaseURL = strings.TrimSpace(channelBaseURL)
 	imageURL = strings.TrimSpace(imageURL)
@@ -220,9 +220,6 @@ func RewriteGeneratedUpstreamURLToChannelBase(channelBaseURL, imageURL string) (
 func generatedURLRewriteAllowed(base, img *url.URL) bool {
 	if base == nil || img == nil {
 		return false
-	}
-	if strings.EqualFold(img.Hostname(), "adobe.jingruankeji.com") {
-		return true
 	}
 	if base.Port() == "6001" {
 		return true

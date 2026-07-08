@@ -32,7 +32,7 @@ func TestRehostSyncImageResponseBodySkipsInternalPrefixModel(t *testing.T) {
 }
 
 func TestRehostSyncImageResponseBodyRewritesGeneratedURLToChannelBase(t *testing.T) {
-	body := []byte(`{"created":1,"data":[{"url":"https://adobe.jingruankeji.com/generated/a.png"}]}`)
+	body := []byte(`{"created":1,"data":[{"url":"https://public.example.com/generated/a.png"}]}`)
 	out, err := RehostSyncImageResponseBody(context.Background(), 1, "cy-img2-gpt-image-2-4k", "http://45.67.221.45:6001", body, false)
 	if err != nil {
 		t.Fatalf("RehostSyncImageResponseBody: %v", err)
@@ -49,7 +49,7 @@ func TestRehostSyncImageResponseBodyRewritesGeneratedURLToChannelBase(t *testing
 }
 
 func TestRehostImageDataURLsPassthroughGeneratedURLWithoutR2(t *testing.T) {
-	images := []dto.ImageData{{Url: "https://adobe.jingruankeji.com/generated/a.png"}}
+	images := []dto.ImageData{{Url: "https://public.example.com/generated/a.png"}}
 	out, err := RehostImageDataURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "cy-img2-gpt-image-2-4k", images)
 	if err != nil {
 		t.Fatalf("RehostImageDataURLs: %v", err)
@@ -123,7 +123,7 @@ func TestRehostTaskImageResultURLsRequiresR2ForAcceptedURL(t *testing.T) {
 }
 
 func TestRehostTaskImageResultURLsPassthroughGeneratedURLWithoutR2(t *testing.T) {
-	images := []dto.ImageData{{Url: "https://adobe.jingruankeji.com/generated/a.png"}}
+	images := []dto.ImageData{{Url: "https://public.example.com/generated/a.png"}}
 	out, err := RehostTaskImageResultURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "cy-img2-gpt-image-2-4k", images)
 	if err != nil {
 		t.Fatalf("RehostTaskImageResultURLs: %v", err)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -150,6 +151,13 @@ func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, r
 	if request.N != nil && *request.N > 0 {
 		body["n"] = *request.N
 	}
+	if size := adobe2APIOpenAIImageSize(request); size != "" {
+		body["size"] = size
+	}
+	if quality := strings.TrimSpace(request.Quality); quality != "" {
+		body["quality"] = quality
+	}
+	adobe2APICopyImageRawFields(body, request)
 	imageSize := adobe2APIImageSize(request)
 	if imageSize != "" {
 		body["image_size"] = imageSize
@@ -168,17 +176,64 @@ func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, r
 	return body, nil
 }
 
+func adobe2APIOpenAIImageSize(request dto.ImageRequest) string {
+	size := strings.TrimSpace(request.Size)
+	if size == "" {
+		return ""
+	}
+	if strings.EqualFold(size, "auto") || looksLikeImageDimensions(size) {
+		return size
+	}
+	return ""
+}
+
+func adobe2APICopyImageRawFields(body map[string]any, request dto.ImageRequest) {
+	rawFields := []struct {
+		key string
+		raw json.RawMessage
+	}{
+		{"background", request.Background},
+		{"moderation", request.Moderation},
+		{"output_format", request.OutputFormat},
+		{"output_compression", request.OutputCompression},
+		{"partial_images", request.PartialImages},
+		{"input_fidelity", request.InputFidelity},
+		{"response_format", json.RawMessage(strconvQuoteIfNotEmpty(request.ResponseFormat))},
+	}
+	for _, field := range rawFields {
+		if value, ok := rawJSONValue(field.raw); ok {
+			body[field.key] = value
+		}
+	}
+	if request.Stream != nil {
+		body["stream"] = *request.Stream
+	}
+	if request.Watermark != nil {
+		body["watermark"] = *request.Watermark
+	}
+
+	for _, key := range []string{"background", "moderation", "output_format", "output_compression", "partial_images", "input_fidelity", "response_format"} {
+		if _, exists := body[key]; exists {
+			continue
+		}
+		if value, ok := adobe2APIImageOptionValue(request, key, camelizeSnakeKey(key)); ok {
+			body[key] = value
+		}
+	}
+}
+
 func adobe2APIImageSize(request dto.ImageRequest) string {
-	for _, key := range []string{"image_size", "output_resolution"} {
-		if raw, ok := request.Extra[key]; ok {
-			if value := rawJSONString(raw); value != "" {
-				return value
-			}
+	for _, key := range []string{"image_size", "output_resolution", "resolution"} {
+		if value := adobe2APIImageOptionString(request, key, camelizeSnakeKey(key)); value != "" {
+			return normalizeAdobe2APIImageSize(value)
 		}
 	}
 	size := strings.ToUpper(strings.TrimSpace(request.Size))
 	if size == "1K" || size == "2K" || size == "4K" {
 		return size
+	}
+	if inferred := adobe2APIImageSizeFromDimensions(request.Size); inferred != "" {
+		return inferred
 	}
 	switch strings.ToLower(strings.TrimSpace(request.Quality)) {
 	case "high", "hd", "4k":
@@ -193,10 +248,8 @@ func adobe2APIImageSize(request dto.ImageRequest) string {
 }
 
 func adobe2APIAspectRatio(request dto.ImageRequest) string {
-	if raw, ok := request.Extra["aspect_ratio"]; ok {
-		if value := rawJSONString(raw); value != "" {
-			return value
-		}
+	if value := adobe2APIImageOptionString(request, "aspect_ratio", "aspectRatio", "ratio"); value != "" {
+		return value
 	}
 	value := strings.TrimSpace(request.Size)
 	if strings.Contains(value, ":") {
@@ -214,8 +267,199 @@ func adobe2APIAspectRatio(request dto.ImageRequest) string {
 	case "1024x1792", "1080x1920":
 		return "9:16"
 	default:
+		return aspectRatioFromImageDimensions(value)
+	}
+}
+
+func adobe2APIImageOptionString(request dto.ImageRequest, keys ...string) string {
+	value, ok := adobe2APIImageOptionValue(request, keys...)
+	if !ok {
 		return ""
 	}
+	return strings.TrimSpace(anyToAdobe2APIString(value))
+}
+
+func adobe2APIImageOptionValue(request dto.ImageRequest, keys ...string) (any, bool) {
+	for _, key := range keys {
+		if raw, ok := request.Extra[key]; ok {
+			if value, exists := rawJSONValue(raw); exists {
+				return value, true
+			}
+		}
+	}
+	for _, containerKey := range []string{"metadata", "extra_body"} {
+		container, ok := rawJSONObject(request.Extra[containerKey])
+		if !ok {
+			continue
+		}
+		for _, key := range keys {
+			if value, exists := container[key]; exists {
+				return value, true
+			}
+		}
+		if google, ok := container["google"].(map[string]any); ok {
+			if imageConfig, ok := google["image_config"].(map[string]any); ok {
+				for _, key := range keys {
+					if value, exists := imageConfig[key]; exists {
+						return value, true
+					}
+				}
+			}
+		}
+		if imageConfig, ok := container["image_config"].(map[string]any); ok {
+			for _, key := range keys {
+				if value, exists := imageConfig[key]; exists {
+					return value, true
+				}
+			}
+		}
+	}
+	return nil, false
+}
+
+func rawJSONObject(raw json.RawMessage) (map[string]any, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var obj map[string]any
+	if err := common.Unmarshal(raw, &obj); err == nil && obj != nil {
+		return obj, true
+	}
+	var jsonString string
+	if err := common.Unmarshal(raw, &jsonString); err != nil || strings.TrimSpace(jsonString) == "" {
+		return nil, false
+	}
+	if err := common.Unmarshal([]byte(jsonString), &obj); err != nil || obj == nil {
+		return nil, false
+	}
+	return obj, true
+}
+
+func rawJSONValue(raw json.RawMessage) (any, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var value any
+	if err := common.Unmarshal(raw, &value); err != nil {
+		return nil, false
+	}
+	return value, true
+}
+
+func normalizeAdobe2APIImageSize(value string) string {
+	upper := strings.ToUpper(strings.TrimSpace(value))
+	switch upper {
+	case "1K", "2K", "4K":
+		return upper
+	default:
+		return upper
+	}
+}
+
+func adobe2APIImageSizeFromDimensions(size string) string {
+	width, height, ok := parseImageDimensions(size)
+	if !ok {
+		return ""
+	}
+	maxSide := width
+	if height > maxSide {
+		maxSide = height
+	}
+	switch {
+	case maxSide >= 3000:
+		return "4K"
+	case maxSide >= 1800:
+		return "2K"
+	case maxSide >= 900:
+		return "1K"
+	default:
+		return ""
+	}
+}
+
+func aspectRatioFromImageDimensions(size string) string {
+	width, height, ok := parseImageDimensions(size)
+	if !ok || width == 0 || height == 0 {
+		return ""
+	}
+	divisor := gcd(width, height)
+	return fmt.Sprintf("%d:%d", width/divisor, height/divisor)
+}
+
+func parseImageDimensions(size string) (int, int, bool) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	width, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || width <= 0 || height <= 0 {
+		return 0, 0, false
+	}
+	return width, height, true
+}
+
+func looksLikeImageDimensions(size string) bool {
+	_, _, ok := parseImageDimensions(size)
+	return ok
+}
+
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+func anyToAdobe2APIString(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case json.Number:
+		return v.String()
+	case float64:
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return fmt.Sprintf("%v", v)
+	case bool:
+		return fmt.Sprintf("%t", v)
+	default:
+		return ""
+	}
+}
+
+func camelizeSnakeKey(key string) string {
+	var b strings.Builder
+	upperNext := false
+	for _, r := range key {
+		if r == '_' {
+			upperNext = true
+			continue
+		}
+		if upperNext {
+			b.WriteString(strings.ToUpper(string(r)))
+			upperNext = false
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func strconvQuoteIfNotEmpty(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	quoted, err := common.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return string(quoted)
 }
 
 func adobe2APIReferenceImages(c *gin.Context, request dto.ImageRequest) ([]string, error) {
