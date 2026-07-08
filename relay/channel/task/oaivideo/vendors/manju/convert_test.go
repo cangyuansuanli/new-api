@@ -1,4 +1,4 @@
-package manjusora
+package manju
 
 import (
 	"strings"

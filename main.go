@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/oauth"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
+	taskoairouter "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/router"
 	"github.com/QuantumNous/new-api/relay/image"
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
@@ -141,6 +142,9 @@ func main() {
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)
 		if a == nil {
+			return nil
+		}
+		if ra, ok := a.(*taskoairouter.RouterAdaptor); ok && ra == nil {
 			return nil
 		}
 		return a

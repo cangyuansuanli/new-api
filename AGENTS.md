@@ -221,6 +221,7 @@ For coordinated changes with **`infinite-canvas/`** in this workspace: use the *
 |--------|------|
 | Frontend feature / fix | `web/default/AGENTS.md` conventions; commit body lists doc paths or `文档：无` |
 | Backend relay / billing | `pkg/billingexpr/expr.md` and related pkg docs when contracts change |
+| Video task routing / oaivideo | `docs/video-task-routing.md`, `relay/channel/task/README.md` |
 | i18n user strings | `web/default/src/i18n/locales/*.json` |
 
 ### verify（合并 main 前）

@@ -1,4 +1,4 @@
-package manjusora
+package manju
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
-	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/openaivideo"
+	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 

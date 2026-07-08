@@ -1,4 +1,4 @@
-package manjusora
+package manju
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
-	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/openaivideo"
+	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/tidwall/gjson"
 )

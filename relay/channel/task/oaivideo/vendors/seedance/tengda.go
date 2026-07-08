@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/openaivideo"
+	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 )
 
 const tengdaUpstreamModel = "manxue-2.0"

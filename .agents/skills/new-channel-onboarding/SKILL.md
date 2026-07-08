@@ -91,10 +91,10 @@ Manju 文档入口示例：https://ssnsuyettr.apifox.cn/
 | 模态 | 客户端 api_mode | 典型 profile | 代码落点 |
 |------|-----------------|--------------|----------|
 | 生图 sync/async | `images-*` | `image-tpl-*` | `relay/imagevendor/` + `relay/channel/openai/adapt_*.go` |
-| 视频 form 异步 | `videos-form` | `video-tpl-form-*` | `relay/channel/task/sora/` |
+| 视频 form 异步 | `videos-form` | `video-tpl-form-*` | `relay/channel/task/oaivideo/vendors/defaultvideo/` |
 | 视频 chat 异步 | `chat-completions` | `video-tpl-chat-*` | `relay/channel/openai/adapt_*_chat.go` + task 轮询 |
 | 视频 json 异步 | `videos-json-async` | `video-tpl-async-*` | `relay/channel/task/*` |
-| 视频 generations | `video-generations` | `video-tpl-gen-*` | `relay/channel/task/sora/` 或专用 adaptor |
+| 视频 generations | `video-generations` | `video-tpl-gen-*` | `relay/channel/task/oaivideo/vendors/defaultvideo/` 或专用 adaptor |
 
 **命名约定：**
 
@@ -151,7 +151,7 @@ ssh contabo "python3 /tmp/seed_xxx_api_doc.py"
 ### 视频（Manju Sora2 模式）
 
 1. 确认上游**创建**路由（chat vs videos）
-2. `relay/channel/task/sora/adapt_<name>.go` — `/v1/videos` 客户端兼容、上游 body 转换、Manju 嵌套 JSON 解析
+2. `relay/channel/task/oaivideo/vendors/<vendor>/` — `/v1/videos` 客户端兼容、上游 body 转换；Manju 嵌套 JSON 见 `vendors/manju/`
 3. `relay/channel/openai/adapt_<name>_chat.go` — 客户端直调 chat 时请求/响应
 4. `ParseTaskResult` / `DoResponse` — 非标准 `data` 形状用 gjson 兜底
 5. `relay/common/relay_utils.go` — 校验 seconds/size（若适用）

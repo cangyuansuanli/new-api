@@ -1,4 +1,4 @@
-package openaivideo
+package shared
 
 import (
 	"bytes"

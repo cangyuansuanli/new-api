@@ -1,4 +1,4 @@
-package sora
+package defaultvideo
 
 var ModelList = []string{
 	"sora-2",

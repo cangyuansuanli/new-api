@@ -78,6 +78,11 @@ type TaskAdaptor interface {
 	ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error)
 }
 
+// TaskAwareResultParser 可选接口：轮询时按任务记录的模型信息解析上游响应。
+type TaskAwareResultParser interface {
+	ParseTaskResultForTask(task *model.Task, respBody []byte) (*relaycommon.TaskInfo, error)
+}
+
 type OpenAIVideoConverter interface {
 	ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error)
 }

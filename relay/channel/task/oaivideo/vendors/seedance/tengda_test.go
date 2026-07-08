@@ -11,6 +11,18 @@ func TestIsLeonardoRelay(t *testing.T) {
 	}
 }
 
+func TestIsOairegboxRelay(t *testing.T) {
+	if !IsOairegboxRelay("cy-sd1-seedance-2.0-fast-720p") {
+		t.Fatal("expected oairegbox relay")
+	}
+	if IsOairegboxRelay("cy-sd4-seedance-2.0") {
+		t.Fatal("cy-sd4 must not match oairegbox prefix alone")
+	}
+	if !IsRelay("cy-sd1-seedance-2.0-mini-480p", "") {
+		t.Fatal("cy-sd1 should match seedance IsRelay")
+	}
+}
+
 func TestIsTengdaRelay(t *testing.T) {
 	if !IsTengdaRelay("cy-sd2-Seedance-2.0", "manxue-2.0") {
 		t.Fatal("expected tengda relay")

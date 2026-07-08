@@ -13,7 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
-	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/openaivideo"
+	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 
@@ -301,9 +301,15 @@ func readJSONBodyMap(c *gin.Context) (map[string]interface{}, error) {
 	return bodyMap, nil
 }
 
-// IsRelay Leonardo cy-sd4 或 Tengda cy-sd2 模型。
+// IsRelay Leonardo / oairegbox cy-sd1 / Tengda cy-sd2 模型。
 func IsRelay(originModel, upstreamModel string) bool {
-	return IsLeonardoRelay(originModel) || IsTengdaRelay(originModel, upstreamModel)
+	return IsOairegboxRelay(originModel) || IsLeonardoRelay(originModel) || IsTengdaRelay(originModel, upstreamModel)
+}
+
+// IsOairegboxRelay oairegbox 主站 Seedance（cy-sd1-seedance-）。
+func IsOairegboxRelay(originModel string) bool {
+	origin := strings.ToLower(strings.TrimSpace(originModel))
+	return strings.HasPrefix(origin, "cy-sd1-seedance")
 }
 
 // IsLeonardoRelay Leonardo 订阅号 Seedance（cy-sd4-）。

@@ -1,4 +1,4 @@
-package sora
+package defaultvideo
 
 import (
 	"testing"

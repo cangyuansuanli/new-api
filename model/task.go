@@ -122,8 +122,9 @@ type TaskBillingContext struct {
 	GroupRatio      float64            `json:"group_ratio,omitempty"`       // 分组倍率
 	ModelRatio      float64            `json:"model_ratio,omitempty"`       // 模型倍率
 	OtherRatios     map[string]float64 `json:"other_ratios,omitempty"`      // 附加倍率（时长、分辨率等）
-	OriginModelName string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
-	PerCallBilling  bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
+	OriginModelName   string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
+	UpstreamModelName string             `json:"upstream_model_name,omitempty"` // 上游模型名（轮询计费路由）
+	PerCallBilling    bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）
@@ -235,6 +236,31 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 		PrivateData: privateData,
 	}
 	return t
+}
+
+// ApplySubmittedStatusFromUpstreamData 视频任务提交成功后设置初始状态（避免长期显示 NOT_START）。
+func ApplySubmittedStatusFromUpstreamData(task *Task, taskData []byte) {
+	if task == nil {
+		return
+	}
+	task.Status = TaskStatusSubmitted
+	task.Progress = "10%"
+	if len(taskData) == 0 {
+		return
+	}
+	var payload map[string]any
+	if err := common.Unmarshal(taskData, &payload); err != nil {
+		return
+	}
+	status, _ := payload["status"].(string)
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "queued", "pending":
+		task.Status = TaskStatusQueued
+		task.Progress = "20%"
+	case "processing", "in_progress", "running":
+		task.Status = TaskStatusInProgress
+		task.Progress = "30%"
+	}
 }
 
 // taskListPrivateDataSelectExpr returns a dialect-specific SQL expression that
