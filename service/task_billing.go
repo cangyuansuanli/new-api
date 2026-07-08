@@ -405,6 +405,9 @@ func ShouldRefundRelayError(c *gin.Context, apiErr *types.NewAPIError) bool {
 	if apiErr.GetErrorCode() == types.ErrorCodeSensitiveWordsDetected {
 		return true
 	}
+	if IsBillableImageRehostClientCancel(apiErr) {
+		return false
+	}
 	oai := apiErr.ToOpenAIError()
 	reason := strings.TrimSpace(oai.Message)
 	if reason == "" {

@@ -191,6 +191,8 @@ type RelayInfo struct {
 	*TaskRelayInfo
 	// ImageClientWantsURL：客户请求 response_format=url；Gulie 类模型对内改走 b64_json 后仍按 url 形态返回 R2 公网地址。
 	ImageClientWantsURL bool
+	// RehostedImageURLs 同步生图 R2 转存后的公网链接，写入 consume 日志供客户查看。
+	RehostedImageURLs []string
 }
 
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {

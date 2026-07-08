@@ -62,9 +62,15 @@ func GeminiGenerateContentImageHandler(c *gin.Context, info *relaycommon.RelayIn
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
 	}
 
-	rehosted, err := service.RehostImageDataForClient(c.Request.Context(), c.GetInt("id"), "", info.ChannelBaseUrl, info.OriginModelName, images, info.ImageClientWantsURL)
+	rehosted, err := service.RehostImageDataForClient(service.RehostDetachedContext(c.Request.Context()), c.GetInt("id"), "", info.ChannelBaseUrl, info.OriginModelName, images, info.ImageClientWantsURL)
 	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+		usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
+		return service.ImageRehostAPIError(&usage, err)
+	}
+	service.RecordRehostedImageURLs(info, rehosted)
+	if cancelErr := service.ImageRehostDeliveredClientCancelErr(c); cancelErr != nil {
+		usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
+		return service.ImageRehostAPIError(&usage, cancelErr)
 	}
 
 	imageResp := dto.ImageResponse{

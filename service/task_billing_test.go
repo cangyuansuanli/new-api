@@ -804,6 +804,15 @@ func TestShouldRefundRelayError_UpstreamTimeout(t *testing.T) {
 	assert.True(t, ShouldRefundRelayError(nil, apiErr))
 }
 
+func TestShouldRefundRelayError_ImageRehostClientCancel(t *testing.T) {
+	apiErr := types.NewOpenAIError(
+		fmt.Errorf("rehost upstream image b64: r2 put object failed: %w", context.Canceled),
+		types.ErrorCodeBadResponse,
+		http.StatusBadGateway,
+	)
+	assert.False(t, ShouldRefundRelayError(nil, apiErr))
+}
+
 func TestRefundTaskQuota_UnsafeImageFailure(t *testing.T) {
 	truncate(t)
 	ctx := context.Background()

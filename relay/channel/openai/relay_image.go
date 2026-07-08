@@ -40,9 +40,15 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
 
-	rehostedBody, err := service.RehostSyncImageResponseBody(c.Request.Context(), c.GetInt("id"), info.OriginModelName, info.ChannelBaseUrl, responseBody, info.ImageClientWantsURL)
+	rehostedBody, err := service.RehostSyncImageResponseBody(service.RehostDetachedContext(c.Request.Context()), c.GetInt("id"), info.OriginModelName, info.ChannelBaseUrl, responseBody, info.ImageClientWantsURL)
+	normalizeOpenAIUsage(&usageResp.Usage)
+	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+		return service.ImageRehostAPIError(&usageResp.Usage, err)
+	}
+	service.RecordRehostedImageURLsFromJSON(info, rehostedBody)
+	if cancelErr := service.ImageRehostDeliveredClientCancelErr(c); cancelErr != nil {
+		return service.ImageRehostAPIError(&usageResp.Usage, cancelErr)
 	}
 	responseBody = rehostedBody
 	if patched, patchErr := service.PatchClientFacingModelJSONFromContext(c, responseBody); patchErr == nil {
@@ -52,8 +58,6 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
-	normalizeOpenAIUsage(&usageResp.Usage)
-	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 	return &usageResp.Usage, nil
 }
 
@@ -232,9 +236,13 @@ func OpenaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 	normalizeOpenAIUsage(&usageResp.Usage)
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 
-	rehostedData, err := service.RehostImageDataForClient(c.Request.Context(), c.GetInt("id"), "", info.ChannelBaseUrl, info.OriginModelName, imageResp.Data, info.ImageClientWantsURL)
+	rehostedData, err := service.RehostImageDataForClient(service.RehostDetachedContext(c.Request.Context()), c.GetInt("id"), "", info.ChannelBaseUrl, info.OriginModelName, imageResp.Data, info.ImageClientWantsURL)
 	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+		return service.ImageRehostAPIError(&usageResp.Usage, err)
+	}
+	service.RecordRehostedImageURLs(info, rehostedData)
+	if cancelErr := service.ImageRehostDeliveredClientCancelErr(c); cancelErr != nil {
+		return service.ImageRehostAPIError(&usageResp.Usage, cancelErr)
 	}
 	imageResp.Data = rehostedData
 

@@ -348,9 +348,22 @@ func OpenaiChatImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
 	}
 
-	rehosted, err := service.RehostImageDataForClient(c.Request.Context(), c.GetInt("id"), "", info.ChannelBaseUrl, info.OriginModelName, images, info.ImageClientWantsURL)
+	usage := simpleResponse.Usage
+	if usage.TotalTokens == 0 {
+		usage = dto.Usage{TotalTokens: 1, PromptTokens: 1}
+	}
+
+	rehosted, err := service.RehostImageDataForClient(service.RehostDetachedContext(c.Request.Context()), c.GetInt("id"), "", info.ChannelBaseUrl, info.OriginModelName, images, info.ImageClientWantsURL)
 	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+		normalizeOpenAIUsage(&usage)
+		applyUsagePostProcessing(info, &usage, responseBody)
+		return service.ImageRehostAPIError(&usage, err)
+	}
+	service.RecordRehostedImageURLs(info, rehosted)
+	if cancelErr := service.ImageRehostDeliveredClientCancelErr(c); cancelErr != nil {
+		normalizeOpenAIUsage(&usage)
+		applyUsagePostProcessing(info, &usage, responseBody)
+		return service.ImageRehostAPIError(&usage, cancelErr)
 	}
 
 	imageResp := dto.ImageResponse{
@@ -363,10 +376,6 @@ func OpenaiChatImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	}
 	service.IOCopyBytesGracefully(c, resp, out)
 
-	usage := simpleResponse.Usage
-	if usage.TotalTokens == 0 {
-		usage = dto.Usage{TotalTokens: 1, PromptTokens: 1}
-	}
 	normalizeOpenAIUsage(&usage)
 	applyUsagePostProcessing(info, &usage, responseBody)
 	return &usage, nil

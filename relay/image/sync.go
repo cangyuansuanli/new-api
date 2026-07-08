@@ -127,9 +127,17 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+		if usage != nil && service.IsBillableImageRehostClientCancel(newAPIError) {
+			postSyncImageConsumeQuota(c, info, request, imagePatch, usage.(*dto.Usage), true)
+		}
 		return newAPIError
 	}
 
+	postSyncImageConsumeQuota(c, info, request, imagePatch, usage.(*dto.Usage), false)
+	return nil
+}
+
+func postSyncImageConsumeQuota(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest, imagePatch imagevendor.RequestPatchResult, usage *dto.Usage, clientCanceled bool) {
 	imageN := uint(1)
 	if request.N != nil {
 		imageN = *request.N
@@ -145,11 +153,11 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 		}
 	}
 
-	if usage.(*dto.Usage).TotalTokens == 0 {
-		usage.(*dto.Usage).TotalTokens = 1
+	if usage.TotalTokens == 0 {
+		usage.TotalTokens = 1
 	}
-	if usage.(*dto.Usage).PromptTokens == 0 {
-		usage.(*dto.Usage).PromptTokens = 1
+	if usage.PromptTokens == 0 {
+		usage.PromptTokens = 1
 	}
 
 	quality := request.Quality
@@ -172,9 +180,12 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 	if imageN > 0 {
 		logContent = append(logContent, fmt.Sprintf("生成数量 %d", imageN))
 	}
+	if clientCanceled {
+		logContent = append(logContent, "客户取消连接，上游已生图")
+	}
+	logContent = append(logContent, service.ImageRehostLogContent(info.RehostedImageURLs)...)
 
-	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), logContent)
-	return nil
+	service.PostTextConsumeQuota(c, info, usage, logContent)
 }
 
 // applySyncImageUpstreamB64Override：Gulie 类模型客户要 url 时，对内请求上游 b64_json，响应再转 R2 公网 url。
