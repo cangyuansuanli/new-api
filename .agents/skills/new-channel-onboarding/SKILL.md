@@ -10,8 +10,8 @@ description: >-
 
 将上游渠道接入平台：**调研 → 路由分类 → DB → 代码适配 → seed → 源站执行 → 验收 → 提交**。
 
-真值参考：`AGENTS.md` Rule 4c（生图）、`scripts/migrate_*_ssh.sql`、`scripts/seed_*_api_doc.py`。  
-详细模板与 SQL 片段见 [reference.md](reference.md)。
+真值参考：`AGENTS.md` Rule 4c（生图）、[reference.md](reference.md) 中的 migrate/seed 模板。  
+UI profile 真值：`scripts/seed_data/model_ui_params_{video,image}.json`。
 
 ---
 
@@ -27,7 +27,7 @@ description: >-
 - [ ] 5. 编写 seed_<vendor>_<model>_api_doc.py（api_doc + ModelPrice）
 - [ ] 6. relay 适配代码 + 单测
 - [ ] 7. （可选）UI profile / infinite-canvas 映射
-- [ ] 8. 源站执行 SQL + seed，重启 new-api 刷新渠道缓存
+- [ ] 8. 源站执行 SQL + seed（**勿重启**；等待渠道缓存自动同步）
 - [ ] 9. 端到端验收（提交 + 轮询 + 取片/计费）
 - [ ] 10. git-close-loop 提交合并
 ```
@@ -104,9 +104,9 @@ Manju 文档入口示例：https://ssnsuyettr.apifox.cn/
 
 ---
 
-## 4. DB 迁移（`scripts/migrate_*_ssh.sql`）
+## 4. DB 迁移
 
-文件命名：`migrate_<vendor>_<feature>_ssh.sql`  
+按 [reference.md](reference.md) 的 SQL 骨架新建 `migrate_<vendor>_<feature>_ssh.sql`（不入库，源站执行后丢弃或归档）。  
 执行：`ssh contabo 'docker exec -i newapi-postgres psql -U root -d new-api < migrate_....sql'`
 
 **标准块（按需提供）：**
@@ -120,9 +120,9 @@ Manju 文档入口示例：https://ssnsuyettr.apifox.cn/
 
 ---
 
-## 5. Seed 脚本（`scripts/seed_*_api_doc.py`）
+## 5. Seed 脚本
 
-模板：`seed_manju_gemini_banana_api_doc.py` / `seed_manju_sora2_api_doc.py`
+模板见 [reference.md](reference.md) 的 Python 骨架。
 
 职责：
 
@@ -165,17 +165,26 @@ ssh contabo "python3 /tmp/seed_xxx_api_doc.py"
 
 ## 7. 源站部署与缓存
 
+**生产环境禁止随意 `docker restart`**。new-api 会按 `SYNC_FREQUENCY`（默认 60s）自动执行 `InitChannelCache()` 与 `SyncOptions()`，DB/seed 变更通常在一分钟内生效，无需重启容器。
+
 ```bash
-# 执行迁移 + seed 后重启 new-api（刷新 InitChannelCache）
-ssh contabo "docker restart cangyuan-stack-new-api-b-1"
-# 等待 health 后再测
+# 仅执行迁移 + seed（不触碰容器状态）
+ssh contabo 'docker exec -i newapi-postgres psql -U root -d new-api < migrate_....sql'
+ssh contabo "python3 /tmp/seed_xxx_api_doc.py"
+
+# 可选：确认渠道行已写入（缓存会在下个 sync 周期刷新）
+ssh contabo "docker exec newapi-postgres psql -U root -d new-api -c \"
+  SELECT id, models, model_mapping FROM channels WHERE id = <CHANNEL_ID>;
+\""
 ```
+
+**仅当用户明确要求时**才可重启或滚动部署；Go relay 代码变更走 CI（`.github/workflows/cangyuan-prod.yml`）正常发布流程。
 
 **常见失败：**
 
 | 现象 | 原因 |
 |------|------|
-| `No available channel under group VIDEO` | `channels.group` 缺 `VIDEO` 或未重启 |
+| `No available channel under group VIDEO` | `channels.group` 缺 `VIDEO`；或刚改 SQL 尚未过 sync 周期（默认 ≤60s） |
 | `unmarshal_response_body_failed` | 上游 JSON 与 struct 不兼容，需 gjson 适配 |
 | 任务成功无 URL | 成片字段路径未覆盖（如 `raw_data.video_url`） |
 
@@ -229,8 +238,8 @@ docker run --rm --network cangyuan-network curlimages/curl:8.5.0 \
 
 | 案例 | 模态 | 关键文件 |
 |------|------|----------|
-| Manju Banana #70 | 生图 async/sync | `migrate_manju_gemini_banana_ssh.sql`, `adapt_manju_banana.go`, `vendor_manju_banana.go` |
-| Manju Sora2 #70 | 视频 chat 创建 | `migrate_manju_sora2_ssh.sql`, `adapt_manju_sora2.go`, `adapt_manju_sora2_chat.go` |
-| Leonardo Seedance | 视频 async | `migrate_leonardo_seedance_ssh.sql`, `seed_leonardo_seedance_api_doc.py` |
+| Manju Banana #70 | 生图 async/sync | `adapt_manju_banana.go`, `vendor_manju_banana.go` |
+| Manju Sora2 #70 | 视频 chat 创建 | `adapt_manju_sora2.go`, `adapt_manju_sora2_chat.go` |
+| Leonardo Seedance | 视频 async | `relay/channel/task/oaivideo/vendors/leonardo/` |
 
 更多 SQL/Python 模板见 [reference.md](reference.md)。

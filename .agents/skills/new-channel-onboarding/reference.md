@@ -185,12 +185,11 @@ if __name__ == "__main__":
 # Postgres
 ssh contabo "docker exec newapi-postgres psql -U root -d new-api -c '...'"
 
-# 重启 new-api
-ssh contabo "docker restart cangyuan-stack-new-api-b-1"
-
 # 查看容器网络
 ssh contabo "docker inspect cangyuan-stack-new-api-b-1 --format '{{json .NetworkSettings.Networks}}'"
 
 # ModelPrice
 ssh contabo "docker exec newapi-postgres psql -U root -d new-api -c \"SELECT value::json->'<model>' FROM options WHERE key='ModelPrice';\""
 ```
+
+**生产环境**：禁止 Agent 自行 `docker restart` / `docker compose restart`。渠道缓存在 `SYNC_FREQUENCY`（默认 60s）内自动刷新。
