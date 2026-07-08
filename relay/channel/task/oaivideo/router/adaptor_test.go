@@ -27,8 +27,10 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 	}
 	for _, tc := range cases {
 		info := &relaycommon.RelayInfo{
-			OriginModelName:   tc.origin,
-			UpstreamModelName: tc.upstream,
+			OriginModelName: tc.origin,
+		}
+		if tc.upstream != "" {
+			info.ChannelMeta = &relaycommon.ChannelMeta{UpstreamModelName: tc.upstream}
 		}
 		d := r.delegateFor(info)
 		switch tc.want {

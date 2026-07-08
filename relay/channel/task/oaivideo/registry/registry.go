@@ -36,17 +36,22 @@ func RelayInfoFromTask(task *model.Task) *relaycommon.RelayInfo {
 		return &relaycommon.RelayInfo{}
 	}
 	info := &relaycommon.RelayInfo{
-		OriginModelName:   task.Properties.OriginModelName,
-		UpstreamModelName: task.Properties.UpstreamModelName,
+		OriginModelName: task.Properties.OriginModelName,
 	}
-	if info.UpstreamModelName == "" && task.PrivateData.BillingContext != nil {
-		info.UpstreamModelName = task.PrivateData.BillingContext.UpstreamModelName
+	upstream := task.Properties.UpstreamModelName
+	if upstream == "" && task.PrivateData.BillingContext != nil {
+		upstream = task.PrivateData.BillingContext.UpstreamModelName
 	}
 	if info.OriginModelName == "" && task.PrivateData.BillingContext != nil {
 		info.OriginModelName = task.PrivateData.BillingContext.OriginModelName
 	}
 	if info.OriginModelName == "" {
 		info.OriginModelName = upstreamModelFromTaskData(task.Data)
+	}
+	if upstream != "" {
+		info.ChannelMeta = &relaycommon.ChannelMeta{
+			UpstreamModelName: upstream,
+		}
 	}
 	return info
 }
