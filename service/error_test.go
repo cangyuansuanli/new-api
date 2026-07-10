@@ -122,6 +122,35 @@ func TestRelayErrorHandlerKeepsOpenAIErrorMessage(t *testing.T) {
 	require.Equal(t, message, newAPIError.Error())
 }
 
+func TestRelayErrorHandlerParsesAdobe2APIOpenAI400(t *testing.T) {
+	body := `{"error":{"message":"prompt is required","type":"invalid_request_error"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+	require.NotNil(t, newAPIError)
+	require.Equal(t, http.StatusBadRequest, newAPIError.StatusCode)
+	require.Equal(t, "prompt is required", newAPIError.Error())
+	require.Equal(t, "invalid_request_error", newAPIError.ToOpenAIError().Type)
+}
+
+func TestRelayErrorHandlerParsesAdobe2APIFastAPIDetail400(t *testing.T) {
+	body := `{"detail":"Unsupported parameters for model gpt-image: image_size=4K, aspect_ratio=16:9"}`
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+	require.NotNil(t, newAPIError)
+	require.Equal(t, http.StatusBadRequest, newAPIError.StatusCode)
+	require.Contains(t, newAPIError.Error(), "Unsupported parameters for model gpt-image")
+}
+
 func TestRelayErrorHandlerKeepsInvalidJSONBodyInDebugLog(t *testing.T) {
 	withDebugEnabled(t, true)
 

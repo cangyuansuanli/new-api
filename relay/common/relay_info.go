@@ -193,6 +193,8 @@ type RelayInfo struct {
 	ImageClientWantsURL bool
 	// RehostedImageURLs 同步生图 R2 转存后的公网链接，写入 consume 日志供客户查看。
 	RehostedImageURLs []string
+	// Adobe2APIImageEditMultipart 为 true 时，图生图走上游 POST /v1/images/edits（multipart，重复 image 字段）。
+	Adobe2APIImageEditMultipart bool
 }
 
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {

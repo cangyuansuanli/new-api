@@ -1,7 +1,10 @@
 package openai
 
 import (
+	"bytes"
 	"encoding/json"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -223,6 +226,109 @@ func TestAdobe2APIImageRelayDoesNotMatchRegularOpenAIModel(t *testing.T) {
 	}
 	if IsAdobe2APIImageRelay(info) {
 		t.Fatal("regular OpenAI image model should not use Adobe2API relay")
+	}
+}
+
+func TestConvertAdobe2APIImageRequestNormalizesUIAspectSize(t *testing.T) {
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "manju-gemini-banana-pro-4k",
+	}, dto.ImageRequest{
+		Model:   "gemini-banana-pro-4k",
+		Prompt:  "poster",
+		Size:    "16:9-4k",
+		Quality: "high",
+	})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
+	assertAdobe2APIField(t, body, "image_size", "4K")
+	assertAdobe2APIField(t, body, "output_resolution", "4K")
+}
+
+func TestConvertAdobe2APIImageRequestIgnoresVideoResolutionOnImage(t *testing.T) {
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "manju-gemini-banana-pro-4k",
+	}, dto.ImageRequest{
+		Model:  "gemini-banana-pro-4k",
+		Prompt: "poster",
+		Size:   "3840x2160",
+		Extra: map[string]json.RawMessage{
+			"aspect_ratio": json.RawMessage(`"16:9"`),
+			"resolution":   json.RawMessage(`"720p"`),
+		},
+	})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
+	assertAdobe2APIField(t, body, "image_size", "4K")
+}
+
+func TestBuildAdobe2APIImageEditMultipartUsesRepeatedImageField(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("model", "gemini-banana-pro-4k")
+	_ = writer.WriteField("prompt", "make it cinematic")
+	for _, name := range []string{"a.png", "b.png"} {
+		part, err := writer.CreateFormFile("image", name)
+		if err != nil {
+			t.Fatalf("create form file: %v", err)
+		}
+		_, _ = part.Write([]byte("fakepng"))
+	}
+	_ = writer.Close()
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", &body)
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "manju-gemini-banana-pro-4k",
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:         75,
+			UpstreamModelName: "nano-banana-pro",
+		},
+	}
+	out, err := BuildAdobe2APIImageEditMultipart(c, info, dto.ImageRequest{
+		Model:  "gemini-banana-pro-4k",
+		Prompt: "make it cinematic",
+		Size:   "16:9-4k",
+	})
+	if err != nil {
+		t.Fatalf("build multipart: %v", err)
+	}
+	if !info.Adobe2APIImageEditMultipart {
+		t.Fatal("expected Adobe2APIImageEditMultipart flag")
+	}
+	contentType := c.Request.Header.Get("Content-Type")
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		t.Fatalf("parse content type: %v", err)
+	}
+	parsed, err := multipart.NewReader(out, params["boundary"]).ReadForm(1 << 20)
+	if err != nil {
+		t.Fatalf("parse multipart: %v", err)
+	}
+	if got := parsed.Value["model"]; len(got) != 1 || got[0] != "nano-banana-pro" {
+		t.Fatalf("model = %#v", got)
+	}
+	if got := parsed.Value["aspect_ratio"]; len(got) != 1 || got[0] != "16:9" {
+		t.Fatalf("aspect_ratio = %#v", got)
+	}
+	if got := parsed.Value["image_size"]; len(got) != 1 || got[0] != "4K" {
+		t.Fatalf("image_size = %#v", got)
+	}
+	if files := parsed.File["image"]; len(files) != 2 {
+		t.Fatalf("image files = %d, want 2", len(files))
+	}
+	if len(parsed.File["image[]"]) != 0 {
+		t.Fatalf("unexpected image[] files: %#v", parsed.File["image[]"])
 	}
 }
 

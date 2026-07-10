@@ -1,8 +1,12 @@
 package openai
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
@@ -10,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/gin-gonic/gin"
 )
 
@@ -140,6 +145,12 @@ func resolveAdobe2APIUpstreamModel(info *relaycommon.RelayInfo, fallback string)
 }
 
 func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if info != nil &&
+		info.RelayMode == relayconstant.RelayModeImagesEdits &&
+		hasAdobe2APIMultipartImageFiles(c, request) {
+		return BuildAdobe2APIImageEditMultipart(c, info, request)
+	}
+
 	modelName := resolveAdobe2APIUpstreamModel(info, request.Model)
 	if modelName == "" {
 		return nil, fmt.Errorf("model is required")
@@ -174,6 +185,117 @@ func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, r
 		body["reference_images"] = refs
 	}
 	return body, nil
+}
+
+// BuildAdobe2APIImageEditMultipart 将 multipart 图生图转为 Adobe2API /v1/images/edits 表单。
+// 多图参考重复字段名 image（不用 image[]）；URL 参考图走 JSON reference_images 路径。
+func BuildAdobe2APIImageEditMultipart(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (*bytes.Buffer, error) {
+	if info != nil {
+		info.Adobe2APIImageEditMultipart = true
+	}
+	imageFiles, err := collectAdobe2APIMultipartImageFiles(c)
+	if err != nil {
+		return nil, err
+	}
+	if len(imageFiles) == 0 {
+		return nil, fmt.Errorf("image is required")
+	}
+
+	modelName := resolveAdobe2APIUpstreamModel(info, request.Model)
+	if modelName == "" {
+		return nil, fmt.Errorf("model is required")
+	}
+
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+	writeAdobe2APIImageEditFormFields(writer, info, request, modelName)
+
+	for i, fileHeader := range imageFiles {
+		file, err := fileHeader.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open image file %d: %w", i, err)
+		}
+		mimeType := detectImageMimeType(fileHeader.Filename)
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, fileHeader.Filename))
+		h.Set("Content-Type", mimeType)
+		part, err := writer.CreatePart(h)
+		if err != nil {
+			_ = file.Close()
+			return nil, fmt.Errorf("create form part failed for image %d: %w", i, err)
+		}
+		if _, err := io.Copy(part, file); err != nil {
+			_ = file.Close()
+			return nil, fmt.Errorf("copy file failed for image %d: %w", i, err)
+		}
+		_ = file.Close()
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	if c != nil && c.Request != nil {
+		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	}
+	return &requestBody, nil
+}
+
+func writeAdobe2APIImageEditFormFields(writer *multipart.Writer, info *relaycommon.RelayInfo, request dto.ImageRequest, modelName string) {
+	_ = writer.WriteField("model", modelName)
+	if prompt := strings.TrimSpace(request.Prompt); prompt != "" {
+		_ = writer.WriteField("prompt", prompt)
+	}
+	if request.N != nil && *request.N > 0 {
+		_ = writer.WriteField("n", strconv.FormatUint(uint64(*request.N), 10))
+	}
+	if quality := strings.TrimSpace(request.Quality); quality != "" {
+		_ = writer.WriteField("quality", quality)
+	}
+	if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
+		_ = writer.WriteField("aspect_ratio", aspectRatio)
+	}
+	if imageSize := adobe2APIImageSize(info, request); imageSize != "" {
+		_ = writer.WriteField("image_size", imageSize)
+		_ = writer.WriteField("output_resolution", imageSize)
+	}
+}
+
+func hasAdobe2APIMultipartImageFiles(c *gin.Context, request dto.ImageRequest) bool {
+	if c == nil || c.Request == nil || isJSONRequest(c) {
+		return false
+	}
+	if len(parseJSONStringList(request.Image)) > 0 || len(parseJSONStringList(request.Images)) > 0 {
+		return false
+	}
+	files, err := collectAdobe2APIMultipartImageFiles(c)
+	return err == nil && len(files) > 0
+}
+
+func collectAdobe2APIMultipartImageFiles(c *gin.Context) ([]*multipart.FileHeader, error) {
+	if c == nil || c.Request == nil {
+		return nil, nil
+	}
+	if err := ensureMultipartFormParsed(c); err != nil {
+		return nil, err
+	}
+	mf := c.Request.MultipartForm
+	if mf == nil || mf.File == nil {
+		return nil, nil
+	}
+
+	var imageFiles []*multipart.FileHeader
+	if files, ok := mf.File["image"]; ok {
+		imageFiles = append(imageFiles, files...)
+	}
+	if files, ok := mf.File["image[]"]; ok {
+		imageFiles = append(imageFiles, files...)
+	}
+	for fieldName, files := range mf.File {
+		if strings.HasPrefix(fieldName, "image[") && len(files) > 0 {
+			imageFiles = append(imageFiles, files...)
+		}
+	}
+	return imageFiles, nil
 }
 
 func adobe2APIOpenAIImageSize(request dto.ImageRequest) string {
@@ -225,8 +347,16 @@ func adobe2APICopyImageRawFields(body map[string]any, request dto.ImageRequest) 
 func adobe2APIImageSize(info *relaycommon.RelayInfo, request dto.ImageRequest) string {
 	for _, key := range []string{"image_size", "output_resolution", "resolution"} {
 		if value := adobe2APIImageOptionString(request, key, camelizeSnakeKey(key)); value != "" {
-			return normalizeAdobe2APIImageSize(value)
+			if key == "resolution" && isAdobe2APIVideoResolution(value) {
+				continue
+			}
+			if normalized := normalizeAdobe2APIImageSize(value); normalized != "" {
+				return normalized
+			}
 		}
+	}
+	if hint := adobe2APIResolutionHintFromRequest(request); hint != "" {
+		return hint
 	}
 	size := strings.ToUpper(strings.TrimSpace(request.Size))
 	if size == "1K" || size == "2K" || size == "4K" {
@@ -252,12 +382,14 @@ func adobe2APIImageSize(info *relaycommon.RelayInfo, request dto.ImageRequest) s
 
 func adobe2APIAspectRatio(request dto.ImageRequest) string {
 	if value := adobe2APIImageOptionString(request, "aspect_ratio", "aspectRatio", "ratio"); value != "" {
-		return value
+		if ratio, _ := parseAdobe2APIAspectRatioInput(value); ratio != "" {
+			return ratio
+		}
+	}
+	if ratio, _ := parseAdobe2APIAspectRatioInput(strings.TrimSpace(request.Size)); ratio != "" {
+		return ratio
 	}
 	value := strings.TrimSpace(request.Size)
-	if strings.Contains(value, ":") {
-		return value
-	}
 	switch strings.ToLower(value) {
 	case "1024x1024", "2048x2048", "4096x4096":
 		return "1:1"
@@ -350,13 +482,80 @@ func rawJSONValue(raw json.RawMessage) (any, bool) {
 }
 
 func normalizeAdobe2APIImageSize(value string) string {
+	if isAdobe2APIVideoResolution(value) {
+		return ""
+	}
 	upper := strings.ToUpper(strings.TrimSpace(value))
 	switch upper {
 	case "1K", "2K", "4K":
 		return upper
 	default:
-		return upper
+		return ""
 	}
+}
+
+func isAdobe2APIVideoResolution(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "720p", "1080p", "480p", "2160p":
+		return true
+	default:
+		return false
+	}
+}
+
+func adobe2APIResolutionHintFromRequest(request dto.ImageRequest) string {
+	for _, key := range []string{"aspect_ratio", "aspectRatio", "ratio"} {
+		if value := adobe2APIImageOptionString(request, key); value != "" {
+			if _, hint := parseAdobe2APIAspectRatioInput(value); hint != "" {
+				return hint
+			}
+		}
+	}
+	if _, hint := parseAdobe2APIAspectRatioInput(strings.TrimSpace(request.Size)); hint != "" {
+		return hint
+	}
+	return ""
+}
+
+func parseAdobe2APIAspectRatioInput(value string) (ratio string, resolutionHint string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", ""
+	}
+	lower := strings.ToLower(value)
+	for _, item := range []struct {
+		suffix string
+		res    string
+	}{
+		{"-4k", "4K"},
+		{"-2k", "2K"},
+		{"-1k", "1K"},
+	} {
+		if strings.HasSuffix(lower, item.suffix) {
+			candidate := strings.TrimSpace(value[:len(value)-len(item.suffix)])
+			if normalized := normalizePureAspectRatio(candidate); normalized != "" {
+				return normalized, item.res
+			}
+		}
+	}
+	if normalized := normalizePureAspectRatio(value); normalized != "" {
+		return normalized, ""
+	}
+	return "", ""
+}
+
+func normalizePureAspectRatio(value string) string {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) != 2 {
+		return ""
+	}
+	width, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || width <= 0 || height <= 0 {
+		return ""
+	}
+	divisor := gcd(width, height)
+	return fmt.Sprintf("%d:%d", width/divisor, height/divisor)
 }
 
 func adobe2APIImageSizeFromDimensions(size string) string {

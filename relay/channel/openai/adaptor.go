@@ -167,7 +167,11 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	default:
 		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
 			IsAdobe2APIImageRelay(info) {
-			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/images/generations", info.ChannelType), nil
+			path := "/v1/images/generations"
+			if info.RelayMode == relayconstant.RelayModeImagesEdits && info.Adobe2APIImageEditMultipart {
+				path = "/v1/images/edits"
+			}
+			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, path, info.ChannelType), nil
 		}
 		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
 			imagevendor.IsManjuBananaOriginModel(info.OriginModelName) {
@@ -644,6 +648,12 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	if IsAdobe2APIImageRelay(info) {
+		if info.Adobe2APIImageEditMultipart {
+			return channel.DoFormRequest(a, c, info, requestBody)
+		}
+		return channel.DoApiRequest(a, c, info, requestBody)
+	}
 	if imagevendor.IsManjuBananaOriginModel(info.OriginModelName) &&
 		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
 		return channel.DoApiRequest(a, c, info, requestBody)
