@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	leonardoReferenceImagesLimitRe = regexp.MustCompile(`(?i)reference images exceed leonardo limit \((\d+)/(\d+)\)`)
-	leonardoReferenceVideosLimitRe = regexp.MustCompile(`(?i)reference videos exceed leonardo limit \((\d+)/(\d+)\)`)
-	leonardoReferenceAudiosLimitRe = regexp.MustCompile(`(?i)reference audios exceed leonardo limit \((\d+)/(\d+)\)`)
+	leonardoReferenceImagesLimitRe         = regexp.MustCompile(`(?i)reference images exceed leonardo limit \((\d+)/(\d+)\)`)
+	leonardoReferenceVideosLimitRe         = regexp.MustCompile(`(?i)reference videos exceed leonardo limit \((\d+)/(\d+)\)`)
+	leonardoReferenceAudiosLimitRe         = regexp.MustCompile(`(?i)reference audios exceed leonardo limit \((\d+)/(\d+)\)`)
 	leonardoReferenceVideosTotalDurationRe = regexp.MustCompile(`(?i)reference videos total duration ([0-9.]+)s exceeds leonardo limit \((\d+) s\)`)
-	leonardoReferenceAudioDurationRe = regexp.MustCompile(`(?i)reference audio duration ([0-9.]+)s exceeds leonardo limit \((\d+) s\)`)
-	leonardoReferenceVideoDurationRangeRe = regexp.MustCompile(`(?i)reference video duration ([0-9.]+)s not in (\d+)-(\d+) s range`)
+	leonardoReferenceAudioDurationRe       = regexp.MustCompile(`(?i)reference audio duration ([0-9.]+)s exceeds leonardo limit \((\d+) s\)`)
+	leonardoReferenceVideoDurationRangeRe  = regexp.MustCompile(`(?i)reference video duration ([0-9.]+)s not in (\d+)-(\d+) s range`)
 )
 
 // HumanizeLeonardoReferenceLimitError maps Leonardo multimodal limit errors to client-friendly copy.
@@ -92,11 +92,12 @@ func HumanizeLeonardoReferenceLimitError(preferChinese bool, raw string) (string
 
 func humanizeLeonardoGenerationFailureDetail(preferChinese bool, detail string) (string, bool) {
 	lower := strings.ToLower(strings.TrimSpace(detail))
-	if strings.Contains(lower, "upstream rejected the job with no output") {
+	if strings.Contains(lower, "upstream rejected the job with no output") ||
+		strings.Contains(lower, "upstream returned failed with no output and no failure detail") {
 		if preferChinese {
-			return "Leonardo 上游拒绝了该任务（无任何输出），建议缩短提示词或减少参考素材后重试。", true
+			return "Leonardo 上游生成失败且未提供具体原因；参考素材已成功提交，这不代表素材数量超限，请调整提示词或素材后重试。", true
 		}
-		return "Leonardo rejected the job with no output. Try a shorter prompt or fewer references.", true
+		return "Leonardo returned FAILED with no output or failure detail. The references were accepted; adjust the prompt or source material and retry.", true
 	}
 	return "", false
 }

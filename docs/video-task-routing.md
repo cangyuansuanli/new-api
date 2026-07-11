@@ -27,6 +27,8 @@ relay/channel/task/oaivideo/
 
 轮询循环与单任务处理均带 `recover`，避免一次 panic 永久停摆。
 
+Leonardo `cy-sd4-*` 渠道在插件主轮询窗口结束后仍返回 `in_progress`：插件内部转为 `delayed` 并低频追踪原 `generation_id`，NewAPI 不得将其提前改为失败或重新提交。NewAPI 全局任务清理由 `TASK_TIMEOUT_MINUTES` 控制（默认 1440 分钟），应显著长于插件主轮询窗口。
+
 路由恢复必须兼容历史任务缺少 `ChannelMeta`、`UpstreamModelName` 或计费快照的情况：缺失字段按空值处理并回退到 `OriginModelName` / 默认视频解析器，禁止通过嵌入的空指针字段直接取值。共享请求转换同样将 `nil` 视为空值，不能把它序列化为 `"<nil>"` 后误判为客户显式参数。
 
 Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/videos` + `GET /v1/videos/{id}`，Adobe vendor 内部将创建请求映射为上游 `POST /v1/videos/generations`，并使用上游 `GET /v1/videos/{id}` 轮询。Adobe 任务直接进入通用任务表和通用轮询，不再创建独立 worker，也不再包装成 chat。
@@ -55,6 +57,8 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 - 默认 `SUBMITTED` / `10%`
 - 若上游响应 `status=queued` → `QUEUED` / `20%`
 - 实现：[`model.ApplySubmittedStatusFromUpstreamData`](../model/task.go)，在 [`controller/relay.go`](../controller/relay.go) 插入任务前调用
+
+提交接口只负责取得并返回任务 ID，不等待生成完成；`queued`、`in_progress` 以及 Leonardo 插件内部的 `delayed` 都是非终态。
 
 ## 新增视频模型 Checklist
 

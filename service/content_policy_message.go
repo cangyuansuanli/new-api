@@ -27,8 +27,8 @@ const (
 	GenerationFailedMessageZH = "视频生成失败，请稍后重试。"
 	GenerationFailedMessageEN = "Video generation failed, please retry later."
 
-	GenerationFailedNoDetailZH = "Leonardo 上游生成失败（未返回具体原因）：任务被拒绝且无输出，建议缩短提示词或减少参考素材后重试。"
-	GenerationFailedNoDetailEN = "Leonardo upstream generation failed without details: the job was rejected with no output. Try a shorter prompt or fewer references."
+	GenerationFailedNoDetailZH = "Leonardo 上游生成失败且未提供具体原因；参考素材已成功提交，这不代表素材数量超限，请调整提示词或素材后重试。"
+	GenerationFailedNoDetailEN = "Leonardo upstream generation failed without a specific reason. The references were accepted; this does not indicate a reference-count limit. Adjust the prompt or source material and retry."
 
 	InvalidRequestMessageZH = "请求参数不符合要求，请检查后重试。"
 	InvalidRequestMessageEN = "Request parameters are invalid, please check and retry."

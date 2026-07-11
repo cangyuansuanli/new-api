@@ -34,6 +34,8 @@ Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`
 
 路由表与轮询行为详见 [`docs/video-task-routing.md`](../../../docs/video-task-routing.md)。
 
+`seedance` 适配器把上游 `queued` / `in_progress`（包括 Leonardo 插件内部的 `delayed`）统一保留为非终态；只有上游明确 `failed` 才结算失败。提交接口应立即返回任务 ID，生成耗时不占用提交请求。
+
 ## 新增模型放哪
 
 | 场景 | 改哪里 |
