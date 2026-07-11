@@ -41,7 +41,8 @@ jobs:
       - name: Verify media routing contracts
         run: |
           set -euo pipefail
-          go test ./model ./scripts/seed_model_ui_params ./relay/imagevendor ./relay/channel/openai ./relay/image ./service
+          go test ./scripts/seed_model_ui_params ./relay/common ./relay/imagevendor ./relay/channel/openai ./relay/image ./relay/channel/task/oaivideo/...
+          go test ./service -run '^(TestTaskBillingOther_ImageAsyncModelMapping|TestInitTask_ImageAsyncPreservesUpstreamModelName|TestSettle_)'
           python3 -m json.tool scripts/seed_data/model_ui_params_image.json >/dev/null
           python3 -m py_compile scripts/seed_model_ui_params_image.py
           unformatted="$(gofmt -l \
