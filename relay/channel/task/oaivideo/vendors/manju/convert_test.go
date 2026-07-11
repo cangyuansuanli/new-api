@@ -125,8 +125,8 @@ func TestBuildOpenAIErrorResponse(t *testing.T) {
 
 func TestBuildOpenAIVideoCreateResponse(t *testing.T) {
 	info := &relaycommon.RelayInfo{
-		PublicTaskID:    "task_public",
 		OriginModelName: "manju-openai-sora2",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{PublicTaskID: "task_public"},
 	}
 	out := buildOpenAIVideoCreateResponse(info, responseTaskFromGJSON([]byte(`{"status":"running","progress":13,"properties":{"duration":"8"}}`)), nil)
 	if out["id"] != "task_public" {

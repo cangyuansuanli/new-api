@@ -31,7 +31,9 @@ func TestBuildRequestBodyUsesAdobeStrictVideoSchema(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "adobe-veo31-ref", Prompt: "a cat", Duration: 6})
 
-	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{UpstreamModelName: "veo31-ref"})
+	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "veo31-ref"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +60,9 @@ func TestBuildRequestBodyUsesAdobeStrictVideoSchema(t *testing.T) {
 }
 
 func TestAdobeUsesTypedSubmitAndSucceededResponse(t *testing.T) {
-	url, err := (&TaskAdaptor{}).BuildRequestURL(&relaycommon.RelayInfo{ChannelBaseUrl: "https://adobe.example.test/"})
+	url, err := (&TaskAdaptor{}).BuildRequestURL(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://adobe.example.test/"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -194,7 +194,11 @@ func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (
 	}
 	if task != nil {
 		info := registry.RelayInfoFromTask(task)
-		switch registry.ResolveWithChannel(task.Properties.OriginModelName, info.UpstreamModelName, task.ChannelId, "") {
+		upstreamModel := ""
+		if info.ChannelMeta != nil {
+			upstreamModel = info.ChannelMeta.UpstreamModelName
+		}
+		switch registry.ResolveWithChannel(info.OriginModelName, upstreamModel, task.ChannelId, "") {
 		case registry.VendorAdobe:
 			return r.adobe.ParseTaskResult(respBody)
 		case registry.VendorManju:

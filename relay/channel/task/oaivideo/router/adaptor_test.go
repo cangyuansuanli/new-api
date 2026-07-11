@@ -63,7 +63,7 @@ func TestRouterAdaptor_ParseTaskResult_ManjuBody(t *testing.T) {
 }
 
 func TestRouterAdaptor_ParseTaskResultForTask_Completed(t *testing.T) {
-	r := NewRouterAdaptor()
+	r := NewRouterAdaptor().(*RouterAdaptor)
 	body := []byte(`{"id":"task_x","status":"completed","progress":100,"video_url":"https://example.com/a.mp4"}`)
 	task := &model.Task{
 		Properties: model.Properties{OriginModelName: "cy-sd1-seedance-2.0-fast-720p"},

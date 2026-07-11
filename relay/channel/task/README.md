@@ -46,3 +46,4 @@ Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`
 
 - `taskcommon/` — 计费基类等，各 task 适配器复用
 - `oaivideo/vendors/adobe/` — Adobe2API 请求规范化和 typed endpoint 路由；生命周期与计费复用标准视频
+- `oaivideo/shared/` 的可选字段转换必须保持 `nil → 空值`；轮询路由读取历史任务时必须允许 `ChannelMeta` 缺失。

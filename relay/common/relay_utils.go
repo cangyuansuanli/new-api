@@ -58,6 +58,9 @@ func createTaskError(err error, code string, statusCode int, localError bool) *d
 const promptInputContextKey = "prompt_input"
 
 func storeTaskRequest(c *gin.Context, info *RelayInfo, action string, requestObj TaskSubmitReq) {
+	if info.TaskRelayInfo == nil {
+		info.TaskRelayInfo = &TaskRelayInfo{}
+	}
 	info.Action = action
 	c.Set("task_request", requestObj)
 	StorePromptInput(c, requestObj.GetPrompt())
@@ -112,16 +115,16 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 
 	formData := c.Request.PostForm
 	req = TaskSubmitReq{
-		Prompt:   formData.Get("prompt"),
-		Model:    formData.Get("model"),
-		Mode:     formData.Get("mode"),
-		Image:    formData.Get("image"),
-		Size:     formData.Get("size"),
-		Seconds:  formData.Get("seconds"),
-		ImageUrls: append([]string(nil), formData["image_urls"]...),
+		Prompt:             formData.Get("prompt"),
+		Model:              formData.Get("model"),
+		Mode:               formData.Get("mode"),
+		Image:              formData.Get("image"),
+		Size:               formData.Get("size"),
+		Seconds:            formData.Get("seconds"),
+		ImageUrls:          append([]string(nil), formData["image_urls"]...),
 		ReferenceImageUrls: append([]string(nil), formData["reference_image_urls"]...),
-		InputReference: formData.Get("input_reference"),
-		Metadata: make(map[string]interface{}),
+		InputReference:     formData.Get("input_reference"),
+		Metadata:           make(map[string]interface{}),
 	}
 
 	if durationStr := formData.Get("seconds"); durationStr != "" {

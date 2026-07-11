@@ -11,21 +11,21 @@ import (
 )
 
 type ResponseTask struct {
-	ID                 string `json:"id"`
-	TaskID             string `json:"task_id,omitempty"`
-	Object             string `json:"object"`
-	Model              string `json:"model"`
-	Status             string `json:"status"`
+	ID                 string  `json:"id"`
+	TaskID             string  `json:"task_id,omitempty"`
+	Object             string  `json:"object"`
+	Model              string  `json:"model"`
+	Status             string  `json:"status"`
 	Progress           float64 `json:"progress"`
-	CreatedAt          int64  `json:"created_at"`
-	CompletedAt        int64  `json:"completed_at,omitempty"`
-	ExpiresAt          int64  `json:"expires_at,omitempty"`
-	Seconds            string `json:"seconds,omitempty"`
+	CreatedAt          int64   `json:"created_at"`
+	CompletedAt        int64   `json:"completed_at,omitempty"`
+	ExpiresAt          int64   `json:"expires_at,omitempty"`
+	Seconds            string  `json:"seconds,omitempty"`
 	Duration           float64 `json:"duration,omitempty"`
-	Size               string `json:"size,omitempty"`
-	RemixedFromVideoID string `json:"remixed_from_video_id,omitempty"`
-	VideoURL           string `json:"videoUrl,omitempty"`
-	VideoURLSnake      string `json:"video_url,omitempty"`
+	Size               string  `json:"size,omitempty"`
+	RemixedFromVideoID string  `json:"remixed_from_video_id,omitempty"`
+	VideoURL           string  `json:"videoUrl,omitempty"`
+	VideoURLSnake      string  `json:"video_url,omitempty"`
 	Data               []struct {
 		URL      string `json:"url,omitempty"`
 		VideoURL string `json:"video_url,omitempty"`
@@ -161,6 +161,8 @@ func UsageSecondsFromTaskData(data []byte, manjuFn func([]byte) int) int {
 
 func AsString(v interface{}) string {
 	switch t := v.(type) {
+	case nil:
+		return ""
 	case string:
 		return t
 	case float64:

@@ -163,12 +163,12 @@ func profileDocToRow(capability string, doc map[string]interface{}) (*model.Mode
 
 	row := &model.ModelUiParamProfile{
 		Capability:      capability,
-		ProfileId:         profileId,
-		Params:            params,
-		OptionRules:       "[]",
-		Hints:             "[]",
-		Poll:              "{}",
-		ReferenceLimits:   "{}",
+		ProfileId:       profileId,
+		Params:          params,
+		OptionRules:     "[]",
+		Hints:           "[]",
+		Poll:            "{}",
+		ReferenceLimits: "{}",
 	}
 
 	if capability == model.ModelUiParamCapabilityVideo {
