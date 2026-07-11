@@ -51,6 +51,30 @@ func TestGetByTaskIdForFetchOmitsRequestSnapshot(t *testing.T) {
 	assert.Len(t, job.Data, 1)
 }
 
+func TestPendingAsyncTasksKeepRequestSnapshot(t *testing.T) {
+	truncateTables(t)
+
+	snapshot := []byte(`{"model":"gpt-image-2","prompt":"a cat"}`)
+	task := &Task{
+		UserId:     7,
+		TaskID:     "task_pending_async_snapshot",
+		Platform:   "image",
+		Status:     TaskStatusInProgress,
+		Progress:   "30%",
+		SubmitTime: time.Now().Unix(),
+		Properties: Properties{TaskKind: "image"},
+		PrivateData: TaskPrivateData{
+			RequestSnapshot: snapshot,
+		},
+		Data: json.RawMessage(`{}`),
+	}
+	insertTask(t, task)
+
+	pending := GetPendingImageAsyncTasks(1)
+	require.Len(t, pending, 1)
+	assert.Equal(t, snapshot, pending[0].PrivateData.RequestSnapshot)
+}
+
 func TestTaskListSelectLoadsResultURLWithoutSnapshot(t *testing.T) {
 	truncateTables(t)
 

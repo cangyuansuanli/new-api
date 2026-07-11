@@ -16,11 +16,12 @@ type ResponseTask struct {
 	Object             string `json:"object"`
 	Model              string `json:"model"`
 	Status             string `json:"status"`
-	Progress           int    `json:"progress"`
+	Progress           float64 `json:"progress"`
 	CreatedAt          int64  `json:"created_at"`
 	CompletedAt        int64  `json:"completed_at,omitempty"`
 	ExpiresAt          int64  `json:"expires_at,omitempty"`
 	Seconds            string `json:"seconds,omitempty"`
+	Duration           float64 `json:"duration,omitempty"`
 	Size               string `json:"size,omitempty"`
 	RemixedFromVideoID string `json:"remixed_from_video_id,omitempty"`
 	VideoURL           string `json:"videoUrl,omitempty"`
@@ -122,6 +123,9 @@ func ParsePositiveIntString(raw string) int {
 func UsageSecondsFromResponseTask(res ResponseTask) int {
 	if res.Usage != nil && res.Usage.Seconds > 0 {
 		return int(res.Usage.Seconds + 0.5)
+	}
+	if res.Duration > 0 {
+		return int(res.Duration + 0.5)
 	}
 	return ParsePositiveIntString(res.Seconds)
 }

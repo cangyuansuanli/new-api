@@ -585,8 +585,8 @@
             ]
         },
         {
-            "id": "video-tpl-adobe-sora2-chat",
-            "apiMode": "chat-completions",
+            "id": "video-tpl-adobe-sora2-json-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "sora2",
                 "sora2-pro"
@@ -637,20 +637,20 @@
             },
             "hints": [
                 {
-                    "text": "Adobe Firefly Sora2：支持 4/8/12 秒与 16:9、9:16 画幅；参数经 Chat Completions 传到 Adobe。"
+                    "text": "Adobe Firefly Sora2：POST /v1/videos 提交，GET /v1/videos/{id} 轮询；支持 4/8/12 秒与 16:9、9:16 画幅。"
                 }
             ]
         },
         {
-            "id": "video-tpl-adobe-veo31-chat",
-            "apiMode": "chat-completions",
+            "id": "video-tpl-adobe-veo31-json-async",
+            "apiMode": "videos-json-async",
             "match": [
                 "veo31",
                 "veo31-ref",
                 "veo31-fast"
             ],
             "referenceLimits": {
-                "images": 2,
+                "images": 3,
                 "videos": 0,
                 "audios": 0
             },
@@ -705,7 +705,7 @@
             },
             "hints": [
                 {
-                    "text": "Adobe Firefly Veo 3.1：支持 4/6/8 秒、16:9/9:16、720p/1080p；最多 2 张参考图。"
+                    "text": "Adobe Firefly Veo 3.1：POST /v1/videos 提交，GET /v1/videos/{id} 轮询；支持 4/6/8 秒、16:9/9:16、720p/1080p；最多 3 张参考图。"
                 }
             ]
         },

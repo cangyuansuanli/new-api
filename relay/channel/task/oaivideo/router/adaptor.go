@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/registry"
 	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/adobe"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedance"
@@ -43,6 +44,7 @@ type openAIVideoDelegate interface {
 // RouterAdaptor 按模型路由到独立适配器，避免 default / Manju / Seedance 互相污染。
 type RouterAdaptor struct {
 	native   delegate
+	adobe    delegate
 	manju    delegate
 	seedance delegate
 }
@@ -50,6 +52,7 @@ type RouterAdaptor struct {
 func NewRouterAdaptor() channel.TaskAdaptor {
 	return &RouterAdaptor{
 		native:   &defaultvideo.TaskAdaptor{},
+		adobe:    &adobe.TaskAdaptor{},
 		manju:    &manju.TaskAdaptor{},
 		seedance: &seedance.TaskAdaptor{},
 	}
@@ -59,7 +62,9 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 	if r == nil {
 		return nil
 	}
-	switch registry.Resolve(info.OriginModelName, info.UpstreamModelName) {
+	switch registry.ResolveWithChannel(info.OriginModelName, info.UpstreamModelName, info.ChannelId, info.ChannelBaseUrl) {
+	case registry.VendorAdobe:
+		return r.adobe
 	case registry.VendorManju:
 		return r.manju
 	case registry.VendorSeedance:
@@ -158,7 +163,9 @@ func (r *RouterAdaptor) GetModelList() []string {
 	if r == nil {
 		return nil
 	}
-	return append(append(r.native.GetModelList(), r.manju.GetModelList()...), r.seedance.GetModelList()...)
+	models := append([]string{}, r.native.GetModelList()...)
+	models = append(models, r.adobe.GetModelList()...)
+	return append(append(models, r.manju.GetModelList()...), r.seedance.GetModelList()...)
 }
 
 func (r *RouterAdaptor) GetChannelName() string {
@@ -186,7 +193,10 @@ func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (
 		return r.manju.ParseTaskResult(respBody)
 	}
 	if task != nil {
-		switch registry.Resolve(task.Properties.OriginModelName, registry.RelayInfoFromTask(task).UpstreamModelName) {
+		info := registry.RelayInfoFromTask(task)
+		switch registry.ResolveWithChannel(task.Properties.OriginModelName, info.UpstreamModelName, task.ChannelId, "") {
+		case registry.VendorAdobe:
+			return r.adobe.ParseTaskResult(respBody)
 		case registry.VendorManju:
 			return r.manju.ParseTaskResult(respBody)
 		case registry.VendorSeedance:

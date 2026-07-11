@@ -18,13 +18,13 @@ import (
 )
 
 func TestConvertAdobe2APIImageRequestMapsGenerationParams(t *testing.T) {
-	n := uint(2)
+	n := uint(1)
 	request := dto.ImageRequest{
 		Model:   "nano-banana-pro",
 		Prompt:  "a blue icon",
 		N:       &n,
 		Size:    "16:9",
-		Quality: "high",
+		Quality: "medium",
 	}
 	request.Extra = map[string]json.RawMessage{
 		"image_size": json.RawMessage(`"2K"`),
@@ -43,18 +43,61 @@ func TestConvertAdobe2APIImageRequestMapsGenerationParams(t *testing.T) {
 	if body["model"] != "nano-banana-pro" {
 		t.Fatalf("model = %v", body["model"])
 	}
-	if body["image_size"] != "2K" || body["output_resolution"] != "2K" {
-		t.Fatalf("resolution fields = %v / %v", body["image_size"], body["output_resolution"])
+	if body["image_size"] != "2K" {
+		t.Fatalf("image_size = %v", body["image_size"])
 	}
 	if body["aspect_ratio"] != "16:9" {
 		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
 	}
-	if body["n"] != uint(2) {
-		t.Fatalf("n = %v", body["n"])
+	if _, exists := body["n"]; exists {
+		t.Fatalf("strict Adobe2API body must not contain n: %#v", body)
 	}
 }
 
-func TestConvertAdobe2APIImageRequestPreservesFrontendOpenAIParams(t *testing.T) {
+func TestConvertAdobe2APIImageRequestStripsSellableSKUSuffixFromUpstreamModel(t *testing.T) {
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-nano-banana-pro-2k",
+	}, dto.ImageRequest{
+		Model:  "adobe-firefly-nano-banana-pro-2k",
+		Prompt: "a blue icon",
+	})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "model", "nano-banana-pro")
+	assertAdobe2APIField(t, body, "image_size", "2K")
+}
+
+func TestConvertAdobe2APIGPTImageSKUFallsBackToPublicUpstreamModel(t *testing.T) {
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-1k",
+	}, dto.ImageRequest{
+		Model:  "adobe-firefly-gpt-image-2-1k",
+		Prompt: "a blue icon",
+	})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "model", "gpt-image")
+	assertAdobe2APIField(t, body, "image_size", "1K")
+}
+
+func TestAdobe2APIImageRelayMatchesDedicatedFireflySKU(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-4k",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:         75,
+			UpstreamModelName: "gpt-image",
+		},
+	}
+	if !IsAdobe2APIImageRelay(info) {
+		t.Fatal("dedicated Adobe Firefly SKU should use Adobe2API image relay")
+	}
+}
+
+func TestConvertAdobe2APIImageRequestStripsUnsupportedOpenAIParams(t *testing.T) {
 	n := uint(1)
 	request := dto.ImageRequest{
 		Model:             "cy-img2-gpt-image-2-4k",
@@ -80,16 +123,13 @@ func TestConvertAdobe2APIImageRequestPreservesFrontendOpenAIParams(t *testing.T)
 		t.Fatalf("convert: %v", err)
 	}
 	body := bodyAny.(map[string]any)
-	assertAdobe2APIField(t, body, "size", "3840x2160")
-	assertAdobe2APIField(t, body, "quality", "high")
-	assertAdobe2APIField(t, body, "background", "opaque")
-	assertAdobe2APIField(t, body, "output_format", "webp")
-	assertAdobe2APIField(t, body, "output_compression", float64(80))
-	assertAdobe2APIField(t, body, "moderation", "low")
-	assertAdobe2APIField(t, body, "response_format", "url")
 	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	assertAdobe2APIField(t, body, "output_resolution", "4K")
+	for _, key := range []string{"n", "size", "quality", "background", "output_format", "output_compression", "moderation", "response_format", "output_resolution"} {
+		if _, exists := body[key]; exists {
+			t.Fatalf("strict Adobe2API body contains unsupported field %q: %#v", key, body)
+		}
+	}
 }
 
 func TestConvertAdobe2APIImageRequestReadsMetadataAndExtraBodyParams(t *testing.T) {
@@ -97,13 +137,13 @@ func TestConvertAdobe2APIImageRequestReadsMetadataAndExtraBodyParams(t *testing.
 		Model:  "nano-banana-pro",
 		Prompt: "a clean poster",
 		Extra: map[string]json.RawMessage{
-			"metadata":   json.RawMessage(`{"aspectRatio":"9:16","outputResolution":"2K","background":"opaque"}`),
+			"metadata":   json.RawMessage(`{"aspectRatio":"9:16","outputResolution":"4K","background":"opaque"}`),
 			"extra_body": json.RawMessage(`{"output_format":"jpeg","output_compression":72,"google":{"image_config":{"image_size":"4K"}}}`),
 		},
 	}
 
 	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
-		OriginModelName: "nano-banana-pro",
+		OriginModelName: "adobe-firefly-nano-banana-pro-4k",
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelBaseUrl: "http://45.67.221.45:6001",
 		},
@@ -114,10 +154,11 @@ func TestConvertAdobe2APIImageRequestReadsMetadataAndExtraBodyParams(t *testing.
 	body := bodyAny.(map[string]any)
 	assertAdobe2APIField(t, body, "aspect_ratio", "9:16")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	assertAdobe2APIField(t, body, "output_resolution", "4K")
-	assertAdobe2APIField(t, body, "background", "opaque")
-	assertAdobe2APIField(t, body, "output_format", "jpeg")
-	assertAdobe2APIField(t, body, "output_compression", float64(72))
+	for _, key := range []string{"output_resolution", "background", "output_format", "output_compression"} {
+		if _, exists := body[key]; exists {
+			t.Fatalf("strict Adobe2API body contains unsupported field %q: %#v", key, body)
+		}
+	}
 }
 
 func TestAdobe2APIImageRelayMatchesChannel75MappedModel(t *testing.T) {
@@ -134,7 +175,7 @@ func TestAdobe2APIImageRelayMatchesChannel75MappedModel(t *testing.T) {
 	bodyAny, err := ConvertAdobe2APIImageRequest(nil, info, dto.ImageRequest{
 		Model:  "cy-img2-gpt-image-2-4k",
 		Prompt: "a clean product render",
-		Size:   "1024x1024",
+		Size:   "3840x2160",
 	})
 	if err != nil {
 		t.Fatalf("convert: %v", err)
@@ -172,7 +213,6 @@ func TestAdobe2APIImageRelayReusesManjuBananaModels(t *testing.T) {
 	assertAdobe2APIField(t, body, "model", "nano-banana2")
 	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	assertAdobe2APIField(t, body, "output_resolution", "4K")
 	if _, exists := body["messages"]; exists {
 		t.Fatalf("Adobe2API image relay should not use Manju chat body: %#v", body)
 	}
@@ -198,7 +238,6 @@ func TestAdobe2APIImageRelayReusesManjuBananaProModel(t *testing.T) {
 	body := bodyAny.(map[string]any)
 	assertAdobe2APIField(t, body, "model", "nano-banana-pro")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	assertAdobe2APIField(t, body, "output_resolution", "4K")
 }
 
 func TestAdobe2APIImageRelayMatchesChannelBaseURLWithoutChannel75(t *testing.T) {
@@ -244,7 +283,6 @@ func TestConvertAdobe2APIImageRequestNormalizesUIAspectSize(t *testing.T) {
 	body := bodyAny.(map[string]any)
 	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	assertAdobe2APIField(t, body, "output_resolution", "4K")
 }
 
 func TestConvertAdobe2APIImageRequestIgnoresVideoResolutionOnImage(t *testing.T) {
@@ -351,12 +389,12 @@ func TestConvertAdobe2APIImageRequestAddsReferenceImagesForEdits(t *testing.T) {
 	if body["aspect_ratio"] != "9:16" {
 		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
 	}
-	refs, ok := body["reference_images"].([]string)
+	refs, ok := body["images"].([]string)
 	if !ok {
-		t.Fatalf("reference_images type = %T", body["reference_images"])
+		t.Fatalf("images type = %T", body["images"])
 	}
 	if len(refs) != 1 || refs[0] != "https://example.com/ref.png" {
-		t.Fatalf("reference_images = %#v", refs)
+		t.Fatalf("images = %#v", refs)
 	}
 }
 

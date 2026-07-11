@@ -436,16 +436,32 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 }
 
 func GetPendingImageAsyncTasks(limit int) []*Task {
+	return getPendingAsyncTasksByKind(constant.TaskKindImage, limit)
+}
+
+func getPendingAsyncTasksByKind(kind string, limit int) []*Task {
 	if limit <= 0 {
 		return nil
 	}
-	all := GetAllUnFinishSyncTasks(limit * 8)
+	// Async workers need the durable request_snapshot to replay the request after
+	// a process restart. Do not reuse GetAllUnFinishSyncTasks here: that query
+	// intentionally projects request_snapshot out of private_data for polling
+	// and status reads.
+	var all []*Task
+	if err := DB.Where("progress != ?", "100%").
+		Where("status != ?", TaskStatusFailure).
+		Where("status != ?", TaskStatusSuccess).
+		Limit(limit * 8).
+		Order("id").
+		Find(&all).Error; err != nil {
+		return nil
+	}
 	if len(all) == 0 {
 		return nil
 	}
 	out := make([]*Task, 0, limit)
 	for _, task := range all {
-		if task == nil || task.Properties.TaskKind != constant.TaskKindImage {
+		if task == nil || task.Properties.TaskKind != kind {
 			continue
 		}
 		out = append(out, task)
@@ -571,6 +587,13 @@ func (Task *Task) Update() error {
 	var err error
 	err = DB.Save(Task).Error
 	return err
+}
+
+// UpdateQuota persists a terminal task's final quota without rewriting its
+// other fields. Billing settlement updates user/token balances separately, so
+// keeping this write narrow avoids overwriting a concurrent task snapshot.
+func (Task *Task) UpdateQuota(quota int) error {
+	return DB.Model(&Task{}).Where("id = ?", Task.ID).Update("quota", quota).Error
 }
 
 // UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).

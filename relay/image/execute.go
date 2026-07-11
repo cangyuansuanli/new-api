@@ -50,7 +50,7 @@ func executeTaskUpstream(task *model.Task) ([]dto.ImageData, *dto.Usage, error) 
 	}
 	c.Set("group", group)
 
-	if apiErr := setupImageTaskChannelContext(c, channel, task.Properties.OriginModelName); apiErr != nil {
+	if apiErr := setupImageTaskChannelContext(c, channel, task.Properties.OriginModelName, task.PrivateData.Key); apiErr != nil {
 		return nil, nil, apiErr.Err
 	}
 	c.Set("relay_mode", relayMode)
@@ -345,7 +345,7 @@ func SnapshotEditRequest(c *gin.Context) ([]byte, error) {
 	return common.Marshal(payload)
 }
 
-func setupImageTaskChannelContext(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+func setupImageTaskChannelContext(c *gin.Context, channel *model.Channel, modelName, keyOverride string) *types.NewAPIError {
 	if channel == nil {
 		return types.NewError(fmt.Errorf("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
@@ -364,11 +364,16 @@ func setupImageTaskChannelContext(c *gin.Context, channel *model.Channel, modelN
 	common.SetContextKey(c, constant.ContextKeyChannelAutoBan, channel.GetAutoBan())
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
-	key, index, newAPIError := channel.GetNextEnabledKey()
-	if newAPIError != nil {
-		return newAPIError
+	key := strings.TrimSpace(keyOverride)
+	index := 0
+	var newAPIError *types.NewAPIError
+	if key == "" {
+		key, index, newAPIError = channel.GetNextEnabledKey()
+		if newAPIError != nil {
+			return newAPIError
+		}
 	}
-	if channel.ChannelInfo.IsMultiKey {
+	if channel.ChannelInfo.IsMultiKey && keyOverride == "" {
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)
 		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
 	} else {

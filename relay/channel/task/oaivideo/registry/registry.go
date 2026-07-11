@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/adobe"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedance"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -15,12 +16,24 @@ type Vendor string
 
 const (
 	VendorSora     Vendor = "sora"
+	VendorAdobe    Vendor = "adobe"
 	VendorManju    Vendor = "manju"
 	VendorSeedance Vendor = "seedance"
 )
 
-// Resolve 按 internal/upstream 模型名解析 Vendor（注册顺序：Manju → Seedance → Sora）。
+// Resolve 按 internal/upstream 模型名解析 Vendor（注册顺序：Adobe → Manju → Seedance → Sora）。
 func Resolve(originModel, upstreamModel string) Vendor {
+	return ResolveWithChannel(originModel, upstreamModel, 0, "")
+}
+
+// ResolveWithChannel resolves vendor-specific request and response behavior.
+// Adobe is identified by the channel as well as the model because channel
+// mappings commonly expose upstream names such as "sora2" without the Adobe
+// prefix.
+func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseURL string) Vendor {
+	if adobe.IsRelay(originModel, upstreamModel, channelID, baseURL) {
+		return VendorAdobe
+	}
 	if manju.IsRelay(originModel, upstreamModel) {
 		return VendorManju
 	}
@@ -48,8 +61,9 @@ func RelayInfoFromTask(task *model.Task) *relaycommon.RelayInfo {
 	if info.OriginModelName == "" {
 		info.OriginModelName = upstreamModelFromTaskData(task.Data)
 	}
-	if upstream != "" {
+	if task.ChannelId != 0 || upstream != "" {
 		info.ChannelMeta = &relaycommon.ChannelMeta{
+			ChannelId:          task.ChannelId,
 			UpstreamModelName: upstream,
 		}
 	}

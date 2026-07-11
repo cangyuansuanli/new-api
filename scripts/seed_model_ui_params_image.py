@@ -87,6 +87,15 @@ def main() -> None:
                 deleted_at = NULL;
             """
         )
+        if str(profile.get("match_mode") or "").strip().lower() == "exact":
+            exact_models = [str(item).strip() for item in profile.get("match") or [] if str(item).strip()]
+            if exact_models:
+                quoted_models = ",".join("'" + item.replace("'", "''") + "'" for item in exact_models)
+                psql(
+                    "UPDATE models SET image_profile_id='"
+                    + str(profile_id).replace("'", "''")
+                    + f"', updated_time={now} WHERE model_name IN ({quoted_models}) AND deleted_at IS NULL;"
+                )
         print(f"upserted profile {profile_id} api_mode={api_mode}")
 
     psql(

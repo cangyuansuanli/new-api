@@ -205,7 +205,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		}
 	}
 	if resTask.Progress > 0 && resTask.Progress < 100 {
-		taskResult.Progress = fmt.Sprintf("%d%%", resTask.Progress)
+		taskResult.Progress = fmt.Sprintf("%.0f%%", resTask.Progress)
 	}
 	return &taskResult, nil
 }

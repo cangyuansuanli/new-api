@@ -534,6 +534,11 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	quotaDelta := actualQuota - preConsumedQuota
 
 	if quotaDelta == 0 {
+		if task.ID > 0 {
+			if err := task.UpdateQuota(actualQuota); err != nil {
+				logger.LogError(ctx, fmt.Sprintf("任务 %s 持久化最终额度失败: %v", task.TaskID, err))
+			}
+		}
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 预扣费准确（%s，%s）",
 			task.TaskID, logger.LogQuota(actualQuota), reason))
 		recordTaskBillingConsumeLog(ctx, task, actualQuota, reason, preConsumedQuota)
@@ -558,6 +563,11 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	taskAdjustTokenQuota(ctx, task, quotaDelta)
 
 	task.Quota = actualQuota
+	if task.ID > 0 {
+		if err := task.UpdateQuota(actualQuota); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("任务 %s 持久化最终额度失败: %v", task.TaskID, err))
+		}
+	}
 
 	var logType int
 	var logQuota int

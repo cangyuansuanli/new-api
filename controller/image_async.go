@@ -8,11 +8,13 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	openai "github.com/QuantumNous/new-api/relay/channel/openai"
-	"github.com/QuantumNous/new-api/relay/image"
 	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/relay/image"
+	"github.com/QuantumNous/new-api/relay/imagevendor"
+	adobevideo "github.com/QuantumNous/new-api/relay/video/adobe"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/types"
@@ -36,6 +38,17 @@ func RelayOpenAIImageEdits(c *gin.Context) {
 }
 
 func RelayOpenAIChatCompletions(c *gin.Context) {
+	if adobevideo.IsDeprecatedChatRequest(c) {
+		adobevideo.SetDeprecatedChatHeaders(c)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"message": "Adobe 视频模型请使用 POST /v1/videos 提交任务，并通过 GET /v1/videos/{task_id} 轮询结果。",
+				"type":    "invalid_request_error",
+				"code":    "adobe_video_use_videos_api",
+			},
+		})
+		return
+	}
 	if openai.IsAsyncChatImageRequest(c) {
 		openai.SetChatImageDeprecationHeaders(c)
 		c.Set("relay_mode", relayconstant.RelayModeChatCompletions)
@@ -101,6 +114,12 @@ func RelayImageTaskSubmit(c *gin.Context) {
 		return
 	}
 	relayInfo.RelayMode = relayMode
+	if imageRequest, ok := request.(*dto.ImageRequest); ok {
+		if err := imagevendor.ValidateFixedResolutionSKU(c, relayInfo.OriginModelName, imageRequest); err != nil {
+			respondTaskError(c, service.TaskErrorWrapper(err, "invalid_request", http.StatusBadRequest))
+			return
+		}
+	}
 	publicTaskID := model.GenerateTaskID()
 	action := constant.TaskActionImageGenerate
 	if relayMode == relayconstant.RelayModeImagesEdits {
@@ -191,6 +210,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 		task.Quota = relayInfo.PriceData.Quota
 		task.Properties.TaskKind = constant.TaskKindImage
 		task.Properties.Input = relaycommon.PromptInputFromContext(c)
+		task.PrivateData.Key = relayInfo.ApiKey
 		task.PrivateData.RequestPath = requestPath
 		task.PrivateData.RequestSnapshot = snapshot
 		task.PrivateData.BillingSource = relayInfo.BillingSource

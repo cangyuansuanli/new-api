@@ -33,6 +33,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify media routing contracts
+        run: |
+          set -euo pipefail
+          go test ./model ./scripts/seed_model_ui_params ./relay/imagevendor ./relay/channel/openai ./relay/image ./service
+          python3 -m json.tool scripts/seed_data/model_ui_params_image.json >/dev/null
+          python3 -m py_compile scripts/seed_model_ui_params_image.py
+          unformatted="$(gofmt -l \
+            controller/relay.go controller/image_async.go \
+            model/model_ui_params_resolve.go scripts/seed_model_ui_params/main.go \
+            relay/image/sync.go relay/imagevendor/fixed_resolution.go \
+            relay/imagevendor/fixed_resolution_test.go \
+            relay/channel/openai/adapt_adobe2api.go \
+            relay/channel/openai/adapt_adobe2api_test.go)"
+          test -z "$unformatted" || { echo "gofmt required:"; echo "$unformatted"; exit 1; }
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3

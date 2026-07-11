@@ -317,10 +317,10 @@ func responseTaskFromGJSON(respBody []byte) oaivideo.ResponseTask {
 	if p := gjson.GetBytes(respBody, "progress"); p.Exists() {
 		switch {
 		case p.Type == gjson.Number:
-			res.Progress = int(p.Int())
+			res.Progress = float64(p.Int())
 		default:
 			if pct := oaivideo.ParsePositiveIntString(strings.TrimSuffix(strings.TrimSpace(p.String()), "%")); pct > 0 {
-				res.Progress = pct
+				res.Progress = float64(pct)
 			}
 		}
 	}

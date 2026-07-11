@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adobe2API × NewAPI CI/CD 与模型路由审计</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f5f3ee; --paper:#fffdf8; --ink:#24231f; --muted:#6d6960; --line:#d9d4c9; --red:#a3362f; --amber:#996515; --green:#2e704d; --blue:#356a8a; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 ui-sans-serif,system-ui,-apple-system,"PingFang SC",sans-serif; }
+    main { max-width:1120px; margin:0 auto; padding:48px 24px 72px; }
+    header { border-bottom:1px solid var(--line); padding-bottom:28px; }
+    h1 { margin:0 0 8px; font:700 clamp(28px,4vw,46px)/1.14 ui-serif,Georgia,"Songti SC",serif; letter-spacing:-.02em; }
+    h2 { margin:42px 0 16px; font-size:22px; }
+    h3 { margin:0 0 8px; font-size:16px; }
+    p { max-width:78ch; }
+    code { background:rgba(100,90,70,.10); padding:.12em .35em; border-radius:4px; }
+    .tldr { max-width:none; margin:20px 0 0; padding:18px 20px; border-left:5px solid var(--red); background:color-mix(in srgb,var(--paper) 88%,var(--red)); font-size:17px; }
+    .status { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:28px 0; }
+    .card { border:1px solid var(--line); background:var(--paper); padding:18px; border-radius:10px; }
+    .card strong { display:block; font-size:24px; margin:3px 0 6px; }
+    .bad { color:var(--red); } .warn { color:var(--amber); } .good { color:var(--green); }
+    table { width:100%; border-collapse:collapse; background:var(--paper); border:1px solid var(--line); }
+    th,td { padding:12px 14px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+    th { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+    .sev { display:inline-block; min-width:66px; padding:2px 8px; border-radius:999px; color:white; font-size:12px; text-align:center; }
+    .sev.block { background:var(--red); } .sev.high { background:var(--amber); } .sev.ok { background:var(--green); }
+    .flow { display:grid; grid-template-columns:1fr 34px 1fr 34px 1fr; align-items:stretch; gap:8px; }
+    .arrow { display:grid; place-items:center; color:var(--muted); font-size:24px; }
+    .split { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .name { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; overflow-wrap:anywhere; }
+    .callout { margin:18px 0; padding:16px 18px; border:1px solid var(--line); border-radius:8px; background:var(--paper); }
+    .steps { counter-reset:step; display:grid; gap:12px; padding:0; }
+    .steps li { list-style:none; position:relative; padding:14px 16px 14px 58px; border:1px solid var(--line); background:var(--paper); border-radius:8px; }
+    .steps li:before { counter-increment:step; content:counter(step); position:absolute; left:16px; top:13px; width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:var(--ink); color:var(--paper); font-weight:700; }
+    details { border:1px solid var(--line); background:var(--paper); border-radius:8px; padding:12px 16px; margin:10px 0; }
+    summary { cursor:pointer; font-weight:650; }
+    footer { margin-top:48px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); }
+    @media (prefers-color-scheme:dark) { :root { --bg:#171714; --paper:#201f1b; --ink:#ebe7dd; --muted:#aaa398; --line:#3c3932; } }
+    @media (max-width:760px) { .status,.split { grid-template-columns:1fr; } .flow { grid-template-columns:1fr; } .arrow { transform:rotate(90deg); } table { display:block; overflow-x:auto; } }
+  </style>
+</head>
+<body><main>
+  <header>
+    <h1>Adobe2API × NewAPI<br>CI/CD 与模型路由审计</h1>
+    <p>审计对象：本地 <code>new-api/main</code> 未提交改动、<code>adobe2api/feat/strict-image-api</code>，日期 2026-07-11。</p>
+    <div class="tldr"><strong>审计问题已在工作树修正，但仍需按两阶段脚本发布。</strong> 校验现已限定到 <code>adobe-firefly-*</code>，Adobe profiles 不再匹配 Gulie / Go2API / Geek2 / Manju；12 个独立 SKU 由 expand 脚本先以禁用状态创建，价格通过后再由 activate 脚本开放。</div>
+  </header>
+
+  <section class="status">
+    <div class="card"><span class="good">代码修正</span><strong>已完成</strong><span>Adobe 固定 SKU 已隔离到独立命名空间。</span></div>
+    <div class="card"><span class="good">兼容判断</span><strong>已隔离</strong><span>已有 xK 商品不再进入 Adobe 校验。</span></div>
+    <div class="card"><span class="good">Adobe CI</span><strong>可控</strong><span>main 默认只部署 candidate，手工 promote 才切 6001。</span></div>
+  </section>
+
+  <h2>1. CI/CD 实际会发生什么</h2>
+  <div class="split">
+    <div class="card">
+      <h3>NewAPI：main → 直接生产滚动</h3>
+      <ul>
+        <li>Go 文件变化会触发构建并调用源站 <code>stack.sh ci-deploy newapi</code>。</li>
+        <li>生产 workflow 没有 <code>go test</code>、adapter contract test 或 candidate 流量验证。</li>
+        <li><code>scripts/**</code> 不在触发 paths；SQL 和参数 seed 不会自动执行。</li>
+        <li>容器 entrypoint 只启动程序；自定义商品 SQL 不随启动执行。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Adobe2API：main → candidate → promote</h3>
+      <ul>
+        <li>CI 先运行完整 pytest、shell syntax、compose config。</li>
+        <li>push main 默认部署 6002 candidate，不碰生产 6001。</li>
+        <li>candidate 会验证旧字段得到 422、multipart 严格契约和状态卷数量。</li>
+        <li>只有手工 <code>workflow_dispatch: promote</code> 才切生产，失败可回滚。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>2. 当前代码先上线时的半部署</h2>
+  <div class="flow">
+    <div class="card"><h3>客户请求</h3><span class="name">gpt-image-2-2k<br>quality=high</span></div>
+    <div class="arrow">→</div>
+    <div class="card"><h3>NewAPI 新代码</h3><span>在选渠道和预扣前，按模型后缀认定固定 2K，直接拒绝 high=4K。</span></div>
+    <div class="arrow">→</div>
+    <div class="card"><h3>数据库仍是旧状态</h3><span>Adobe 新 ability/model/profile 未自动导入；现有 Gulie 商品却已经被新代码影响。</span></div>
+  </div>
+
+  <h2>3. 客户参数兼容矩阵</h2>
+  <table>
+    <thead><tr><th>请求形态</th><th>Adobe 固定 SKU</th><th>已有非 Adobe xK 商品</th><th>判断</th></tr></thead>
+    <tbody>
+      <tr><td>只传 prompt，或 prompt 写“4K”</td><td>允许；adapter 固定 image_size</td><td>允许</td><td><span class="sev ok">安全</span></td></tr>
+      <tr><td>只传纯比例 <code>1:1/16:9</code></td><td>允许</td><td>允许</td><td><span class="sev ok">安全</span></td></tr>
+      <tr><td>省略档位字段</td><td>允许并注入 SKU 档位</td><td>允许</td><td><span class="sev ok">安全</span></td></tr>
+      <tr><td><code>quality=high/medium/low</code></td><td>仅与 SKU 档位一致时允许</td><td>现在也被全局校验，改变旧行为</td><td><span class="sev block">破坏兼容</span></td></tr>
+      <tr><td>像素 <code>size=1024x1024</code></td><td>被解释成 1K；用于 2K/4K SKU 会 400</td><td>旧 Gulie 会清洗/转比例，新代码可能提前拒绝</td><td><span class="sev block">破坏兼容</span></td></tr>
+      <tr><td><code>image_size/output_resolution</code> 在 metadata/extra_body</td><td>错档 400，符合风控目标</td><td>旧商品原本可能剥离，现在提前 400</td><td><span class="sev high">需隔离</span></td></tr>
+      <tr><td><code>n &gt; 1</code></td><td>400，Adobe 契约只支持 1</td><td>名称命中时也会被限制</td><td><span class="sev block">需隔离</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. 为什么 gpt-image-2-xk 会冲突</h2>
+  <div class="callout"><strong>路由不是只看上游 model。</strong> 客户 public model 先翻译成唯一 internal model，再通过 <code>abilities(group, model, channel_id)</code> 选渠道，最后使用该渠道自己的 <code>model_mapping</code> 变成 Adobe2API 的 <code>gpt-image</code>。同一个 public 名若对应两个 enabled internal model，<code>ResolveInternalModelName</code> 会直接返回 <code>ambiguous public model name</code>，请求甚至到不了 abilities 路由；若强行复用同一个 internal model，则价格、UI profile 和商品语义无法按上游渠道分开。</div>
+  <table>
+    <thead><tr><th>现有 internal</th><th>前缀剥离后的 public</th><th>现状</th></tr></thead>
+    <tbody>
+      <tr><td class="name">go2api-gpt-image-2-1k</td><td class="name">gpt-image-2-1k</td><td>已占用</td></tr>
+      <tr><td class="name">cy-img2-gpt-image-2-2k</td><td class="name">gpt-image-2-2k</td><td>已占用，且专门挂 Gulie 2K 清洗策略</td></tr>
+      <tr><td class="name">cy-img2-gpt-image-2-4k / geek2-...</td><td class="name">gpt-image-2-4k</td><td>已占用，现有 4K 商品/profile</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. 安全命名与路由方案</h2>
+  <div class="split">
+    <div class="card">
+      <h3 class="bad">不要使用</h3>
+      <p class="name">adobe-gpt-image-2-1k</p>
+      <p>因为 <code>adobe-</code> 已作为渠道前缀被剥离，客户最终仍看到 <code>gpt-image-2-1k</code>，与现有商品碰撞。</p>
+      <p class="name">cy-img2-gpt-image-2-xk</p>
+      <p>这是既有线路 B / Gulie / Geek2 的 internal 命名空间，不能被 Adobe profile 或校验接管。</p>
+    </div>
+    <div class="card">
+      <h3 class="good">推荐使用</h3>
+      <p class="name">internal: adobe-firefly-gpt-image-2-1k<br>public: firefly-gpt-image-2-1k<br>upstream: gpt-image</p>
+      <p>2K、4K 同理。public 名唯一，ModelPrice 独立，ability 只指向 Adobe channel 75。</p>
+      <p class="name">adobe-firefly-nano-banana-pro-1k<br>→ firefly-nano-banana-pro-1k<br>→ nano-banana-pro</p>
+      <p>与 Adobe2API 文档中的 Firefly 能力语义一致，也不复用 Manju 商品价格。</p>
+    </div>
+  </div>
+
+  <h2>6. 上线前必须完成的修正</h2>
+  <ol class="steps">
+    <li><strong>把固定档位识别限定到 Adobe SKU。</strong> 不再用“包含 gpt-image/nano-banana + xK 后缀”的全局规则；只认 <code>adobe-firefly-*</code>（以及明确批准的 legacy Adobe alias）。</li>
+    <li><strong>从 Adobe profiles 中删除 cy/go2api/geek2 match。</strong> 现有商品继续绑定原 profile；Adobe profile 只匹配 Adobe internal 名。</li>
+    <li><strong>不要复用 Manju 商品做 Adobe 独立定价。</strong> 同一 internal model 只能有一个 ModelPrice；复用后无法按上游渠道分别售价。</li>
+    <li><strong>为 NewAPI 增加发布门。</strong> 至少运行相关 Go tests、JSON 校验、Adobe adapter contract tests；最好先 candidate/影子实例。</li>
+    <li><strong>数据库按 expand → deploy → enable 执行。</strong> 先写 profile/model/mapping/price（ability disabled），再部署兼容代码，验证后最后启用 abilities。</li>
+    <li><strong>做真实请求矩阵。</strong> 每档覆盖 omitted、matching、wrong tier、prompt 写 4K、multipart edits、async submit/poll，并回归现有 gpt-image-2-xk。</li>
+  </ol>
+
+  <h2>7. 最终发布判断</h2>
+  <details open><summary>Adobe2API 可以先合并吗？</summary><p>可以合并到 main 生成 candidate；不要立即 promote。其严格接口已被 candidate contracts 覆盖，并且不会自动切生产 6001。</p></details>
+  <details open><summary>NewAPI 当前可以合并 main 吗？</summary><p><strong>不可以。</strong> main 会直接滚动生产；全局 SKU 匹配和旧商品 profile 抢占必须先修正。</p></details>
+  <details><summary>数据库 SQL 会随 CI 自动执行吗？</summary><p>不会。当前 NewAPI workflow 只部署镜像，seed 与自定义迁移脚本需要独立、显式执行。因此必须把数据库变更纳入发布 runbook 或自动化 migration job。</p></details>
+
+  <footer>证据来源：NewAPI production workflow、middleware public model translation、abilities 调度、model_mapping、imagevendor Gulie patch、UI profile seeder；Adobe2API candidate/promote workflow 与 strict contract checks。</footer>
+</main></body>
+</html>

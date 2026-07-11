@@ -117,6 +117,10 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		Mode:     formData.Get("mode"),
 		Image:    formData.Get("image"),
 		Size:     formData.Get("size"),
+		Seconds:  formData.Get("seconds"),
+		ImageUrls: append([]string(nil), formData["image_urls"]...),
+		ReferenceImageUrls: append([]string(nil), formData["reference_image_urls"]...),
+		InputReference: formData.Get("input_reference"),
 		Metadata: make(map[string]interface{}),
 	}
 
@@ -144,6 +148,17 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 	return req, nil
 }
 
+func parseTaskSubmitRequest(c *gin.Context) (TaskSubmitReq, error) {
+	if strings.HasPrefix(strings.ToLower(c.GetHeader("Content-Type")), "multipart/form-data") {
+		return validateMultipartTaskRequest(c, nil, "")
+	}
+	var req TaskSubmitReq
+	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+		return req, err
+	}
+	return req, nil
+}
+
 func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	var prompt string
 	var model string
@@ -151,8 +166,8 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	var size string
 	var hasInputReference bool
 
-	var req TaskSubmitReq
-	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+	req, err := parseTaskSubmitRequest(c)
+	if err != nil {
 		return createTaskError(err, "invalid_json", http.StatusBadRequest, true)
 	}
 
@@ -169,7 +184,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return createTaskError(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest, true)
 	}
 
-	if req.HasImage() {
+	if req.HasImage() || multipartTaskHasReferenceFile(c) {
 		hasInputReference = true
 	}
 
@@ -216,23 +231,16 @@ func isKnownTaskField(field string) bool {
 		"reference_image_urls": true,
 		"size":                 true,
 		"duration":             true,
+		"seconds":              true,
+		"metadata":             true,
 		"input_reference":      true, // Sora 特有字段
 	}
 	return knownFields[field]
 }
 
 func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
-	var err error
-	contentType := c.GetHeader("Content-Type")
-	var req TaskSubmitReq
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		req, err = validateMultipartTaskRequest(c, info, action)
-		if err != nil {
-			return createTaskError(err, "invalid_multipart_form", http.StatusBadRequest, true)
-		}
-	}
-	// 为了metadata字段的兼容性，统一UnmarshalBodyReusable
-	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+	req, err := parseTaskSubmitRequest(c)
+	if err != nil {
 		return createTaskError(err, "invalid_request", http.StatusBadRequest, true)
 	}
 
@@ -244,4 +252,16 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 
 	storeTaskRequest(c, info, action, req)
 	return nil
+}
+
+func multipartTaskHasReferenceFile(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.MultipartForm == nil {
+		return false
+	}
+	for _, field := range []string{"input_reference", "images", "image"} {
+		if len(c.Request.MultipartForm.File[field]) > 0 {
+			return true
+		}
+	}
+	return false
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	"github.com/QuantumNous/new-api/service"
@@ -84,7 +83,7 @@ func processImageAsyncTask(taskID string) {
 	if task.StartTime == 0 {
 		task.StartTime = time.Now().Unix()
 	}
-	if !imageAsyncTransitionStatus(ctx, task, fromStatus, "in_progress") {
+	if !service.TransitionTaskStatus(ctx, task, fromStatus, "image in_progress") {
 		return
 	}
 
@@ -110,24 +109,11 @@ func processImageAsyncTask(taskID string) {
 	task.Progress = taskcommon.ProgressComplete
 	task.FinishTime = time.Now().Unix()
 	task.ReleaseRequestSnapshot()
-	if !imageAsyncTransitionStatus(ctx, task, model.TaskStatusInProgress, "success") {
+	if !service.TransitionTaskStatus(ctx, task, model.TaskStatusInProgress, "image success") {
 		return
 	}
 
 	service.RecalculateTaskQuota(ctx, task, task.Quota, "image async complete")
-}
-
-func imageAsyncTransitionStatus(ctx context.Context, task *model.Task, fromStatus model.TaskStatus, phase string) bool {
-	won, err := task.UpdateWithStatus(fromStatus)
-	if err != nil {
-		logger.LogError(ctx, fmt.Sprintf("image async %s CAS error for task %s: %v", phase, task.TaskID, err))
-		return false
-	}
-	if won {
-		return true
-	}
-	logger.LogInfo(ctx, fmt.Sprintf("image async %s CAS lost for task %s (from %s)", phase, task.TaskID, fromStatus))
-	return false
 }
 
 // resolveTaskImageResultURLs：b64_json / data URI / Gulie·4K 上游 url 均转存 R2 后返回公网 URL。
@@ -141,7 +127,7 @@ func failImageAsyncTask(ctx context.Context, task *model.Task, fromStatus model.
 	task.FailReason = reason
 	task.FinishTime = time.Now().Unix()
 	task.ReleaseRequestSnapshot()
-	if !imageAsyncTransitionStatus(ctx, task, fromStatus, "failure") {
+	if !service.TransitionTaskStatus(ctx, task, fromStatus, "image failure") {
 		if reloaded, exist, err := model.GetByOnlyTaskId(task.TaskID); err == nil && exist {
 			if reloaded.Status == model.TaskStatusSuccess {
 				return

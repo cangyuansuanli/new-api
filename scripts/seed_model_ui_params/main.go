@@ -19,6 +19,11 @@ type seedRegistry struct {
 	Profiles  []map[string]interface{} `json:"profiles"`
 }
 
+type exactProfileBinding struct {
+	profileID string
+	models    []string
+}
+
 func main() {
 	force := flag.Bool("force", false, "replace existing profiles for each capability")
 	flag.Parse()
@@ -107,6 +112,7 @@ func seedCapability(capability, path string, force bool) error {
 		}
 	}
 
+	exactBindings := make([]exactProfileBinding, 0)
 	for _, profileDoc := range doc.Profiles {
 		row, matchTokens, err := profileDocToRow(capability, profileDoc)
 		if err != nil {
@@ -119,7 +125,18 @@ func seedCapability(capability, path string, force bool) error {
 		if profileId == doc.DefaultId || len(matchTokens) == 0 {
 			continue
 		}
+		if matchMode, _ := profileDoc["match_mode"].(string); strings.EqualFold(strings.TrimSpace(matchMode), "exact") {
+			exactBindings = append(exactBindings, exactProfileBinding{profileID: profileId, models: matchTokens})
+			continue
+		}
 		if err := model.BindModelsToProfile(capability, profileId, matchTokens); err != nil {
+			return err
+		}
+	}
+	// Exact bindings run last so broad compatibility tokens such as
+	// "gpt-image-2" cannot overwrite dedicated vendor SKU profiles.
+	for _, binding := range exactBindings {
+		if err := model.BindExactModelsToProfile(capability, binding.profileID, binding.models); err != nil {
 			return err
 		}
 	}

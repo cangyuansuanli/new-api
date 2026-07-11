@@ -252,3 +252,34 @@ func BindModelsToProfile(capability, profileID string, matchTokens []string) err
 	}
 	return nil
 }
+
+// BindExactModelsToProfile binds only full internal model names. It is used for
+// dedicated product namespaces whose names may contain broad compatibility
+// tokens owned by another profile (for example, firefly-gpt-image-2-4k).
+func BindExactModelsToProfile(capability, profileID string, modelNames []string) error {
+	if capability != ModelUiParamCapabilityVideo && capability != ModelUiParamCapabilityImage {
+		return nil
+	}
+	profileID = strings.TrimSpace(profileID)
+	if profileID == "" || len(modelNames) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(modelNames))
+	for _, name := range modelNames {
+		if name = strings.TrimSpace(name); name != "" {
+			normalized = append(normalized, name)
+		}
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+
+	updates := map[string]interface{}{"updated_time": common.GetTimestamp()}
+	if capability == ModelUiParamCapabilityVideo {
+		updates["video_profile_id"] = profileID
+	} else {
+		updates["image_profile_id"] = profileID
+	}
+	return DB.Model(&Model{}).Where("model_name IN ?", normalized).Updates(updates).Error
+}

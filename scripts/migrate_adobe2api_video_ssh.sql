@@ -32,21 +32,21 @@ INSERT INTO model_ui_param_profiles (
 )
 VALUES
 (
-    'video', 'video-tpl-adobe-sora2-chat', 'chat-completions', FALSE,
+    'video', 'video-tpl-adobe-sora2-json-async', 'videos-json-async', FALSE,
     '{}', NULL,
     '{"images":0,"videos":0,"audios":0}',
     '{"resolution":{"enabled":false},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"min":4,"max":12,"numericOptions":[4,8,12]},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":false}}',
     '[]',
-    '[{"text":"Adobe Firefly Sora2：支持 4/8/12 秒与 16:9、9:16 画幅；参数经 Chat Completions 传到 Adobe。"}]',
+    '[{"text":"Adobe Firefly Sora2：POST /v1/videos 提交，GET /v1/videos/{id} 轮询；支持 4/8/12 秒与 16:9、9:16 画幅。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 ),
 (
-    'video', 'video-tpl-adobe-veo31-chat', 'chat-completions', FALSE,
+    'video', 'video-tpl-adobe-veo31-json-async', 'videos-json-async', FALSE,
     '{}', NULL,
-    '{"images":2,"videos":0,"audios":0}',
+    '{"images":3,"videos":0,"audios":0}',
     '{"resolution":{"enabled":true,"options":[{"value":"720p","label":"720p"},{"value":"1080p","label":"1080p"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"min":4,"max":8,"numericOptions":[4,6,8]},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":false}}',
     '[]',
-    '[{"text":"Adobe Firefly Veo 3.1：支持 4/6/8 秒、16:9/9:16、720p/1080p；最多 2 张参考图。"}]',
+    '[{"text":"Adobe Firefly Veo 3.1：POST /v1/videos 提交，GET /v1/videos/{id} 轮询；支持 4/6/8 秒、16:9/9:16、720p/1080p；最多 3 张参考图。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 )
 ON CONFLICT (capability, profile_id) DO UPDATE SET
@@ -59,6 +59,18 @@ ON CONFLICT (capability, profile_id) DO UPDATE SET
     option_rules = EXCLUDED.option_rules,
     hints = EXCLUDED.hints,
     updated_time = EXCLUDED.updated_time;
+
+UPDATE models
+SET video_profile_id = CASE video_profile_id
+    WHEN 'video-tpl-adobe-sora2-chat' THEN 'video-tpl-adobe-sora2-json-async'
+    WHEN 'video-tpl-adobe-veo31-chat' THEN 'video-tpl-adobe-veo31-json-async'
+    ELSE video_profile_id
+END
+WHERE video_profile_id IN ('video-tpl-adobe-sora2-chat', 'video-tpl-adobe-veo31-chat');
+
+DELETE FROM model_ui_param_profiles
+WHERE capability = 'video'
+  AND profile_id IN ('video-tpl-adobe-sora2-chat', 'video-tpl-adobe-veo31-chat');
 
 -- Replace the old unregistered bare video names with names that have model metadata.
 WITH existing_models AS (
@@ -148,11 +160,11 @@ INSERT INTO models (model_name, description, tags, vendor_id, endpoints, status,
 SELECT v.model_name, v.description, v.tags, 2, v.endpoints, 1, 0, v.video_profile_id,
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('adobe-sora2', 'Adobe Firefly Sora2 视频生成。支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-sora2-chat'),
-    ('adobe-sora2-pro', 'Adobe Firefly Sora2 Pro 视频生成。支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly,pro', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-sora2-chat'),
-    ('adobe-veo31', 'Adobe Firefly Veo 3.1 标准视频生成。支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-veo31-chat'),
-    ('adobe-veo31-ref', 'Adobe Firefly Veo 3.1 参考图视频生成。支持最多 2 张参考图。', 'video,veo,adobe,firefly,reference', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-veo31-chat'),
-    ('adobe-veo31-fast', 'Adobe Firefly Veo 3.1 Fast 视频生成。支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly,fast', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-veo31-chat')
+    ('adobe-sora2', 'Adobe Firefly Sora2 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-sora2-json-async'),
+    ('adobe-sora2-pro', 'Adobe Firefly Sora2 Pro 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly,pro', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-sora2-json-async'),
+    ('adobe-veo31', 'Adobe Firefly Veo 3.1 标准视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-veo31-json-async'),
+    ('adobe-veo31-ref', 'Adobe Firefly Veo 3.1 参考图视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持最多 3 张参考图。', 'video,veo,adobe,firefly,reference', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-veo31-json-async'),
+    ('adobe-veo31-fast', 'Adobe Firefly Veo 3.1 Fast 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly,fast', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-veo31-json-async')
 ) AS v(model_name, description, tags, endpoints, video_profile_id)
 WHERE NOT EXISTS (
     SELECT 1 FROM models m WHERE m.model_name = v.model_name AND m.deleted_at IS NULL
@@ -169,11 +181,11 @@ SET
     video_profile_id = v.video_profile_id,
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('adobe-sora2', 'Adobe Firefly Sora2 视频生成。支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-sora2-chat'),
-    ('adobe-sora2-pro', 'Adobe Firefly Sora2 Pro 视频生成。支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly,pro', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-sora2-chat'),
-    ('adobe-veo31', 'Adobe Firefly Veo 3.1 标准视频生成。支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-veo31-chat'),
-    ('adobe-veo31-ref', 'Adobe Firefly Veo 3.1 参考图视频生成。支持最多 2 张参考图。', 'video,veo,adobe,firefly,reference', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-veo31-chat'),
-    ('adobe-veo31-fast', 'Adobe Firefly Veo 3.1 Fast 视频生成。支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly,fast', '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}', 'video-tpl-adobe-veo31-chat')
+    ('adobe-sora2', 'Adobe Firefly Sora2 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-sora2-json-async'),
+    ('adobe-sora2-pro', 'Adobe Firefly Sora2 Pro 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/8/12 秒与 16:9、9:16。', 'video,sora,adobe,firefly,pro', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-sora2-json-async'),
+    ('adobe-veo31', 'Adobe Firefly Veo 3.1 标准视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-veo31-json-async'),
+    ('adobe-veo31-ref', 'Adobe Firefly Veo 3.1 参考图视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持最多 3 张参考图。', 'video,veo,adobe,firefly,reference', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-veo31-json-async'),
+    ('adobe-veo31-fast', 'Adobe Firefly Veo 3.1 Fast 视频生成。POST /v1/videos 创建任务，GET /v1/videos/{task_id} 轮询取片；支持 4/6/8 秒、画幅与分辨率。', 'video,veo,adobe,firefly,fast', '{"openai-video":{"path":"/v1/videos","method":"POST"}}', 'video-tpl-adobe-veo31-json-async')
 ) AS v(model_name, description, tags, endpoints, video_profile_id)
 WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 

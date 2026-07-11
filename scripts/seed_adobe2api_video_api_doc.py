@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""写入 Adobe2API 渠道 75 的 Veo/Sora 视频 API 文档与按次定价。"""
+"""写入 Adobe2API 渠道 75 的标准视频 API 文档与按次定价。"""
 
 from __future__ import annotations
 
@@ -10,35 +10,35 @@ import time
 
 MODELS = {
     "adobe-sora2": {
-        "profile": "video-tpl-adobe-sora2-chat",
+        "profile": "video-tpl-adobe-sora2-json-async",
         "description": "Adobe Firefly Sora2 视频生成。支持 4/8/12 秒与 16:9、9:16。",
         "tags": "video,sora,adobe,firefly",
         "duration": [4, 8, 12],
         "resolution": None,
     },
     "adobe-sora2-pro": {
-        "profile": "video-tpl-adobe-sora2-chat",
+        "profile": "video-tpl-adobe-sora2-json-async",
         "description": "Adobe Firefly Sora2 Pro 视频生成。支持 4/8/12 秒与 16:9、9:16。",
         "tags": "video,sora,adobe,firefly,pro",
         "duration": [4, 8, 12],
         "resolution": None,
     },
     "adobe-veo31": {
-        "profile": "video-tpl-adobe-veo31-chat",
+        "profile": "video-tpl-adobe-veo31-json-async",
         "description": "Adobe Firefly Veo 3.1 标准视频生成。支持 4/6/8 秒、画幅与分辨率。",
         "tags": "video,veo,adobe,firefly",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
     },
     "adobe-veo31-ref": {
-        "profile": "video-tpl-adobe-veo31-chat",
-        "description": "Adobe Firefly Veo 3.1 参考图视频生成。支持最多 2 张参考图。",
+        "profile": "video-tpl-adobe-veo31-json-async",
+        "description": "Adobe Firefly Veo 3.1 参考图视频生成。支持最多 3 张参考图。",
         "tags": "video,veo,adobe,firefly,reference",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
     },
     "adobe-veo31-fast": {
-        "profile": "video-tpl-adobe-veo31-chat",
+        "profile": "video-tpl-adobe-veo31-json-async",
         "description": "Adobe Firefly Veo 3.1 Fast 视频生成。支持 4/6/8 秒、画幅与分辨率。",
         "tags": "video,veo,adobe,firefly,fast",
         "duration": [4, 6, 8],
@@ -58,7 +58,7 @@ PRICE_USD = {
 def build_api_doc(model: str, conf: dict) -> dict:
     params = [
         {"name": "model", "description": "必填，固定传 {{model}}。"},
-        {"name": "messages", "description": "必填，最后一条 user 消息为视频提示词。"},
+        {"name": "prompt", "description": "必填，视频提示词。"},
         {"name": "duration", "description": f"视频时长（秒），可选值：{conf['duration']}。"},
         {"name": "aspect_ratio", "description": "画幅比例：16:9 或 9:16。"},
         {"name": "generate_audio", "description": "是否生成声音，布尔值。"},
@@ -73,7 +73,7 @@ def build_api_doc(model: str, conf: dict) -> dict:
 
     request = {
         "model": model,
-        "messages": [{"role": "user", "content": "一辆跑车穿过雨夜城市"}],
+        "prompt": "一辆跑车穿过雨夜城市",
         "duration": conf["duration"][1],
         "aspect_ratio": "16:9",
         "generate_audio": True,
@@ -82,30 +82,23 @@ def build_api_doc(model: str, conf: dict) -> dict:
         request["resolution"] = conf["resolution"][0]
 
     return {
-        "dispatch_mode": "sync",
-        "intro": "Adobe2API Firefly 视频：POST /v1/chat/completions 创建视频并返回可播放地址。",
+        "dispatch_mode": "async",
+        "intro": "Adobe2API Firefly 视频：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。",
         "endpoints": [
             {
                 "method": "POST",
-                "path": "{{base}}/chat/completions",
-                "description": "创建视频；支持 JSON 与 OpenAI 多模态 messages。",
+                "path": "{{base}}/videos",
+                "description": "标准 OpenAI Video 创建接口。",
             }
         ],
         "basic_request_json": request,
         "params": params,
         "response_json": {
-            "id": "chatcmpl-adobe-video",
-            "object": "chat.completion",
+            "id": "task_adobe_video",
+            "object": "video",
             "model": model,
-            "choices": [
-                {
-                    "message": {
-                        "role": "assistant",
-                        "content": "```html\\n<video src='https://example.com/output.mp4' controls></video>\\n```",
-                    },
-                    "finish_reason": "stop",
-                }
-            ],
+            "status": "queued",
+            "progress": 0,
         },
     }
 
@@ -163,7 +156,7 @@ def save_json_option(key: str, data: dict) -> None:
 
 def main() -> None:
     now = int(time.time())
-    endpoints = '{"openai-video":{"path":"/v1/chat/completions","method":"POST"}}'
+    endpoints = '{"openai-video":{"path":"/v1/videos","method":"POST"}}'
     for model, conf in MODELS.items():
         api_doc = json.dumps(build_api_doc(model, conf), ensure_ascii=False, separators=(",", ":"))
         api_doc = api_doc.replace("'", "''")

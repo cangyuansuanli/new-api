@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,6 +26,8 @@ var adobe2APIImageModelPrefixes = []string{
 	"adobe-gpt-image",
 	"adobe2api-nano-banana",
 	"adobe2api-gpt-image",
+	"adobe-firefly-nano-banana",
+	"adobe-firefly-gpt-image",
 	"firefly-nano-banana",
 	"firefly-gpt-image",
 }
@@ -130,21 +133,55 @@ func hasAdobe2APIPrefix(model string, prefixes []string) bool {
 
 func resolveAdobe2APIUpstreamModel(info *relaycommon.RelayInfo, fallback string) string {
 	if info != nil && info.ChannelMeta != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
-		return strings.TrimSpace(info.UpstreamModelName)
+		upstream := strings.TrimSpace(info.UpstreamModelName)
+		if strings.HasPrefix(strings.ToLower(upstream), "adobe-") || strings.HasPrefix(strings.ToLower(upstream), "adobe2api-") {
+			return adobe2APIModelWithoutSellableSuffix(upstream, info.OriginModelName)
+		}
+		return upstream
 	}
 	name := strings.TrimSpace(fallback)
 	for _, prefix := range []string{"adobe2api/", "adobe/", "adobe2api-", "adobe-"} {
 		if strings.HasPrefix(strings.ToLower(name), prefix) {
-			return strings.TrimSpace(name[len(prefix):])
+			return adobe2APIModelWithoutSellableSuffix(name, fallback)
 		}
 	}
 	if info != nil && strings.TrimSpace(info.OriginModelName) != "" {
-		return strings.TrimSpace(info.OriginModelName)
+		origin := strings.TrimSpace(info.OriginModelName)
+		if strings.HasPrefix(strings.ToLower(origin), "adobe-") || strings.HasPrefix(strings.ToLower(origin), "adobe2api-") {
+			return adobe2APIModelWithoutSellableSuffix(origin, origin)
+		}
+		return origin
+	}
+	return name
+}
+
+func adobe2APIModelWithoutSellableSuffix(name string, skuModel string) string {
+	name = strings.TrimSpace(name)
+	for _, prefix := range []string{"adobe2api/", "adobe/", "adobe2api-", "adobe-"} {
+		if strings.HasPrefix(strings.ToLower(name), prefix) {
+			name = strings.TrimSpace(name[len(prefix):])
+			break
+		}
+	}
+	if fixed, ok := imagevendor.FixedResolutionSKU(skuModel); ok {
+		name = strings.TrimPrefix(strings.ToLower(name), "firefly-")
+		name = strings.TrimSuffix(strings.ToLower(name), "-"+strings.ToLower(fixed))
+	}
+	if name == "gpt-image-2" {
+		return "gpt-image"
 	}
 	return name
 }
 
 func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if request.N != nil && *request.N > 1 {
+		return nil, fmt.Errorf("Adobe2API image models only support n=1")
+	}
+	if info != nil {
+		if err := imagevendor.ValidateFixedResolutionSKU(c, info.OriginModelName, &request); err != nil {
+			return nil, err
+		}
+	}
 	if info != nil &&
 		info.RelayMode == relayconstant.RelayModeImagesEdits &&
 		hasAdobe2APIMultipartImageFiles(c, request) {
@@ -159,20 +196,9 @@ func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, r
 		"model":  modelName,
 		"prompt": request.Prompt,
 	}
-	if request.N != nil && *request.N > 0 {
-		body["n"] = *request.N
-	}
-	if size := adobe2APIOpenAIImageSize(request); size != "" {
-		body["size"] = size
-	}
-	if quality := strings.TrimSpace(request.Quality); quality != "" {
-		body["quality"] = quality
-	}
-	adobe2APICopyImageRawFields(body, request)
 	imageSize := adobe2APIImageSize(info, request)
 	if imageSize != "" {
 		body["image_size"] = imageSize
-		body["output_resolution"] = imageSize
 	}
 	if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
 		body["aspect_ratio"] = aspectRatio
@@ -182,13 +208,13 @@ func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, r
 		return nil, err
 	}
 	if len(refs) > 0 {
-		body["reference_images"] = refs
+		body["images"] = refs
 	}
 	return body, nil
 }
 
 // BuildAdobe2APIImageEditMultipart 将 multipart 图生图转为 Adobe2API /v1/images/edits 表单。
-// 多图参考重复字段名 image（不用 image[]）；URL 参考图走 JSON reference_images 路径。
+// 多图参考重复字段名 image（不用 image[]）；URL 参考图走 JSON images 路径。
 func BuildAdobe2APIImageEditMultipart(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (*bytes.Buffer, error) {
 	if info != nil {
 		info.Adobe2APIImageEditMultipart = true
@@ -245,18 +271,11 @@ func writeAdobe2APIImageEditFormFields(writer *multipart.Writer, info *relaycomm
 	if prompt := strings.TrimSpace(request.Prompt); prompt != "" {
 		_ = writer.WriteField("prompt", prompt)
 	}
-	if request.N != nil && *request.N > 0 {
-		_ = writer.WriteField("n", strconv.FormatUint(uint64(*request.N), 10))
-	}
-	if quality := strings.TrimSpace(request.Quality); quality != "" {
-		_ = writer.WriteField("quality", quality)
-	}
 	if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
 		_ = writer.WriteField("aspect_ratio", aspectRatio)
 	}
 	if imageSize := adobe2APIImageSize(info, request); imageSize != "" {
 		_ = writer.WriteField("image_size", imageSize)
-		_ = writer.WriteField("output_resolution", imageSize)
 	}
 }
 
@@ -298,53 +317,12 @@ func collectAdobe2APIMultipartImageFiles(c *gin.Context) ([]*multipart.FileHeade
 	return imageFiles, nil
 }
 
-func adobe2APIOpenAIImageSize(request dto.ImageRequest) string {
-	size := strings.TrimSpace(request.Size)
-	if size == "" {
-		return ""
-	}
-	if strings.EqualFold(size, "auto") || looksLikeImageDimensions(size) {
-		return size
-	}
-	return ""
-}
-
-func adobe2APICopyImageRawFields(body map[string]any, request dto.ImageRequest) {
-	rawFields := []struct {
-		key string
-		raw json.RawMessage
-	}{
-		{"background", request.Background},
-		{"moderation", request.Moderation},
-		{"output_format", request.OutputFormat},
-		{"output_compression", request.OutputCompression},
-		{"partial_images", request.PartialImages},
-		{"input_fidelity", request.InputFidelity},
-		{"response_format", json.RawMessage(strconvQuoteIfNotEmpty(request.ResponseFormat))},
-	}
-	for _, field := range rawFields {
-		if value, ok := rawJSONValue(field.raw); ok {
-			body[field.key] = value
-		}
-	}
-	if request.Stream != nil {
-		body["stream"] = *request.Stream
-	}
-	if request.Watermark != nil {
-		body["watermark"] = *request.Watermark
-	}
-
-	for _, key := range []string{"background", "moderation", "output_format", "output_compression", "partial_images", "input_fidelity", "response_format"} {
-		if _, exists := body[key]; exists {
-			continue
-		}
-		if value, ok := adobe2APIImageOptionValue(request, key, camelizeSnakeKey(key)); ok {
-			body[key] = value
-		}
-	}
-}
-
 func adobe2APIImageSize(info *relaycommon.RelayInfo, request dto.ImageRequest) string {
+	if info != nil {
+		if fixed, ok := imagevendor.FixedResolutionSKU(info.OriginModelName); ok {
+			return fixed
+		}
+	}
 	for _, key := range []string{"image_size", "output_resolution", "resolution"} {
 		if value := adobe2APIImageOptionString(request, key, camelizeSnakeKey(key)); value != "" {
 			if key == "resolution" && isAdobe2APIVideoResolution(value) {
@@ -650,18 +628,6 @@ func camelizeSnakeKey(key string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
-}
-
-func strconvQuoteIfNotEmpty(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	quoted, err := common.Marshal(value)
-	if err != nil {
-		return ""
-	}
-	return string(quoted)
 }
 
 func adobe2APIReferenceImages(c *gin.Context, request dto.ImageRequest) ([]string, error) {
