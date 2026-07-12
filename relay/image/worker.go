@@ -37,6 +37,7 @@ type imageWorkerConfig struct {
 type imageTaskDispatcher struct {
 	once      sync.Once
 	queue     chan string
+	redis     *redis.Client
 	owner     string
 	config    imageWorkerConfig
 	mu        sync.Mutex
@@ -146,6 +147,13 @@ func StartWorker() {
 		imageDispatcher.owner = imageWorkerOwner()
 		imageDispatcher.queue = make(chan string, config.queueCapacity)
 		imageDispatcher.queued = make(map[string]struct{}, config.queueCapacity)
+		if common.RedisEnabled && common.RDB != nil {
+			options := *common.RDB.Options()
+			if options.PoolSize < config.concurrency+2 {
+				options.PoolSize = config.concurrency + 2
+			}
+			imageDispatcher.redis = redis.NewClient(&options)
+		}
 		imageDispatcher.enabled = true
 		for i := 0; i < config.concurrency; i++ {
 			go imageAsyncWorkerLoop()
@@ -240,13 +248,13 @@ func imageAsyncWorkerLoop() {
 // Distribution therefore follows free execution slots instead of assigning an
 // equal share to every node regardless of its configured concurrency.
 func nextImageAsyncTaskID() (string, bool) {
-	for common.RedisEnabled && common.RDB != nil {
+	for imageDispatcher.redis != nil {
 		select {
 		case taskID, ok := <-imageDispatcher.queue:
 			return taskID, ok
 		default:
 		}
-		result, err := common.RDB.BLPop(context.Background(), 2*time.Second, imageTaskNotifyQueue).Result()
+		result, err := imageDispatcher.redis.BLPop(context.Background(), 2*time.Second, imageTaskNotifyQueue).Result()
 		if err == nil && len(result) == 2 && result[1] != "" {
 			return result[1], true
 		}
