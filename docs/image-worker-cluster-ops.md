@@ -64,7 +64,7 @@ IMAGE_GULIE_UPSTREAM_URL_ENABLED=true
 
 - 输入参考图：`image-task-inputs/{user_id}/{task_id}/...`
 - 生成结果：`gen-images/{user_id}/{task_id}/...`
-- `adobe-firefly-*` 上游只返回 URL。仅 `https://eu-ai.cangyuansuanli.cn/generated/` 下的自有 MinIO 对象由 Worker 原样透传，避免二次下载和 R2 上传；协议、域名或路径不匹配时仍必须转存 R2。
+- `adobe-firefly-*` 上游只返回 Adobe presigned URL。Worker 必须下载并转存 R2，包括历史 `https://eu-ai.cangyuansuanli.cn/generated/` URL 在内都不得直接透传；客户只能看到 `R2_USER_PUBLIC_BASE_URL` 下的公网 URL。
 - 成功任务结果只允许出现 `R2_USER_PUBLIC_BASE_URL` 下的 URL。
 - `image-task-inputs/` 建议设置 24 小时生命周期，兜底清理异常退出产生的孤儿对象。
 - 不允许在转存失败时返回上游 URL；失败进入任务终态并按现有计费策略退款。

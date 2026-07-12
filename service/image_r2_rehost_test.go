@@ -117,26 +117,10 @@ func TestRehostTaskImageResultURLsNeverPublishesGeneratedUpstreamURL(t *testing.
 	}
 }
 
-func TestAdobeOwnedGeneratedURLPassesThroughWithoutR2(t *testing.T) {
-	trusted := "https://eu-ai.cangyuansuanli.cn/generated/result.png"
-	images := []dto.ImageData{{Url: trusted}}
-	urls, err := RehostTaskImageResultURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "adobe-firefly-gpt-image-2-1k", images)
-	if err != nil {
-		t.Fatalf("trusted Adobe URL should pass through: %v", err)
-	}
-	if len(urls) != 1 || urls[0] != trusted {
-		t.Fatalf("urls = %#v", urls)
-	}
-
-	body := []byte(`{"created":1,"data":[{"url":"https://eu-ai.cangyuansuanli.cn/generated/result.png"}]}`)
-	out, err := RehostSyncImageResponseBody(context.Background(), 1, "adobe-firefly-gpt-image-2-1k", "http://45.67.221.45:6001", body, true)
-	if err != nil || string(out) != string(body) {
-		t.Fatalf("sync trusted Adobe URL changed: body=%s err=%v", out, err)
-	}
-}
-
-func TestAdobeGeneratedURLTrustBoundaryIsStrict(t *testing.T) {
+func TestAdobeGeneratedURLsAlwaysRequireR2(t *testing.T) {
 	for _, rawURL := range []string{
+		"https://eu-ai.cangyuansuanli.cn/generated/result.png",
+		"https://bks-epo.example.adobe.io/result.png?sig=test",
 		"http://eu-ai.cangyuansuanli.cn/generated/a.png",
 		"https://eu-ai.cangyuansuanli.cn.evil.test/generated/a.png",
 		"https://eu-ai.cangyuansuanli.cn:443/generated/a.png",
@@ -146,7 +130,7 @@ func TestAdobeGeneratedURLTrustBoundaryIsStrict(t *testing.T) {
 		images := []dto.ImageData{{Url: rawURL}}
 		_, err := RehostTaskImageResultURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "adobe-firefly-gpt-image-2-1k", images)
 		if err == nil || !strings.Contains(err.Error(), "R2 not configured") {
-			t.Fatalf("untrusted URL %q bypassed R2: %v", rawURL, err)
+			t.Fatalf("Adobe URL %q bypassed R2: %v", rawURL, err)
 		}
 	}
 }

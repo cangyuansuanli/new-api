@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -221,9 +220,6 @@ func patchVideoUsageSecondsInTaskData(data []byte, seconds int) ([]byte, error) 
 
 // RehostVideoTaskResult copies upstream video to R2 and returns CDN URL plus patched task data.
 func RehostVideoTaskResult(ctx context.Context, userID int, channelID int, taskID, upstreamURL string, taskData []byte) (string, []byte, error) {
-	if channelID == 75 && imagevendor.IsTrustedAdobeGeneratedURL(upstreamURL) {
-		return upstreamURL, taskData, nil
-	}
 	if !VideoURLNeedsRehost(upstreamURL) {
 		return upstreamURL, taskData, nil
 	}

@@ -1,20 +1,10 @@
 package service
 
 import (
-	"context"
 	"os"
 	"strings"
 	"testing"
 )
-
-func TestAdobeOwnedVideoURLPassesThroughForChannel75(t *testing.T) {
-	url := "https://eu-ai.cangyuansuanli.cn/generated/video.mp4"
-	data := []byte(`{"video_url":"https://eu-ai.cangyuansuanli.cn/generated/video.mp4"}`)
-	gotURL, gotData, err := RehostVideoTaskResult(context.Background(), 1, 75, "task_test", url, data)
-	if err != nil || gotURL != url || string(gotData) != string(data) {
-		t.Fatalf("Adobe video passthrough failed: url=%q data=%s err=%v", gotURL, gotData, err)
-	}
-}
 
 func TestVideoURLNeedsRehost(t *testing.T) {
 	t.Setenv("R2_ACCOUNT_ID", "acc")
