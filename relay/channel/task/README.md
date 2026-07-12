@@ -41,6 +41,8 @@ Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`
 
 `seedance` 适配器把上游 `queued` / `in_progress`（包括 Leonardo 插件内部的 `delayed`）统一保留为非终态；只有上游明确 `failed` 才结算失败。提交接口应立即返回任务 ID，生成耗时不占用提交请求。
 
+Seedance 2.0 支持纯 prompt 文生，也支持参考图、参考视频或参考音频单独提交；vendor 转换不得将参考图作为视频/音频参考的前置条件。
+
 ## 新增模型放哪
 
 | 场景 | 改哪里 |
