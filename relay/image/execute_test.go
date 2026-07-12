@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
@@ -46,15 +46,15 @@ func TestNormalizeAsyncGenerationBodyKeepsB64ForNon4K(t *testing.T) {
 	}
 }
 
-func TestImageAsyncUsesURLResponseOnlyFor4K(t *testing.T) {
+func TestImageAsyncUsesURLResponseForRehostModels(t *testing.T) {
 	if !imageAsyncUsesURLResponse("geek2-gpt-image-2-4k") {
 		t.Fatal("expected 4k model to use url response")
 	}
 	if !imageAsyncUsesURLResponse("flux-pro-2") {
 		t.Fatal("expected flux-pro-2 to use url response")
 	}
-	if imageAsyncUsesURLResponse("Gulie-gpt-image-2") {
-		t.Fatal("non-4k model should not use url response")
+	if !imageAsyncUsesURLResponse("Gulie-gpt-image-2") {
+		t.Fatal("gulie should use an internal upstream url before R2 rehost")
 	}
 }
 

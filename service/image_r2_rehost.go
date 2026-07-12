@@ -247,27 +247,6 @@ func rewriteGeneratedImageDataURLsToChannelBase(channelBaseURL string, images []
 	return out, changed
 }
 
-func generatedImageDataCanPassthrough(channelBaseURL string, images []dto.ImageData) bool {
-	if strings.TrimSpace(channelBaseURL) == "" || len(images) == 0 {
-		return false
-	}
-	hasGeneratedURL := false
-	for _, item := range images {
-		if strings.TrimSpace(item.B64Json) != "" {
-			return false
-		}
-		u := strings.TrimSpace(item.Url)
-		if u == "" {
-			continue
-		}
-		if _, ok := RewriteGeneratedUpstreamURLToChannelBase(channelBaseURL, u); !ok {
-			return false
-		}
-		hasGeneratedURL = true
-	}
-	return hasGeneratedURL
-}
-
 func imageDataNeedsURLRehost(images []dto.ImageData) bool {
 	for _, item := range images {
 		if strings.TrimSpace(item.Url) != "" && strings.TrimSpace(item.B64Json) == "" {
@@ -313,9 +292,6 @@ func syncImageNeedsRehost(originModel string, images []dto.ImageData, clientWant
 func RehostImageDataForClient(ctx context.Context, userID int, storeID, channelBaseURL, originModel string, images []dto.ImageData, clientWantsURL bool) ([]dto.ImageData, error) {
 	images, _ = rewriteGeneratedImageDataURLsToChannelBase(channelBaseURL, images)
 	if !syncImageNeedsRehost(originModel, images, clientWantsURL) {
-		return images, nil
-	}
-	if generatedImageDataCanPassthrough(channelBaseURL, images) {
 		return images, nil
 	}
 	if getR2Config() == nil {
@@ -478,8 +454,7 @@ func RehostTaskImageResultURLs(ctx context.Context, userID int, storeID, channel
 		}
 		if mimeOrURL != "" {
 			if rewritten, ok := RewriteGeneratedUpstreamURLToChannelBase(channelBaseURL, mimeOrURL); ok {
-				resultURLs = append(resultURLs, rewritten)
-				continue
+				mimeOrURL = rewritten
 			}
 			if acceptUpstreamURL {
 				if getR2Config() == nil {

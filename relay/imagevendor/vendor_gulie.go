@@ -10,13 +10,15 @@ import (
 )
 
 func init() {
+	preferUpstreamURL := common.GetEnvOrDefaultBool("IMAGE_GULIE_UPSTREAM_URL_ENABLED", true)
 	register(Descriptor{
 		Name:         "gulie-gpt-image",
 		Match:        matchGulieGPTImageModel,
 		PatchRequest: patchGulieImageRequest,
 		Rehost: RehostPolicy{
-			AcceptUpstreamURL:     true,
-			PreferUpstreamB64JSON: true,
+			AcceptUpstreamURL:      true,
+			PreferUpstreamB64JSON:  !preferUpstreamURL,
+			AsyncPreferURLResponse: preferUpstreamURL,
 		},
 	})
 }

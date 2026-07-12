@@ -7,9 +7,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -100,12 +103,51 @@ func publicURLForObject(cfg *R2Config, objectKey string) string {
 	return cfg.PublicBase + "/" + strings.TrimPrefix(objectKey, "/")
 }
 
+var (
+	imageR2LimiterOnce      sync.Once
+	imageR2Limiter          chan struct{}
+	imageTransferURLPattern = regexp.MustCompile(`https?://[^\s"']+`)
+)
+
+func redactImageTransferError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s", imageTransferURLPattern.ReplaceAllString(err.Error(), "[upstream-url-redacted]"))
+}
+
+func acquireImageR2Slot(ctx context.Context) (func(), error) {
+	imageR2LimiterOnce.Do(func() {
+		imageR2Limiter = make(chan struct{}, common.GetEnvOrDefault("IMAGE_R2_MAX_CONCURRENT", 16))
+	})
+	select {
+	case imageR2Limiter <- struct{}{}:
+		return func() { <-imageR2Limiter }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
 func UploadGeneratedImageBytes(ctx context.Context, userID int, taskID string, index int, data []byte, mimeType string) (*R2UploadResult, error) {
+	release, err := acquireImageR2Slot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	return uploadGeneratedImageReader(ctx, userID, taskID, index, bytes.NewReader(data), int64(len(data)), mimeType)
+}
+
+func uploadGeneratedImageReader(ctx context.Context, userID int, taskID string, index int, body io.Reader, size int64, mimeType string) (*R2UploadResult, error) {
+	objectKey := buildGeneratedImageObjectKey(userID, taskID, index, mimeType)
+	return uploadImageReaderToObjectKey(ctx, objectKey, body, size, mimeType)
+}
+
+func uploadImageReaderToObjectKey(ctx context.Context, objectKey string, body io.Reader, size int64, mimeType string) (*R2UploadResult, error) {
 	cfg := getR2Config()
 	if cfg == nil {
 		return nil, fmt.Errorf("R2 not configured")
 	}
-	if len(data) == 0 {
+	if size <= 0 {
 		return nil, fmt.Errorf("empty image data")
 	}
 	if mimeType == "" {
@@ -115,12 +157,12 @@ func UploadGeneratedImageBytes(ctx context.Context, userID int, taskID string, i
 	if err != nil {
 		return nil, err
 	}
-	objectKey := buildGeneratedImageObjectKey(userID, taskID, index, mimeType)
 	_, err = client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(cfg.Bucket),
-		Key:         aws.String(objectKey),
-		Body:        bytes.NewReader(data),
-		ContentType: aws.String(mimeType),
+		Bucket:        aws.String(cfg.Bucket),
+		Key:           aws.String(objectKey),
+		Body:          body,
+		ContentLength: aws.Int64(size),
+		ContentType:   aws.String(mimeType),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("r2 put object failed: %w", err)
@@ -128,12 +170,94 @@ func UploadGeneratedImageBytes(ctx context.Context, userID int, taskID string, i
 	return &R2UploadResult{
 		PublicURL: publicURLForObject(cfg, objectKey),
 		ObjectKey: objectKey,
-		Bytes:     int64(len(data)),
+		Bytes:     size,
 		MimeType:  mimeType,
 	}, nil
 }
 
+func UploadImageTaskInput(ctx context.Context, userID int, taskID string, index int, body io.Reader, size int64, mimeType string) (*R2UploadResult, error) {
+	if size <= 0 || size > constantMaxImageTaskInputBytes {
+		return nil, fmt.Errorf("image task input size must be between 1 and %d bytes", constantMaxImageTaskInputBytes)
+	}
+	release, err := acquireImageR2Slot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	extension := extensionForImageMime(mimeType)
+	objectKey := fmt.Sprintf("image-task-inputs/%d/%s/%d%s", userID, taskID, index, extension)
+	return uploadImageReaderToObjectKey(ctx, objectKey, body, size, mimeType)
+}
+
+func DeleteImageTaskInput(ctx context.Context, objectKey string) error {
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" {
+		return nil
+	}
+	cfg := getR2Config()
+	if cfg == nil {
+		return fmt.Errorf("R2 not configured")
+	}
+	client, err := newR2S3Client(cfg)
+	if err != nil {
+		return err
+	}
+	_, err = client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(cfg.Bucket),
+		Key:    aws.String(objectKey),
+	})
+	return err
+}
+
+func OpenImageTaskInput(ctx context.Context, objectKey string) (io.ReadCloser, error) {
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" {
+		return nil, fmt.Errorf("empty image task input object key")
+	}
+	release, err := acquireImageR2Slot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cfg := getR2Config()
+	if cfg == nil {
+		release()
+		return nil, fmt.Errorf("R2 not configured")
+	}
+	client, err := newR2S3Client(cfg)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	result, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(cfg.Bucket),
+		Key:    aws.String(objectKey),
+	})
+	if err != nil {
+		release()
+		return nil, fmt.Errorf("r2 get image task input failed: %w", err)
+	}
+	return &imageTaskInputBody{ReadCloser: result.Body, release: release}, nil
+}
+
+type imageTaskInputBody struct {
+	io.ReadCloser
+	releaseOnce sync.Once
+	release     func()
+}
+
+func (body *imageTaskInputBody) Close() error {
+	err := body.ReadCloser.Close()
+	body.releaseOnce.Do(body.release)
+	return err
+}
+
 func UploadGeneratedImageFromURL(ctx context.Context, userID int, taskID string, index int, imageURL string) (*R2UploadResult, error) {
+	release, err := acquireImageR2Slot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
 	client := &http.Client{
 		Timeout:   300 * time.Second,
 		Transport: GetHttpClient().Transport,
@@ -146,26 +270,45 @@ func UploadGeneratedImageFromURL(ctx context.Context, userID int, taskID string,
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, redactImageTransferError(err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("download image failed: %w", err)
+		return nil, fmt.Errorf("download image failed: %w", redactImageTransferError(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("download image HTTP %d: %s", resp.StatusCode, string(body))
+		message := imageTransferURLPattern.ReplaceAllString(string(body), "[upstream-url-redacted]")
+		return nil, fmt.Errorf("download image HTTP %d: %s", resp.StatusCode, message)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(constantMaxGeneratedImageBytes)))
+	if resp.ContentLength > constantMaxGeneratedImageBytes {
+		return nil, fmt.Errorf("generated image exceeds %d bytes", constantMaxGeneratedImageBytes)
+	}
+	tmp, err := os.CreateTemp("", "new-api-image-transfer-*")
 	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		tmp.Close()
+		os.Remove(tmp.Name())
+	}()
+	written, err := io.Copy(tmp, io.LimitReader(resp.Body, int64(constantMaxGeneratedImageBytes)+1))
+	if err != nil {
+		return nil, err
+	}
+	if written > constantMaxGeneratedImageBytes {
+		return nil, fmt.Errorf("generated image exceeds %d bytes", constantMaxGeneratedImageBytes)
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 	mimeType := resp.Header.Get("Content-Type")
 	if mimeType == "" || mimeType == "application/octet-stream" {
 		mimeType = "image/png"
 	}
-	return UploadGeneratedImageBytes(ctx, userID, taskID, index, data, mimeType)
+	return uploadGeneratedImageReader(ctx, userID, taskID, index, tmp, written, mimeType)
 }
 
 const constantMaxGeneratedImageBytes = 32 * 1024 * 1024
+const constantMaxImageTaskInputBytes = 20 * 1024 * 1024

@@ -5,7 +5,9 @@ type EditFile struct {
 	Field       string `json:"field"`
 	Filename    string `json:"filename"`
 	ContentType string `json:"content_type"`
-	Data        []byte `json:"data"`
+	Data        []byte `json:"data,omitempty"` // legacy snapshots
+	URL         string `json:"url,omitempty"`
+	ObjectKey   string `json:"object_key,omitempty"`
 }
 
 // EditPayload 异步 edits 任务快照。

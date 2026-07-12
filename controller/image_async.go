@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -26,12 +27,20 @@ func RelayOpenAIImageGenerations(c *gin.Context) {
 		RelayImageTaskSubmit(c)
 		return
 	}
+	if shouldRunSyncImageViaQueue(c) {
+		relaySyncImageViaQueue(c)
+		return
+	}
 	Relay(c, types.RelayFormatOpenAIImage)
 }
 
 func RelayOpenAIImageEdits(c *gin.Context) {
 	if image.IsAsyncRequest(c) {
 		RelayImageTaskSubmit(c)
+		return
+	}
+	if shouldRunSyncImageViaQueue(c) {
+		relaySyncImageViaQueue(c)
 		return
 	}
 	Relay(c, types.RelayFormatOpenAIImage)
@@ -132,6 +141,10 @@ func RelayImageTaskSubmit(c *gin.Context) {
 
 	meta := request.GetTokenCountMeta()
 	userId := c.GetInt("id")
+	if taskErr := enforceImageTaskAdmission(c, userId); taskErr != nil {
+		respondTaskError(c, taskErr)
+		return
+	}
 	needSensitiveCheck := setting.ShouldCheckPromptSensitiveForUser(userId)
 	if meta != nil {
 		relaycommon.StorePromptInput(c, meta.CombineText)
@@ -196,7 +209,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 			}
 		}
 
-		snapshot, requestPath, snapErr := snapshotAsyncImageRequest(c, relayMode)
+		snapshot, requestPath, snapErr := snapshotAsyncImageRequest(c, relayMode, publicTaskID)
 		if snapErr != nil {
 			taskErr = service.TaskErrorWrapper(snapErr, "snapshot_request_failed", http.StatusBadRequest)
 			break
@@ -205,8 +218,11 @@ func RelayImageTaskSubmit(c *gin.Context) {
 		task := model.InitTask(constant.TaskPlatformImage, relayInfo)
 		task.TaskID = publicTaskID
 		task.Action = action
-		task.Status = model.TaskStatusSubmitted
-		task.Progress = "10%"
+		task.Status = model.TaskStatusQueued
+		task.Progress = "20%"
+		if c.GetBool("image_sync_wait") {
+			task.Priority = 100
+		}
 		task.Quota = relayInfo.PriceData.Quota
 		task.Properties.TaskKind = constant.TaskKindImage
 		task.Properties.Input = relaycommon.PromptInputFromContext(c)
@@ -226,6 +242,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 		}
 
 		if insertErr := task.Insert(); insertErr != nil {
+			_ = image.CleanupEditSnapshotInputs(snapshot)
 			taskErr = service.TaskErrorWrapper(insertErr, "insert_task_failed", http.StatusInternalServerError)
 			break
 		}
@@ -244,9 +261,30 @@ func RelayImageTaskSubmit(c *gin.Context) {
 	}
 }
 
-func snapshotAsyncImageRequest(c *gin.Context, relayMode int) ([]byte, string, error) {
+func enforceImageTaskAdmission(c *gin.Context, userID int) *dto.TaskError {
+	global, perUser, err := model.CountActiveImageTasks(userID)
+	if err != nil {
+		return service.TaskErrorWrapper(err, "image_queue_status_failed", http.StatusInternalServerError)
+	}
+	globalLimit := int64(common.GetEnvOrDefault("IMAGE_ASYNC_MAX_QUEUED_GLOBAL", 2000))
+	perUserLimit := int64(common.GetEnvOrDefault("IMAGE_ASYNC_MAX_QUEUED_PER_USER", 200))
+	if c.GetBool("image_sync_wait") {
+		globalLimit = int64(common.GetEnvOrDefault("IMAGE_SYNC_MAX_BACKLOG", 64))
+	}
+	if (globalLimit > 0 && global >= globalLimit) || (perUserLimit > 0 && perUser >= perUserLimit) {
+		c.Header("Retry-After", "5")
+		return service.TaskErrorWrapperLocal(
+			fmt.Errorf("image queue is at capacity; retry later"),
+			"image_queue_full",
+			http.StatusTooManyRequests,
+		)
+	}
+	return nil
+}
+
+func snapshotAsyncImageRequest(c *gin.Context, relayMode int, taskID string) ([]byte, string, error) {
 	if relayMode == relayconstant.RelayModeImagesEdits {
-		body, err := image.SnapshotEditRequest(c)
+		body, err := image.SnapshotEditRequest(c, taskID)
 		return body, "/v1/images/edits", err
 	}
 	if relayMode == relayconstant.RelayModeChatCompletions {

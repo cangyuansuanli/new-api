@@ -6,7 +6,7 @@ import "github.com/QuantumNous/new-api/dto"
 type RehostPolicy struct {
 	// AcceptUpstreamURL：上游可回 url，需下载并转存 R2（默认仅接受 b64_json）。
 	AcceptUpstreamURL bool
-	// PreferUpstreamB64JSON：客户要 url 时，对内仍请求上游 b64_json（避免 loopback URL 二次下载挂住）。
+	// PreferUpstreamB64JSON：仅供无法可靠下载上游 URL 的兼容渠道使用。
 	PreferUpstreamB64JSON bool
 	// AsyncPreferURLResponse：异步任务提交上游时使用 response_format=url。
 	AsyncPreferURLResponse bool

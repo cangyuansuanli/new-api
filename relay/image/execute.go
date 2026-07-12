@@ -2,28 +2,31 @@ package image
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
-	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	"github.com/QuantumNous/new-api/relay/imagevendor"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
-func executeTaskUpstream(task *model.Task) ([]dto.ImageData, *dto.Usage, error) {
+func executeTaskUpstream(ctx context.Context, task *model.Task) ([]dto.ImageData, *dto.Usage, error) {
 	channel, err := model.GetChannelById(task.ChannelId, true)
 	if err != nil {
 		return nil, nil, err
@@ -33,10 +36,12 @@ func executeTaskUpstream(task *model.Task) ([]dto.ImageData, *dto.Usage, error) 
 		return nil, nil, err
 	}
 
-	req, relayMode, err := buildHTTPRequestForImageTask(task)
+	req, relayMode, err := buildHTTPRequestForImageTask(ctx, task)
 	if err != nil {
 		return nil, nil, err
 	}
+	req = req.WithContext(ctx)
+	defer req.Body.Close()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -127,7 +132,7 @@ func executeLegacyAsyncChatImageTask(c *gin.Context, task *model.Task, w *httpte
 	return openai.ParseLegacyChatImageResponse(w.Body.Bytes())
 }
 
-func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) {
+func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.Request, int, error) {
 	path := strings.TrimSpace(task.PrivateData.RequestPath)
 	if path == "" {
 		path = "/v1/images/generations"
@@ -146,7 +151,15 @@ func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) 
 			return nil, 0, fmt.Errorf("unmarshal edit payload: %w", err)
 		}
 		useURLResponse := imageAsyncUsesURLResponse(task.Properties.OriginModelName)
-		body := &bytes.Buffer{}
+		body, err := os.CreateTemp("", "new-api-image-edit-replay-*")
+		if err != nil {
+			return nil, 0, err
+		}
+		bodyName := body.Name()
+		cleanup := func() {
+			body.Close()
+			os.Remove(bodyName)
+		}
 		writer := multipart.NewWriter(body)
 		for key, value := range payload.Fields {
 			if key == "async" {
@@ -164,17 +177,25 @@ func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) 
 			part, err := writer.CreateFormFile(file.Field, file.Filename)
 			if err != nil {
 				writer.Close()
+				cleanup()
 				return nil, 0, err
 			}
-			if _, err := part.Write(file.Data); err != nil {
+			if err := writeQueuedEditFile(ctx, part, file); err != nil {
 				writer.Close()
+				cleanup()
 				return nil, 0, err
 			}
 		}
 		if err := writer.Close(); err != nil {
+			cleanup()
 			return nil, 0, err
 		}
-		req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body.Bytes()))
+		if _, err := body.Seek(0, io.SeekStart); err != nil {
+			cleanup()
+			return nil, 0, err
+		}
+		os.Remove(bodyName)
+		req := httptest.NewRequest(http.MethodPost, path, body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		return req, relayMode, nil
 	}
@@ -199,6 +220,29 @@ func buildHTTPRequestForImageTask(task *model.Task) (*http.Request, int, error) 
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(normalized))
 	req.Header.Set("Content-Type", "application/json")
 	return req, relayMode, nil
+}
+
+func writeQueuedEditFile(ctx context.Context, dst io.Writer, file EditFile) error {
+	if len(file.Data) > 0 {
+		_, err := dst.Write(file.Data)
+		return err
+	}
+	if strings.TrimSpace(file.ObjectKey) == "" {
+		return fmt.Errorf("queued edit file has no R2 object key")
+	}
+	source, err := service.OpenImageTaskInput(ctx, file.ObjectKey)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+	written, err := io.Copy(dst, io.LimitReader(source, (20<<20)+1))
+	if err != nil {
+		return err
+	}
+	if written > 20<<20 {
+		return fmt.Errorf("queued edit file exceeds 20 MiB")
+	}
+	return nil
 }
 
 // imageAsyncUsesURLResponse：4K / Geek2 FLUX 等走 url 响应，避免超大 b64_json 被上游截断。
@@ -304,7 +348,7 @@ func readJSONStringField(event map[string]json.RawMessage, key string) string {
 	return strings.Trim(string(raw), "\"")
 }
 
-func SnapshotEditRequest(c *gin.Context) ([]byte, error) {
+func SnapshotEditRequest(c *gin.Context, taskID string) ([]byte, error) {
 	form, err := common.ParseMultipartFormReusable(c)
 	if err != nil {
 		return nil, err
@@ -314,6 +358,17 @@ func SnapshotEditRequest(c *gin.Context) ([]byte, error) {
 	payload := EditPayload{
 		Fields: make(map[string]string),
 	}
+	uploadedObjectKeys := make([]string, 0)
+	keepUploads := false
+	defer func() {
+		if keepUploads {
+			return
+		}
+		for _, objectKey := range uploadedObjectKeys {
+			_ = service.DeleteImageTaskInput(context.Background(), objectKey)
+		}
+	}()
+	fileIndex := 0
 	for key, values := range form.Value {
 		if len(values) > 0 {
 			payload.Fields[key] = values[0]
@@ -325,11 +380,15 @@ func SnapshotEditRequest(c *gin.Context) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			data, err := io.ReadAll(io.LimitReader(file, 20<<20))
+			uploaded, err := service.UploadImageTaskInput(
+				c.Request.Context(), c.GetInt("id"), taskID, fileIndex,
+				file, fh.Size, fh.Header.Get("Content-Type"),
+			)
 			file.Close()
 			if err != nil {
 				return nil, err
 			}
+			uploadedObjectKeys = append(uploadedObjectKeys, uploaded.ObjectKey)
 			field := key
 			if strings.HasSuffix(key, "[]") {
 				field = strings.TrimSuffix(key, "[]")
@@ -338,11 +397,16 @@ func SnapshotEditRequest(c *gin.Context) ([]byte, error) {
 				Field:       field,
 				Filename:    fh.Filename,
 				ContentType: fh.Header.Get("Content-Type"),
-				Data:        data,
+				ObjectKey:   uploaded.ObjectKey,
 			})
+			fileIndex++
 		}
 	}
-	return common.Marshal(payload)
+	snapshot, err := common.Marshal(payload)
+	if err == nil {
+		keepUploads = true
+	}
+	return snapshot, err
 }
 
 func setupImageTaskChannelContext(c *gin.Context, channel *model.Channel, modelName, keyOverride string) *types.NewAPIError {

@@ -201,7 +201,7 @@ func postSyncImageConsumeQuota(c *gin.Context, info *relaycommon.RelayInfo, requ
 	service.PostTextConsumeQuota(c, info, usage, logContent)
 }
 
-// applySyncImageUpstreamB64Override：Gulie 类模型客户要 url 时，对内请求上游 b64_json，响应再转 R2 公网 url。
+// applySyncImageUpstreamB64Override：仅兼容无法可靠下载上游 URL 的渠道。
 func applySyncImageUpstreamB64Override(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest) {
 	if request == nil || info == nil {
 		return
@@ -209,10 +209,10 @@ func applySyncImageUpstreamB64Override(c *gin.Context, info *relaycommon.RelayIn
 	if !strings.EqualFold(strings.TrimSpace(request.ResponseFormat), "url") {
 		return
 	}
+	info.ImageClientWantsURL = true
 	if !imagevendor.ImageSyncPreferUpstreamB64JSON(info.OriginModelName) {
 		return
 	}
-	info.ImageClientWantsURL = true
 	request.ResponseFormat = "b64_json"
 	syncImageResponseFormatToForm(c, "b64_json")
 }

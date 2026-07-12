@@ -13,14 +13,14 @@ func TestIsManjuBananaOriginModel(t *testing.T) {
 
 func TestResolveRehostPolicyGulie(t *testing.T) {
 	policy := ResolveRehostPolicy("cy-img1-gpt-image-2")
-	if !policy.AcceptUpstreamURL || !policy.PreferUpstreamB64JSON {
+	if !policy.AcceptUpstreamURL || !policy.AsyncPreferURLResponse {
 		t.Fatalf("gulie policy = %+v", policy)
 	}
-	if policy.AsyncPreferURLResponse {
-		t.Fatal("gulie should not prefer async url response")
+	if policy.PreferUpstreamB64JSON {
+		t.Fatal("gulie should not prefer upstream b64 response")
 	}
 	policy2k := ResolveRehostPolicy("cy-img2-gpt-image-2-2k")
-	if !policy2k.AcceptUpstreamURL || !policy2k.PreferUpstreamB64JSON {
+	if !policy2k.AcceptUpstreamURL || !policy2k.AsyncPreferURLResponse {
 		t.Fatalf("gulie 2k policy = %+v", policy2k)
 	}
 }
@@ -64,15 +64,15 @@ func TestResolveRehostPolicyDefault(t *testing.T) {
 	}
 }
 
-func TestImageModelUsesURLRehostOnlyFor4K(t *testing.T) {
+func TestImageModelUsesURLRehost(t *testing.T) {
 	if !ImageModelUsesURLRehost("geek2-gpt-image-2-4k") {
 		t.Fatal("expected 4k model to need url rehost")
 	}
 	if !ImageModelUsesURLRehost("flux-pro-2") {
 		t.Fatal("expected flux-pro-2 to need url rehost")
 	}
-	if ImageModelUsesURLRehost("Gulie-gpt-image-2") {
-		t.Fatal("non-4k model should not need sync url rehost")
+	if !ImageModelUsesURLRehost("Gulie-gpt-image-2") {
+		t.Fatal("gulie should prefer upstream url for internal R2 transfer")
 	}
 }
 
@@ -95,8 +95,8 @@ func TestImageAsyncAcceptsUpstreamURL(t *testing.T) {
 }
 
 func TestImageSyncPreferUpstreamB64JSON(t *testing.T) {
-	if !ImageSyncPreferUpstreamB64JSON("cy-img1-gpt-image-2") {
-		t.Fatal("expected gulie gpt-image-2 to prefer upstream b64")
+	if ImageSyncPreferUpstreamB64JSON("cy-img1-gpt-image-2") {
+		t.Fatal("gulie should keep upstream url internal and rehost it to R2")
 	}
 	if ImageSyncPreferUpstreamB64JSON("geek2-gpt-image-2-4k") {
 		t.Fatal("4k should not prefer upstream b64")
