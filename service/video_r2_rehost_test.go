@@ -4,7 +4,29 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/QuantumNous/new-api/setting/system_setting"
 )
+
+func TestResolveStoredVideoResultURLRecoversSelfReferentialProxy(t *testing.T) {
+	previous := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://ai.cangyuansuanli.cn"
+	t.Cleanup(func() { system_setting.ServerAddress = previous })
+
+	stored := "https://ai.cangyuansuanli.cn/v1/videos/task_public/content"
+	body := []byte(`{"code":"success","data":{"task_id":"task_upstream","result_url":"https://vidgen.x.ai/video.mp4","data":{"video":{"url":"https://vidgen.x.ai/video.mp4"}}}}`)
+	if got := ResolveStoredVideoResultURL(stored, body); got != "https://vidgen.x.ai/video.mp4" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestResolveStoredVideoResultURLKeepsValidStoredURL(t *testing.T) {
+	stored := "https://tmp.cangyuansuanli.cn/gen-videos/1/task_public.mp4"
+	body := []byte(`{"result_url":"https://vidgen.x.ai/video.mp4"}`)
+	if got := ResolveStoredVideoResultURL(stored, body); got != stored {
+		t.Fatalf("got %q", got)
+	}
+}
 
 func TestVideoURLNeedsRehost(t *testing.T) {
 	t.Setenv("R2_ACCOUNT_ID", "acc")

@@ -178,8 +178,14 @@ func normalizeResponse(body []byte) ([]byte, error) {
 	if err := common.Unmarshal(data, &payload); err != nil {
 		return nil, err
 	}
-	if payload["id"] == nil {
+	if _, ok := payload["id"].(string); !ok {
 		payload["id"] = payload["task_id"]
+	}
+	// Some Grok aggregators use data for provider diagnostics instead of the
+	// OpenAI Video result array. Keep the raw response in task.Data, but omit
+	// this incompatible object from the normalized parsing view.
+	if _, ok := payload["data"].([]any); !ok {
+		delete(payload, "data")
 	}
 	if resultURL := strings.TrimSpace(stringValue(payload["result_url"])); resultURL != "" {
 		payload["video_url"] = resultURL

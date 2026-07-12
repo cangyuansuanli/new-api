@@ -28,7 +28,7 @@ TIERS = ("1k", "2k", "4k")
 BASIC_RATIOS = ("1:1", "4:3", "3:4", "16:9", "9:16")
 BANANA_PRO_RATIOS = ("1:1", "5:4", "9:16", "21:9", "16:9", "3:2", "4:3", "4:5", "3:4", "2:3")
 BANANA2_RATIOS = BASIC_RATIOS + ("1:8", "1:4", "4:1", "8:1")
-GPT_IMAGE_RATIOS = ("1:1", "5:4", "9:16", "21:9", "16:9", "3:2", "4:3", "4:5", "3:4", "2:3")
+GPT_IMAGE_RATIOS = ("1:1", "5:4", "7:6", "9:16", "21:9", "16:9", "3:2", "4:3", "4:5", "3:4", "2:3")
 
 
 def specs() -> list[dict]:
@@ -65,7 +65,7 @@ def build_doc(spec: dict) -> dict:
     common_params = [
         {"name": "model", "description": f"必填，固定传 {public}。"},
         {"name": "prompt", "description": "必填，生图或编辑指令。prompt 中的 1K/2K/4K 文字不会改变计费档位。"},
-        {"name": "aspect_ratio", "description": "可选：" + "、".join(spec["ratios"]) + f"；默认 16:9。只改变画幅，不改变 {tier} 分辨率和计费档位。"},
+        {"name": "aspect_ratio", "description": "支持任意正整数 W:H（如 7:6、110:73）；常用预设：" + "、".join(spec["ratios"]) + f"；默认 16:9。只改变画幅，不改变 {tier} 分辨率和计费档位。"},
         {"name": "image_size", "description": f"可省略；如传必须为 {tier}，服务端始终按 SKU 固定为 {tier}，不会被 aspect_ratio 覆盖。"},
         {"name": "size", "description": f"OpenAI 兼容字段；只能表达画幅或与 {tier} 一致的尺寸，错档返回 400。"},
         {"name": "quality", "description": f"OpenAI 兼容字段；如传必须对应 {tier}，错档返回 400。"},

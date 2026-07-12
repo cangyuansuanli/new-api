@@ -92,6 +92,45 @@ func isVideoProxyURL(rawURL string) bool {
 	return strings.HasPrefix(rawURL, server+"/v1/videos/") && strings.HasSuffix(rawURL, "/content")
 }
 
+// ResolveStoredVideoResultURL recovers historical tasks whose result_url was
+// accidentally persisted as their own /content proxy URL. New tasks and valid
+// CDN/upstream URLs pass through unchanged.
+func ResolveStoredVideoResultURL(storedURL string, taskData []byte) string {
+	storedURL = strings.TrimSpace(storedURL)
+	if !isVideoProxyURL(storedURL) || len(taskData) == 0 {
+		return storedURL
+	}
+	candidate := ExtractVideoResultURL(taskData)
+	if candidate != "" && !isVideoProxyURL(candidate) {
+		return candidate
+	}
+	return storedURL
+}
+
+// ExtractVideoResultURL reads the common result locations used by normalized
+// video tasks and by upstream NewAPI envelopes.
+func ExtractVideoResultURL(taskData []byte) string {
+	for _, path := range []string{
+		"data.result_url",
+		"result_url",
+		"data.video_url",
+		"video_url",
+		"data.url",
+		"url",
+		"data.data.video.url",
+		"data.video.url",
+		"video.url",
+		"data.0.url",
+		"data.0.video_url",
+	} {
+		candidate := strings.TrimSpace(gjson.GetBytes(taskData, path).String())
+		if strings.HasPrefix(candidate, "https://") || strings.HasPrefix(candidate, "http://") {
+			return candidate
+		}
+	}
+	return ""
+}
+
 // VideoURLNeedsRehost reports whether an upstream mp4 URL should be copied to R2_USER_BUCKET.
 func VideoURLNeedsRehost(rawURL string) bool {
 	rawURL = strings.TrimSpace(rawURL)

@@ -399,24 +399,8 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 
 	snap := task.Snapshot()
 
-	taskResult := &relaycommon.TaskInfo{}
-	// try parse as New API response format
-	var responseItems dto.TaskResponse[model.Task]
-	if err = common.Unmarshal(responseBody, &responseItems); err == nil && responseItems.IsSuccess() {
-		logger.LogDebug(ctx, "updateVideoSingleTask parsed as new api response format: %+v", responseItems)
-		t := responseItems.Data
-		taskResult.TaskID = t.TaskID
-		taskResult.Status = string(t.Status)
-		taskResult.Url = t.GetResultURL()
-		taskResult.Progress = t.Progress
-		taskResult.Reason = t.FailReason
-		task.Data = t.Data
-	} else if parser, ok := adaptor.(TaskAwareResultParser); ok {
-		taskResult, err = parser.ParseTaskResultForTask(task, responseBody)
-		if err != nil {
-			return fmt.Errorf("parseTaskResultForTask failed for task %s: %w", taskId, err)
-		}
-	} else if taskResult, err = adaptor.ParseTaskResult(responseBody); err != nil {
+	taskResult, err := parseVideoPollingResult(adaptor, task, responseBody)
+	if err != nil {
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
 
@@ -526,6 +510,49 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	}
 
 	return nil
+}
+
+// parseVideoPollingResult gives the task-aware vendor boundary the first chance
+// to normalize an upstream response. A generic {code,data} envelope can be
+// structurally compatible with TaskResponse while still hiding vendor fields
+// such as Grok's nested result_url, so generic parsing is fallback-only.
+func parseVideoPollingResult(adaptor TaskPollingAdaptor, task *model.Task, responseBody []byte) (*relaycommon.TaskInfo, error) {
+	var vendorResult *relaycommon.TaskInfo
+	var vendorErr error
+	if parser, ok := adaptor.(TaskAwareResultParser); ok {
+		vendorResult, vendorErr = parser.ParseTaskResultForTask(task, responseBody)
+		if vendorErr == nil && vendorResult != nil && vendorResult.Status != "" {
+			return vendorResult, nil
+		}
+	}
+
+	var responseItems dto.TaskResponse[model.Task]
+	if err := common.Unmarshal(responseBody, &responseItems); err == nil && responseItems.IsSuccess() {
+		t := responseItems.Data
+		resultURL := t.GetResultURL()
+		if resultURL == "" {
+			resultURL = ExtractVideoResultURL(responseBody)
+		}
+		result := &relaycommon.TaskInfo{
+			TaskID:   t.TaskID,
+			Status:   string(t.Status),
+			Url:      resultURL,
+			Progress: t.Progress,
+			Reason:   t.FailReason,
+		}
+		if task != nil {
+			task.Data = t.Data
+		}
+		return result, nil
+	}
+
+	if vendorErr != nil {
+		return nil, vendorErr
+	}
+	if vendorResult != nil {
+		return vendorResult, nil
+	}
+	return adaptor.ParseTaskResult(responseBody)
 }
 
 func redactVideoResponseBody(body []byte) []byte {
