@@ -84,6 +84,26 @@ func TestConvertAdobe2APIGPTImageSKUFallsBackToPublicUpstreamModel(t *testing.T)
 	assertAdobe2APIField(t, body, "image_size", "1K")
 }
 
+func TestConvertAdobe2APIFixedSKUUsesSizeOnlyForAspectRatio(t *testing.T) {
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-4k",
+	}, dto.ImageRequest{
+		Model:  "adobe-firefly-gpt-image-2-4k",
+		Prompt: "a panoramic poster",
+		Size:   "8192x1024",
+	})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "model", "gpt-image")
+	assertAdobe2APIField(t, body, "image_size", "4K")
+	assertAdobe2APIField(t, body, "aspect_ratio", "8:1")
+	if _, exists := body["size"]; exists {
+		t.Fatalf("raw client size must not reach Adobe2API: %#v", body)
+	}
+}
+
 func TestAdobe2APIImageRelayMatchesDedicatedFireflySKU(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "adobe-firefly-gpt-image-2-4k",

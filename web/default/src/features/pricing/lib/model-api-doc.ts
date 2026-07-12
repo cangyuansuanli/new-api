@@ -750,7 +750,7 @@ function filterGulie2KImageParams(
 
 const BANANA_IMAGE_PARAM_NOTES = {
   aspectRatio:
-    '画幅比例，仅支持标准值（如 1:1、16:9、9:16）。请显式传 aspect_ratio；勿把 16:9-4k 等 UI 标签写进 size。',
+    '画幅比例支持任意正整数 W:H（如 7:6、110:73）；列出的值只是常用预设。请显式传 aspect_ratio；勿把 16:9-4k 等 UI 标签写进 size。',
   outputResolution:
     '推荐 1K / 2K / 4K。image_size 为兼容别名；若同时传入，须与 output_resolution 保持一致。',
   quality:
@@ -801,12 +801,18 @@ function mergeBananaImageParamNotes(
 function buildBananaStyleImageParams(
   paramsConfig: ImageUiParamsDoc['params']
 ): ModelDocParam[] {
+  const aspectPresets = (paramsConfig?.aspectRatio?.options ?? [])
+    .map((option) => option.value)
+    .filter(Boolean)
+    .join('、')
+  const aspectDescription = [
+    BANANA_IMAGE_PARAM_NOTES.aspectRatio,
+    aspectPresets ? `常用预设：${aspectPresets}。` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return [
-    paramNote(
-      'aspect_ratio',
-      paramsConfig?.aspectRatio,
-      BANANA_IMAGE_PARAM_NOTES.aspectRatio
-    ),
+    { name: 'aspect_ratio', description: aspectDescription },
     {
       name: 'output_resolution',
       description: BANANA_IMAGE_PARAM_NOTES.outputResolution,

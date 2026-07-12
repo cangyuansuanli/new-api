@@ -59,6 +59,17 @@ func TestParseTaskResultUnwrapsGenerationsEnvelope(t *testing.T) {
 	}
 }
 
+func TestParseTaskResultPrefersTaskIDWhenEnvelopeHasNumericRecordID(t *testing.T) {
+	body := []byte(`{"code":"success","data":{"id":70897,"task_id":"task_x","status":"SUCCESS","progress":"100%","result_url":"https://vidgen.x.ai/video.mp4","data":{"model":"grok-image-video","video":{"url":"https://vidgen.x.ai/video.mp4"}}}}`)
+	result, err := (&TaskAdaptor{}).ParseTaskResult(body)
+	if err != nil {
+		t.Fatalf("ParseTaskResult: %v", err)
+	}
+	if result.Status != model.TaskStatusSuccess || result.Url != "https://vidgen.x.ai/video.mp4" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
 func TestParseTaskResultPreservesFailureReason(t *testing.T) {
 	body := []byte(`{"code":"success","data":{"task_id":"task_x","status":"FAILURE","progress":"100%","fail_reason":"reference image rejected"}}`)
 	result, err := (&TaskAdaptor{}).ParseTaskResult(body)

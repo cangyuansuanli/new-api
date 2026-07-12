@@ -23,9 +23,11 @@ relay/channel/task/oaivideo/
 所有视频模型共用 [`service/task_polling.go`](../service/task_polling.go) 中的 `TaskPollingLoop`（每 15 秒）：
 
 1. `FetchTask` — Router 使用任务保存的 internal / upstream 模型重新选择 vendor；标准线路请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，Grok 请求 `/v1/video/generations/{upstream_task_id}`
-2. `ParseTaskResult` / `ParseTaskResultForTask` — 将上游 JSON 映射为内部状态
+2. `ParseTaskResultForTask` / `ParseTaskResult` — 优先由任务对应 Vendor 归一化上游 JSON；仅当专用解析未识别状态时才回退通用 `{code,data}` 任务响应解析，避免包裹结构“可反序列化但丢失结果 URL”
 3. 写 DB（CAS `UpdateWithStatus`）
 4. `AdjustBillingOnComplete` — 按 Vendor 结算差额
+
+历史任务若曾把自身 `/v1/videos/{id}/content` 错写为 `result_url`，内容代理会仅在检测到该自引用时从原始任务响应恢复真实上游 URL；正常 CDN/上游结果地址不会被覆盖。
 
 按秒 OAIREGBox Seedance 模型必须显式传 `duration`（JSON 或 multipart），范围为 4–15 秒整数。multipart 归一化必须读取 `duration` 本身，不能只读取兼容字段 `seconds`。任务成功且视频已转存时，系统从 MP4 元数据提取实际秒数写入 `usage.seconds`，终态结算优先使用实际成片时长；缺失或越界时长在提交前拒绝，禁止静默按 4 秒兜底。
 
