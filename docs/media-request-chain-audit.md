@@ -31,20 +31,23 @@
 - Adobe 视频现在通过标准 task adaptor 进入现有 channel HTTP 执行栈，复用渠道 proxy、Header/Param override、连接池和 HTTP/2。
 - 异步图像和标准视频原先没有统一保存提交时选中的多 Key，重启后可能切换账号；现在所有 `Task` 提交路径都保存私有 Key 快照，worker/轮询优先复用该 Key。
 - 图像和标准视频统一调用 `service.TransitionTaskStatus`，且差额结算后的最终额度会持久化回 `tasks.quota`。
+- 新提交的异步生图任务统一写入版本化 `RequestSnapshot v1` envelope，以 `kind` 明确区分 generation JSON、edit multipart 与 legacy chat JSON；旧任务只在内存中兼容解码，不再写入旧形态。
+- edit multipart Worker 重放会保留文件名与原始 MIME，避免 `image/png` 被退化为 `application/octet-stream`。
+- New API 与 Infinite Canvas 使用相同媒体契约 fixture，分别覆盖客户端 payload builder、任务持久化和 Worker 重放。
+- Redis 通知是实时唤醒主通道；PostgreSQL 仅作持久真相与每 15 秒补偿扫描，避免 Worker 节点增加时每节点每秒扫表。
 
 ### 仍需重构
 
-1. 图像异步 worker 仍有 generation JSON、edit multipart 标准化快照、legacy chat JSON 三种输入形态，后续可继续抽象为统一 `RequestKind` 快照接口。
-2. `/v1/edits` 仍是旧的同步 relay 入口，不会进入 `/v1/images/generations` 的 async 判定；前端和文档如果把它当作统一图像入口，会产生行为差异。
-3. 前端模型参数元数据仍声明多种视频 API mode；模型选择后的真实 endpoint 仍由 profile/endpoint type 决定，文案需要与后端路由表持续对齐。
-4. 旧的 `controller/task_video.go` 只保留仓库内无调用的兼容转发函数，已删除；视频轮询入口统一保留在 `service/task_polling.go`。
+1. `/v1/edits` 仍是旧的同步 relay 入口，不会进入 `/v1/images/generations` 的 async 判定；前端和文档如果把它当作统一图像入口，会产生行为差异。
+2. 前端模型参数元数据仍声明多种视频 API mode；模型选择后的真实 endpoint 仍由 profile/endpoint type 决定，文案需要与后端路由表持续对齐。
+3. 旧的 `controller/task_video.go` 只保留仓库内无调用的兼容转发函数，已删除；视频轮询入口统一保留在 `service/task_polling.go`。
 
 ## 重构顺序
 
 1. [已完成] 抽出 `media task` 的统一状态推进器：图像、Adobe、标准视频共用 `service.TransitionTaskStatus`，差额结算后的最终额度写回 `tasks.quota`。
-2. [下一阶段] 抽出统一 `RequestSnapshot`：请求方法、公开/内部/上游模型、路径、标准化 body/files、渠道 Key 引用和执行策略一起持久化。
-3. 将 Adobe vendor 的严格请求体规范化进一步抽出为共享 `TaskRequestBuilder`；生命周期与终态结算已经复用标准视频路径。
-4. 最后处理兼容入口：保留 legacy chat image 读取器，但把它转换为同一个 image request kind；确认客户端迁移后再移除 `/v1/edits` 和 legacy chat 的重复路径。
+2. [已完成] 抽出版本化 `RequestSnapshot v1`：新任务统一持久化 method、path、content type、kind 与标准化 body/files；legacy chat 只作为明确 kind 和旧任务只读兼容存在。
+3. [下一阶段] 将 Adobe vendor 的严格请求体规范化进一步抽出为共享 `TaskRequestBuilder`；生命周期与终态结算已经复用标准视频路径。
+4. 最后处理兼容入口：确认客户端迁移后再移除 `/v1/edits` 和 legacy chat 的重复路径。
 
 ## 验收条件
 
@@ -52,4 +55,6 @@
 - 每个任务只发生一次成功结算或失败退款；并发 worker 只有一个 CAS 获胜者。
 - public、internal、upstream 三个模型名在日志、任务查询和上游 body 中边界清晰。
 - 渠道 proxy、Header override、Param override、多 Key 和上游模型映射在同步和异步执行中结果一致。
-- `POST /v1/images/generations`、`POST /v1/images/edits`、`POST /v1/videos` 的 JSON/multipart 行为由同一套请求快照测试覆盖。
+- `POST /v1/images/generations`、`POST /v1/images/edits` 的 JSON/multipart 行为由 New API 与 Infinite Canvas 的同一份契约 fixture 覆盖；视频契约由独立视频链路测试覆盖。
+- 新任务只写 `RequestSnapshot v1`，旧任务的三种历史形态只读兼容，Worker 不再依赖 URL 字符串猜测新快照类型。
+- edit 文件重放后的文件名、MIME 和字节数与客户端提交一致。

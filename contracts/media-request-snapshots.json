@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "image-generation-json-async",
+      "snapshot_kind": "image.generation.json",
+      "method": "POST",
+      "client_path": "/images/generations",
+      "api_path": "/v1/images/generations",
+      "content_type": "application/json",
+      "client_body": {
+        "model": "gpt-image-2",
+        "prompt": "contract",
+        "n": 1,
+        "size": "1024x1024",
+        "output_format": "png",
+        "response_format": "b64_json",
+        "async": true,
+        "stream": false
+      },
+      "worker_body": {
+        "model": "gpt-image-2",
+        "prompt": "contract",
+        "n": 1,
+        "size": "1024x1024",
+        "output_format": "png",
+        "response_format": "b64_json",
+        "stream": false
+      }
+    },
+    {
+      "name": "image-edit-multipart-async",
+      "snapshot_kind": "image.edit.multipart",
+      "method": "POST",
+      "client_path": "/images/edits",
+      "api_path": "/v1/images/edits",
+      "content_type": "multipart/form-data",
+      "client_fields": {
+        "model": "gpt-image-2",
+        "prompt": "contract",
+        "n": "1",
+        "size": "1024x1024",
+        "output_format": "png",
+        "response_format": "b64_json",
+        "stream": "false",
+        "async": "true"
+      },
+      "worker_fields": {
+        "model": "gpt-image-2",
+        "prompt": "contract",
+        "n": "1",
+        "size": "1024x1024",
+        "output_format": "png",
+        "response_format": "b64_json",
+        "stream": "false"
+      },
+      "files": [
+        {
+          "field": "image",
+          "name": "ref.png",
+          "type": "image/png",
+          "size": 8
+        }
+      ]
+    }
+  ]
+}

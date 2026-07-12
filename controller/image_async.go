@@ -296,7 +296,8 @@ func snapshotAsyncImageRequest(c *gin.Context, relayMode int, taskID string) ([]
 		if err != nil {
 			return nil, "", err
 		}
-		return body, "/v1/chat/completions", nil
+		snapshot, err := image.NewJSONRequestSnapshot(image.RequestSnapshotLegacyChatJSON, "/v1/chat/completions", body)
+		return snapshot, "/v1/chat/completions", err
 	}
 	storage, err := common.GetBodyStorage(c)
 	if err != nil {
@@ -306,5 +307,6 @@ func snapshotAsyncImageRequest(c *gin.Context, relayMode int, taskID string) ([]
 	if err != nil {
 		return nil, "", err
 	}
-	return body, "/v1/images/generations", nil
+	snapshot, err := image.NewJSONRequestSnapshot(image.RequestSnapshotGenerationJSON, "/v1/images/generations", body)
+	return snapshot, "/v1/images/generations", err
 }

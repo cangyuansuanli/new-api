@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/service"
 )
 
@@ -12,12 +11,12 @@ func EditSnapshotObjectKeys(snapshot []byte) []string {
 	if len(snapshot) == 0 {
 		return nil
 	}
-	var payload EditPayload
-	if err := common.Unmarshal(snapshot, &payload); err != nil {
+	decoded, err := DecodeRequestSnapshot(snapshot, "/v1/images/edits")
+	if err != nil || decoded.Kind != RequestSnapshotEditMultipart || decoded.Multipart == nil {
 		return nil
 	}
-	objectKeys := make([]string, 0, len(payload.Files))
-	for _, file := range payload.Files {
+	objectKeys := make([]string, 0, len(decoded.Multipart.Files))
+	for _, file := range decoded.Multipart.Files {
 		if file.ObjectKey != "" {
 			objectKeys = append(objectKeys, file.ObjectKey)
 		}

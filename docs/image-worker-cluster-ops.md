@@ -15,6 +15,8 @@
 
 当前版本使用 PostgreSQL 作为持久队列真相，Redis list 作为共享唤醒队列。Worker 通过阻塞消费竞争通知，并持续扫描数据库补偿丢失通知；最终通过 `lease_owner` / `lease_expires_at` 原子领取，重复投递不会重复结算。进程内 channel 只做有界唤醒缓冲。
 
+Redis 正常时新任务由 `BLPOP` 立即唤醒，PostgreSQL 补偿扫描默认每 15 秒一次；不要让每个 Worker 每秒扫描任务表。Redis 不可用且未显式配置扫描间隔时，代码回退为每秒扫描。
+
 ## API 节点
 
 ```env
@@ -41,7 +43,7 @@ IMAGE_ASYNC_WORKER_ENABLED=true
 IMAGE_ASYNC_MAX_CONCURRENT=24
 IMAGE_ASYNC_QUEUE_CAPACITY=96
 IMAGE_ASYNC_DISPATCH_BATCH=48
-IMAGE_ASYNC_DISPATCH_INTERVAL_MS=1000
+IMAGE_ASYNC_DB_SCAN_INTERVAL_MS=15000
 IMAGE_ASYNC_LEASE_SECONDS=180
 IMAGE_ASYNC_MAX_ATTEMPTS=3
 IMAGE_R2_MAX_CONCURRENT=12

@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"strings"
 
@@ -60,7 +62,7 @@ func executeTaskUpstream(ctx context.Context, task *model.Task) ([]dto.ImageData
 	}
 	c.Set("relay_mode", relayMode)
 
-	if strings.Contains(strings.TrimSpace(task.PrivateData.RequestPath), "/chat/completions") {
+	if relayMode == relayconstant.RelayModeChatCompletions {
 		return executeLegacyAsyncChatImageTask(c, task, w)
 	}
 
@@ -133,23 +135,20 @@ func executeLegacyAsyncChatImageTask(c *gin.Context, task *model.Task, w *httpte
 }
 
 func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.Request, int, error) {
-	path := strings.TrimSpace(task.PrivateData.RequestPath)
-	if path == "" {
-		path = "/v1/images/generations"
+	snapshot, err := DecodeRequestSnapshot(task.PrivateData.RequestSnapshot, task.PrivateData.RequestPath)
+	if err != nil {
+		return nil, 0, err
 	}
+	path := snapshot.Path
 	relayMode := relayconstant.RelayModeImagesGenerations
-	if strings.Contains(path, "/edits") {
+	if snapshot.Kind == RequestSnapshotEditMultipart {
 		relayMode = relayconstant.RelayModeImagesEdits
-	}
-	if strings.Contains(path, "/chat/completions") {
+	} else if snapshot.Kind == RequestSnapshotLegacyChatJSON {
 		relayMode = relayconstant.RelayModeChatCompletions
 	}
 
 	if relayMode == relayconstant.RelayModeImagesEdits {
-		payload := EditPayload{}
-		if err := common.Unmarshal(task.PrivateData.RequestSnapshot, &payload); err != nil {
-			return nil, 0, fmt.Errorf("unmarshal edit payload: %w", err)
-		}
+		payload := *snapshot.Multipart
 		useURLResponse := imageAsyncUsesURLResponse(task.Properties.OriginModelName)
 		body, err := os.CreateTemp("", "new-api-image-edit-replay-*")
 		if err != nil {
@@ -174,7 +173,7 @@ func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.
 			_ = writer.WriteField("response_format", "url")
 		}
 		for _, file := range payload.Files {
-			part, err := writer.CreateFormFile(file.Field, file.Filename)
+			part, err := createQueuedEditFormFile(writer, file)
 			if err != nil {
 				writer.Close()
 				cleanup()
@@ -200,7 +199,7 @@ func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.
 		return req, relayMode, nil
 	}
 
-	body := task.PrivateData.RequestSnapshot
+	body := snapshot.Body
 	if len(body) == 0 {
 		return nil, 0, fmt.Errorf("empty request snapshot")
 	}
@@ -220,6 +219,20 @@ func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(normalized))
 	req.Header.Set("Content-Type", "application/json")
 	return req, relayMode, nil
+}
+
+func createQueuedEditFormFile(writer *multipart.Writer, file EditFile) (io.Writer, error) {
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{
+		"name":     file.Field,
+		"filename": file.Filename,
+	}))
+	contentType := strings.TrimSpace(file.ContentType)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	header.Set("Content-Type", contentType)
+	return writer.CreatePart(header)
 }
 
 func writeQueuedEditFile(ctx context.Context, dst io.Writer, file EditFile) error {
@@ -402,7 +415,7 @@ func SnapshotEditRequest(c *gin.Context, taskID string) ([]byte, error) {
 			fileIndex++
 		}
 	}
-	snapshot, err := common.Marshal(payload)
+	snapshot, err := NewEditRequestSnapshot(payload)
 	if err == nil {
 		keepUploads = true
 	}

@@ -25,12 +25,12 @@ const (
 )
 
 type imageWorkerConfig struct {
-	concurrency      int
-	queueCapacity    int
-	dispatchBatch    int
-	dispatchInterval time.Duration
-	leaseDuration    time.Duration
-	maxAttempts      int
+	concurrency    int
+	queueCapacity  int
+	dispatchBatch  int
+	dbScanInterval time.Duration
+	leaseDuration  time.Duration
+	maxAttempts    int
 }
 
 type imageTaskDispatcher struct {
@@ -57,6 +57,7 @@ type WorkerStats struct {
 	Failed        int64  `json:"failed"`
 	GlobalBacklog int64  `json:"global_backlog"`
 	RedisPending  int64  `json:"redis_pending"`
+	DBScanMS      int64  `json:"db_scan_ms"`
 }
 
 func GetWorkerStats() (WorkerStats, error) {
@@ -68,6 +69,7 @@ func GetWorkerStats() (WorkerStats, error) {
 		Active:        imageDispatcher.active.Load(),
 		Completed:     imageDispatcher.completed.Load(),
 		Failed:        imageDispatcher.failed.Load(),
+		DBScanMS:      imageDispatcher.config.dbScanInterval.Milliseconds(),
 	}
 	if imageDispatcher.queue != nil {
 		stats.QueueBuffered = len(imageDispatcher.queue)
@@ -97,13 +99,17 @@ func imageWorkerEnvInt(name string, fallback int) int {
 
 func loadImageWorkerConfig() imageWorkerConfig {
 	concurrency := imageWorkerEnvInt("IMAGE_ASYNC_MAX_CONCURRENT", 32)
+	dbScanFallback := 1000
+	if common.RedisEnabled && common.RDB != nil {
+		dbScanFallback = 15000
+	}
 	return imageWorkerConfig{
-		concurrency:      concurrency,
-		queueCapacity:    imageWorkerEnvInt("IMAGE_ASYNC_QUEUE_CAPACITY", concurrency*4),
-		dispatchBatch:    imageWorkerEnvInt("IMAGE_ASYNC_DISPATCH_BATCH", concurrency*2),
-		dispatchInterval: time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_DISPATCH_INTERVAL_MS", 1000)) * time.Millisecond,
-		leaseDuration:    time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_LEASE_SECONDS", 180)) * time.Second,
-		maxAttempts:      imageWorkerEnvInt("IMAGE_ASYNC_MAX_ATTEMPTS", 3),
+		concurrency:    concurrency,
+		queueCapacity:  imageWorkerEnvInt("IMAGE_ASYNC_QUEUE_CAPACITY", concurrency*4),
+		dispatchBatch:  imageWorkerEnvInt("IMAGE_ASYNC_DISPATCH_BATCH", concurrency*2),
+		dbScanInterval: time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_DB_SCAN_INTERVAL_MS", dbScanFallback)) * time.Millisecond,
+		leaseDuration:  time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_LEASE_SECONDS", 180)) * time.Second,
+		maxAttempts:    imageWorkerEnvInt("IMAGE_ASYNC_MAX_ATTEMPTS", 3),
 	}
 }
 
@@ -141,8 +147,8 @@ func StartWorker() {
 		}
 		go imageAsyncDispatchLoop()
 		common.SysLog(fmt.Sprintf(
-			"image async worker started, owner=%s concurrency=%d queue_capacity=%d lease=%s",
-			imageDispatcher.owner, config.concurrency, config.queueCapacity, config.leaseDuration,
+			"image async worker started, owner=%s concurrency=%d queue_capacity=%d db_scan=%s lease=%s",
+			imageDispatcher.owner, config.concurrency, config.queueCapacity, config.dbScanInterval, config.leaseDuration,
 		))
 	})
 }
@@ -216,7 +222,7 @@ func imageRedisDispatchLoop() {
 }
 
 func imageAsyncDispatchLoop() {
-	ticker := time.NewTicker(imageDispatcher.config.dispatchInterval)
+	ticker := time.NewTicker(imageDispatcher.config.dbScanInterval)
 	defer ticker.Stop()
 	for {
 		dispatchClaimableImageTasks()
@@ -368,7 +374,7 @@ func failImageAsyncTask(ctx context.Context, task *model.Task, fromStatus model.
 }
 
 func imageTaskInputObjectKeys(task *model.Task) []string {
-	if task == nil || len(task.PrivateData.RequestSnapshot) == 0 || !strings.Contains(task.PrivateData.RequestPath, "/edits") {
+	if task == nil || len(task.PrivateData.RequestSnapshot) == 0 {
 		return nil
 	}
 	return EditSnapshotObjectKeys(task.PrivateData.RequestSnapshot)
