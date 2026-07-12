@@ -60,14 +60,18 @@ func TestMaybeConvertTengdaBody_NativePassthrough(t *testing.T) {
 	}
 }
 
-func TestMaybeConvertTengdaBody_AudioRequiresImage(t *testing.T) {
+func TestMaybeConvertTengdaBody_AudioWithoutImage(t *testing.T) {
 	in := map[string]interface{}{
 		"prompt":           "test",
 		"reference_audios": []interface{}{"https://example.com/a.mp3"},
 	}
-	_, err := maybeConvertTengdaBody(in, "manxue-2.0")
-	if err == nil {
-		t.Fatal("expected error when audio without image")
+	out, err := maybeConvertTengdaBody(in, "manxue-2.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	content, ok := out["content"].([]map[string]interface{})
+	if !ok || len(content) != 2 || content[1]["role"] != "reference_audio" {
+		t.Fatalf("expected standalone audio reference, got %v", out["content"])
 	}
 }
 

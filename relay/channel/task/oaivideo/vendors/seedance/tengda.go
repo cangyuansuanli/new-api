@@ -130,10 +130,6 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 		videoURLs := oaivideo.CollectStringList(body["reference_videos"])
 		audioURLs := oaivideo.CollectStringList(body["reference_audios"])
 
-		if (len(videoURLs) > 0 || len(audioURLs) > 0) && len(imageURLs) == 0 {
-			return nil, fmt.Errorf("带视频/音频参考时至少需要 1 张参考图")
-		}
-
 		for _, url := range imageURLs {
 			content = append(content, map[string]interface{}{
 				"type":      "image_url",

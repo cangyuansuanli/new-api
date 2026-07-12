@@ -91,6 +91,8 @@ JSON 示例：
 
 JSON 的其他字段和 multipart 文件必须保留；仅模型名与时长别名在 vendor 边界发生转换。
 
+Seedance 2.0 的参考图、参考视频和参考音频均为可选且可独立使用；仅传 `prompt` 即为文生视频。Seedance vendor 不得因 `reference_videos` / `reference_audios` 存在而强制要求参考图，仍需保留各 profile 的数量、大小、时长与首尾帧互斥校验。
+
 Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/videos` + `GET /v1/videos/{id}`，Adobe vendor 内部将创建请求映射为上游 `POST /v1/videos/generations`，并使用上游 `GET /v1/videos/{id}` 轮询。Adobe 任务直接进入通用任务表和通用轮询，不再创建独立 worker，也不再包装成 chat。
 
 模型广场与 API 文档中的 Adobe 视频元数据必须同步使用 `openai-video` endpoint、`videos-json-async` UI profile 和 `dispatch_mode=async`；旧 `*-chat` profile 与 `/v1/chat/completions` 示例属于迁移前遗留数据，不能继续对客户展示。仅修正文档/profile 而不调整售价时，运行 `python3 scripts/seed_adobe2api_video_api_doc.py --docs-only`。
