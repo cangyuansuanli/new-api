@@ -142,10 +142,20 @@ func GetAndValidateResponsesCompactionRequest(c *gin.Context) (*dto.OpenAIRespon
 
 func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageRequest, error) {
 	imageRequest := &dto.ImageRequest{}
+	contentType := c.Request.Header.Get("Content-Type")
+	bodyParsed := false
+
+	if common.IsMultipartContentTypeWithoutBoundary(contentType) {
+		if err := common.UnmarshalBodyReusable(c, imageRequest); err != nil {
+			return nil, errors.New("multipart Content-Type must include a boundary")
+		}
+		c.Request.Header.Set("Content-Type", "application/json")
+		bodyParsed = true
+	}
 
 	switch relayMode {
 	case relayconstant.RelayModeImagesEdits:
-		if strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		if strings.Contains(strings.ToLower(c.Request.Header.Get("Content-Type")), "multipart/form-data") {
 			form, err := common.ParseMultipartFormReusable(c)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse image edit form request: %w", err)
@@ -196,9 +206,10 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 		}
 		fallthrough
 	default:
-		err := common.UnmarshalBodyReusable(c, imageRequest)
-		if err != nil {
-			return nil, err
+		if !bodyParsed {
+			if err := common.UnmarshalBodyReusable(c, imageRequest); err != nil {
+				return nil, err
+			}
 		}
 
 		if imageRequest.Model == "" {

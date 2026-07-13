@@ -496,13 +496,14 @@ func IsAsyncRequest(c *gin.Context) bool {
 	if strings.Contains(contentType, "multipart/form-data") {
 		if c.Request.MultipartForm == nil {
 			form, err := common.ParseMultipartFormReusable(c)
-			if err != nil {
-				return false
+			if err == nil {
+				c.Request.MultipartForm = form
+				c.Request.PostForm = form.Value
 			}
-			c.Request.MultipartForm = form
-			c.Request.PostForm = form.Value
 		}
-		return strings.EqualFold(c.PostForm("async"), "true")
+		if c.Request.MultipartForm != nil {
+			return strings.EqualFold(c.PostForm("async"), "true")
+		}
 	}
 	storage, err := common.GetBodyStorage(c)
 	if err != nil {

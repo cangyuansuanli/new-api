@@ -3,6 +3,7 @@ package openai
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -195,7 +196,7 @@ func TestValidateAdobe2APIImageInputsRejectsTooManyAndOversizedInlineReferences(
 	}
 	maximum := make([]string, 9)
 	for i := range maximum {
-		maximum[i] = "https://example.com/reference.png"
+		maximum[i] = fmt.Sprintf("https://example.com/reference-%d.png", i)
 	}
 	maximumRaw, _ := json.Marshal(maximum)
 	err := ValidateAdobe2APIImageInputs(nil, info, dto.ImageRequest{Images: maximumRaw})
@@ -205,7 +206,7 @@ func TestValidateAdobe2APIImageInputsRejectsTooManyAndOversizedInlineReferences(
 
 	tooMany := make([]string, 10)
 	for i := range tooMany {
-		tooMany[i] = "https://example.com/reference.png"
+		tooMany[i] = fmt.Sprintf("https://example.com/reference-%d.png", i)
 	}
 	tooManyRaw, _ := json.Marshal(tooMany)
 	err = ValidateAdobe2APIImageInputs(nil, info, dto.ImageRequest{Images: tooManyRaw})
@@ -218,6 +219,54 @@ func TestValidateAdobe2APIImageInputsRejectsTooManyAndOversizedInlineReferences(
 	err = ValidateAdobe2APIImageInputs(nil, info, dto.ImageRequest{Image: json.RawMessage(oversized)})
 	if err == nil || !strings.Contains(err.Error(), "max 10MB") {
 		t.Fatalf("expected inline size validation error, got %v", err)
+	}
+}
+
+func TestAdobe2APIImageURLAliasesAreDeduplicatedBeforeValidationAndForwarding(t *testing.T) {
+	seven := make([]string, 7)
+	for i := range seven {
+		seven[i] = fmt.Sprintf("https://example.com/reference-%d.png", i)
+	}
+	sevenRaw, _ := json.Marshal(seven)
+	request := dto.ImageRequest{
+		Model:  "gpt-image-2-2k",
+		Prompt: "seven references",
+		Size:   "2048x2048",
+		Images: sevenRaw,
+		Extra: map[string]json.RawMessage{
+			"imageUrls": sevenRaw,
+		},
+	}
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-2k",
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:         75,
+			UpstreamModelName: "gpt-image",
+		},
+	}
+
+	if err := ValidateAdobe2APIImageInputs(nil, info, request); err != nil {
+		t.Fatalf("seven duplicated aliases should pass validation: %v", err)
+	}
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, info, request)
+	if err != nil {
+		t.Fatalf("convert aliases: %v", err)
+	}
+	refs, ok := bodyAny.(map[string]any)["images"].([]string)
+	if !ok || len(refs) != 7 {
+		t.Fatalf("forwarded references = %#v, want seven unique URLs", refs)
+	}
+
+	ten := make([]string, 10)
+	for i := range ten {
+		ten[i] = fmt.Sprintf("https://example.com/reference-%d.png", i)
+	}
+	tenRaw, _ := json.Marshal(ten)
+	request.Images = nil
+	request.Extra["imageUrls"] = tenRaw
+	if err := ValidateAdobe2APIImageInputs(nil, info, request); err == nil || !strings.Contains(err.Error(), "too many images, max 9") {
+		t.Fatalf("ten imageUrls references should be rejected, got %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@ package helper
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -68,6 +69,30 @@ func TestGetAndValidOpenAIImageRequestMultipartStream(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid stream value")
 	})
+}
+
+func TestGetAndValidOpenAIImageRequestAcceptsJSONWithBareMultipartContentType(t *testing.T) {
+	body := `{"model":"gpt-image-2-2k","prompt":"edit","size":"2048x2048","async":true,"imageUrls":["https://cdn.example.com/a.png"]}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewBufferString(body))
+	c.Request.Header.Set("Content-Type", "multipart/form-data")
+
+	req, err := GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesGenerations)
+	require.NoError(t, err)
+	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
+	require.Equal(t, "gpt-image-2-2k", req.Model)
+	var imageURLs []string
+	require.NoError(t, json.Unmarshal(req.Extra["imageUrls"], &imageURLs))
+	require.Equal(t, []string{"https://cdn.example.com/a.png"}, imageURLs)
+}
+
+func TestGetAndValidOpenAIImageRequestRejectsActualMultipartWithoutBoundary(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewBufferString("--missing-boundary\r\n"))
+	c.Request.Header.Set("Content-Type", "multipart/form-data")
+
+	_, err := GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesEdits)
+	require.EqualError(t, err, "multipart Content-Type must include a boundary")
 }
 
 func TestGetAndValidOpenAIImageRequestPreservesRepeatedURLReferences(t *testing.T) {

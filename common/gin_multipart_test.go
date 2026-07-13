@@ -13,6 +13,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestIsMultipartContentTypeWithoutBoundary(t *testing.T) {
+	if !IsMultipartContentTypeWithoutBoundary("multipart/form-data") {
+		t.Fatal("expected bare multipart Content-Type to be detected")
+	}
+	if IsMultipartContentTypeWithoutBoundary("multipart/form-data; boundary=abc") {
+		t.Fatal("valid multipart Content-Type must not be detected as missing boundary")
+	}
+	if IsMultipartContentTypeWithoutBoundary("application/json") {
+		t.Fatal("JSON Content-Type must not be treated as multipart")
+	}
+}
+
 func TestMultipartBodyStreamsFromDiskAndSpillsFiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	oldConfig := GetDiskCacheConfig()

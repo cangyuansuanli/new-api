@@ -163,6 +163,22 @@ func TestIsAsyncChatImageRequestRelayWrapper(t *testing.T) {
 	}
 }
 
+func TestIsAsyncRequestReadsJSONWithBareMultipartContentType(t *testing.T) {
+	body := []byte(`{"model":"gpt-image-2-2k","prompt":"test","async":true}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "multipart/form-data")
+	storage, err := common.CreateBodyStorage(body)
+	if err != nil {
+		t.Fatalf("CreateBodyStorage: %v", err)
+	}
+	c.Set(common.KeyBodyStorage, storage)
+
+	if !IsAsyncRequest(c) {
+		t.Fatal("expected JSON async flag to be detected despite bare multipart Content-Type")
+	}
+}
+
 func TestNormalizeAsyncLegacyChatImageBodyViaOpenAI(t *testing.T) {
 	out, err := openai.NormalizeAsyncLegacyChatImageBody([]byte(`{"model":"gemini-banana-pro-4k","async":true,"stream":true}`))
 	if err != nil {

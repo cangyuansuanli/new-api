@@ -59,6 +59,14 @@ const (
 	adobe2APIMaxImageBytes  = int64(10 << 20)
 )
 
+var adobe2APIReferenceImageAliasKeys = []string{
+	"image_urls",
+	"imageUrls",
+	"reference_images",
+	"referenceImages",
+	"image_refs",
+}
+
 func IsAdobe2APIImageOriginModel(model string) bool {
 	return hasAdobe2APIPrefix(model, adobe2APIImageModelPrefixes)
 }
@@ -155,7 +163,7 @@ func adobe2APIReferenceImageValuesForValidation(c *gin.Context, request dto.Imag
 		refs = append(refs, parseJSONStringList(request.Images)...)
 		refs = append(refs, parseJSONStringList(request.Mask)...)
 	}
-	for _, key := range []string{"reference_images", "image_refs"} {
+	for _, key := range adobe2APIReferenceImageAliasKeys {
 		if raw, ok := request.Extra[key]; ok {
 			refs = append(refs, rawJSONStringList(raw)...)
 		}
@@ -170,7 +178,7 @@ func adobe2APIReferenceImageValuesForValidation(c *gin.Context, request dto.Imag
 			}
 		}
 	}
-	return refs
+	return uniqueNonEmptyStrings(refs)
 }
 
 func inlineImageDecodedSize(raw string) (int64, bool) {
@@ -846,7 +854,7 @@ func camelizeSnakeKey(key string) string {
 
 func adobe2APIReferenceImages(c *gin.Context, request dto.ImageRequest) ([]string, error) {
 	refs := make([]string, 0, 6)
-	for _, key := range []string{"reference_images", "image_refs"} {
+	for _, key := range adobe2APIReferenceImageAliasKeys {
 		if raw, ok := request.Extra[key]; ok {
 			refs = append(refs, rawJSONStringList(raw)...)
 		}

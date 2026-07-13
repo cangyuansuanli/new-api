@@ -373,6 +373,16 @@ func processMultipartFormValues(values map[string][]string, v any) error {
 
 var errBoundaryNotFound = errors.New("multipart boundary not found")
 
+// IsMultipartContentTypeWithoutBoundary reports the common client mistake where
+// a JSON body is sent with a bare multipart/form-data Content-Type header.
+func IsMultipartContentTypeWithoutBoundary(contentType string) bool {
+	if !strings.Contains(strings.ToLower(contentType), gin.MIMEMultipartPOSTForm) {
+		return false
+	}
+	_, err := parseBoundary(contentType)
+	return errors.Is(err, errBoundaryNotFound)
+}
+
 // parseBoundary extracts the multipart boundary from the Content-Type header using mime.ParseMediaType
 func parseBoundary(contentType string) (string, error) {
 	if contentType == "" {
