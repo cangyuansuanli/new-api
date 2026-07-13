@@ -50,6 +50,63 @@ func TestValidateFixedResolutionSKUAllowsMatchingOrOmittedResolution(t *testing.
 	}
 }
 
+func TestValidateFixedResolutionSKUAllowsExactGPTImageSizesWithinPurchasedTier(t *testing.T) {
+	tests := []struct {
+		model string
+		size  string
+	}{
+		{"adobe-firefly-gpt-image-2-1k", "1024x1024"},
+		{"adobe-firefly-gpt-image-2-2k", "3072x1280"},
+		{"adobe-firefly-gpt-image-2-4k", "3840x2048"},
+	}
+	for _, test := range tests {
+		request := &dto.ImageRequest{Size: test.size}
+		if err := ValidateFixedResolutionSKU(nil, test.model, request); err != nil {
+			t.Fatalf("%s size %s rejected: %v", test.model, test.size, err)
+		}
+	}
+}
+
+func TestValidateFixedResolutionSKUGPTQualityDoesNotSelectBillingTier(t *testing.T) {
+	request := &dto.ImageRequest{Size: "3840x2048", Quality: "medium"}
+	if err := ValidateFixedResolutionSKU(nil, "adobe-firefly-gpt-image-2-4k", request); err != nil {
+		t.Fatalf("quality must not change the fixed GPT Image tier: %v", err)
+	}
+}
+
+func TestValidateFixedResolutionSKURejectsExactGPTImageSizeOutsidePurchasedTier(t *testing.T) {
+	tests := []struct {
+		model string
+		size  string
+	}{
+		{"adobe-firefly-gpt-image-2-1k", "2048x1024"},
+		{"adobe-firefly-gpt-image-2-4k", "3856x1024"},
+		{"adobe-firefly-gpt-image-2-4k", "3839x1024"},
+		{"adobe-firefly-gpt-image-2-4k", "3840x1024"},
+		{"adobe-firefly-gpt-image-2-1k", "512x1024"},
+	}
+	for _, test := range tests {
+		request := &dto.ImageRequest{Size: test.size}
+		err := ValidateFixedResolutionSKU(nil, test.model, request)
+		if err == nil || !strings.Contains(err.Error(), "fixed") {
+			t.Fatalf("%s size %s: expected exact-size rejection, got %v", test.model, test.size, err)
+		}
+	}
+}
+
+func TestValidateGPTImageAspectRatioRejectsOnlyOutsideProviderLimit(t *testing.T) {
+	for _, ratio := range []string{"1:1", "15:8", "1:3", "3:1"} {
+		if err := ValidateGPTImageAspectRatio(ratio); err != nil {
+			t.Fatalf("ratio %s rejected: %v", ratio, err)
+		}
+	}
+	for _, ratio := range []string{"1:4", "8:1"} {
+		if err := ValidateGPTImageAspectRatio(ratio); err == nil {
+			t.Fatalf("ratio %s should be rejected", ratio)
+		}
+	}
+}
+
 func TestValidateFixedResolutionSKURejectsMultipleImages(t *testing.T) {
 	n := uint(2)
 	err := ValidateFixedResolutionSKU(nil, "adobe-firefly-gpt-image-2-4k", &dto.ImageRequest{N: &n})

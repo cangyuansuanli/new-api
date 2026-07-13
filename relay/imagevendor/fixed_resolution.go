@@ -48,8 +48,17 @@ func ValidateFixedResolutionSKU(c *gin.Context, originModel string, request *dto
 	}
 
 	hints := make([]resolutionHint, 0, 8)
-	appendResolutionHint(&hints, "size", request.Size, false)
-	appendResolutionHint(&hints, "quality", request.Quality, false)
+	isGPTImage := strings.Contains(normalizeOriginModel(originModel), "gpt-image")
+	if isGPTImage && looksLikeExactImageSize(request.Size) {
+		if err := ValidateGPTImageExactSize(request.Size, skuResolution); err != nil {
+			return fmt.Errorf("model %s is a fixed %s SKU, but size is invalid: %w", originModel, skuResolution, err)
+		}
+	} else {
+		appendResolutionHint(&hints, "size", request.Size, false)
+	}
+	if !isGPTImage {
+		appendResolutionHint(&hints, "quality", request.Quality, false)
+	}
 	collectResolutionHintsFromRaw(&hints, "extra_fields", request.ExtraFields)
 	for key, raw := range request.Extra {
 		collectResolutionHintsFromRaw(&hints, key, raw)
@@ -61,6 +70,19 @@ func ValidateFixedResolutionSKU(c *gin.Context, originModel string, request *dto
 			}
 		}
 	}
+	if isGPTImage {
+		filtered := hints[:0]
+		for _, hint := range hints {
+			source := hint.source
+			if dot := strings.LastIndex(source, "."); dot >= 0 {
+				source = source[dot+1:]
+			}
+			if normalizeResolutionKey(source) != "quality" {
+				filtered = append(filtered, hint)
+			}
+		}
+		hints = filtered
+	}
 
 	for _, hint := range hints {
 		if hint.invalid {
@@ -71,6 +93,73 @@ func ValidateFixedResolutionSKU(c *gin.Context, originModel string, request *dto
 		}
 	}
 	return nil
+}
+
+// ValidateGPTImageExactSize validates an exact size without changing it. The
+// selected sellable model remains the billing boundary for the pixel budget.
+func ValidateGPTImageExactSize(size string, resolution string) error {
+	normalized := strings.ToLower(strings.TrimSpace(size))
+	parts := strings.Split(normalized, "x")
+	if len(parts) != 2 {
+		return fmt.Errorf("size must use WIDTHxHEIGHT")
+	}
+	width, widthErr := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, heightErr := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return fmt.Errorf("size must use positive WIDTHxHEIGHT dimensions")
+	}
+	if width%16 != 0 || height%16 != 0 {
+		return fmt.Errorf("size dimensions must be multiples of 16")
+	}
+	if width > 3840 || height > 3840 {
+		return fmt.Errorf("size longest edge must not exceed 3840px")
+	}
+	if max(width, height) > min(width, height)*3 {
+		return fmt.Errorf("size aspect ratio must not exceed 3:1")
+	}
+
+	maxPixels, ok := map[string]int64{
+		ImageResolution1K: 1_048_576,
+		ImageResolution2K: 4_194_304,
+		ImageResolution4K: 8_294_400,
+	}[strings.ToUpper(strings.TrimSpace(resolution))]
+	if !ok {
+		return fmt.Errorf("unsupported GPT Image resolution %q", resolution)
+	}
+	pixels := int64(width) * int64(height)
+	if pixels < 655_360 {
+		return fmt.Errorf("size must contain at least 655360 pixels")
+	}
+	if pixels > maxPixels {
+		return fmt.Errorf("size exceeds the %s pixel budget", strings.ToUpper(strings.TrimSpace(resolution)))
+	}
+	return nil
+}
+
+func ValidateGPTImageAspectRatio(ratio string) error {
+	parts := strings.Split(strings.TrimSpace(ratio), ":")
+	if len(parts) != 2 {
+		return fmt.Errorf("aspect ratio must use WIDTH:HEIGHT")
+	}
+	width, widthErr := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, heightErr := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return fmt.Errorf("aspect ratio must use positive WIDTH:HEIGHT values")
+	}
+	if max(width, height) > min(width, height)*3 {
+		return fmt.Errorf("aspect ratio must not exceed 3:1")
+	}
+	return nil
+}
+
+func looksLikeExactImageSize(size string) bool {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(parts) != 2 {
+		return false
+	}
+	width, widthErr := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, heightErr := strconv.Atoi(strings.TrimSpace(parts[1]))
+	return widthErr == nil && heightErr == nil && width > 0 && height > 0
 }
 
 type resolutionHint struct {

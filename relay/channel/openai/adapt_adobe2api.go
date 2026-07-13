@@ -106,6 +106,26 @@ func ValidateAdobe2APIImageInputs(c *gin.Context, info *relaycommon.RelayInfo, r
 	if !IsAdobe2APIImageRelay(info) {
 		return nil
 	}
+	if err := imagevendor.ValidateFixedResolutionSKU(c, info.OriginModelName, &request); err != nil {
+		return err
+	}
+	modelName := resolveAdobe2APIUpstreamModel(info, request.Model)
+	if isAdobe2APIGPTImageModelName(modelName) {
+		if _, err := adobe2APIGPTImageQuality(request.Quality); err != nil {
+			return err
+		}
+	}
+	_, _, usesExactSize, err := adobe2APIExactGPTImageParameters(info, request, modelName)
+	if err != nil {
+		return err
+	}
+	if !usesExactSize && isAdobe2APIGPTImageModelName(modelName) {
+		if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
+			if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
+				return err
+			}
+		}
+	}
 	files, err := collectAdobe2APIMultipartImageFiles(c)
 	if err != nil {
 		return err
@@ -281,12 +301,38 @@ func ConvertAdobe2APIImageRequest(c *gin.Context, info *relaycommon.RelayInfo, r
 		"model":  modelName,
 		"prompt": request.Prompt,
 	}
-	imageSize := adobe2APIImageSize(info, request)
-	if imageSize != "" {
-		body["image_size"] = imageSize
+	if isAdobe2APIGPTImageModelName(modelName) {
+		quality, err := adobe2APIGPTImageQuality(request.Quality)
+		if err != nil {
+			return nil, err
+		}
+		body["quality"] = quality
 	}
-	if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
-		body["aspect_ratio"] = aspectRatio
+	exactSize, billedResolution, usesExactSize, err := adobe2APIExactGPTImageParameters(info, request, modelName)
+	if err != nil {
+		return nil, err
+	}
+	if usesExactSize {
+		body["size"] = exactSize
+		body["image_size"] = billedResolution
+	} else {
+		imageSize := adobe2APIImageSize(info, request)
+		if isAdobe2APIGPTImageModelName(modelName) {
+			if billedResolution, ok := adobe2APIBilledGPTImageResolution(info); ok {
+				imageSize = billedResolution
+			}
+		}
+		if imageSize != "" {
+			body["image_size"] = imageSize
+		}
+		if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
+			if isAdobe2APIGPTImageModelName(modelName) {
+				if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
+					return nil, err
+				}
+			}
+			body["aspect_ratio"] = aspectRatio
+		}
 	}
 	refs, err := adobe2APIReferenceImages(c, request)
 	if err != nil {
@@ -319,7 +365,10 @@ func BuildAdobe2APIImageEditMultipart(c *gin.Context, info *relaycommon.RelayInf
 
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
-	writeAdobe2APIImageEditFormFields(writer, info, request, modelName)
+	if err := writeAdobe2APIImageEditFormFields(writer, info, request, modelName); err != nil {
+		_ = writer.Close()
+		return nil, err
+	}
 
 	for i, fileHeader := range imageFiles {
 		file, err := fileHeader.Open()
@@ -351,16 +400,96 @@ func BuildAdobe2APIImageEditMultipart(c *gin.Context, info *relaycommon.RelayInf
 	return &requestBody, nil
 }
 
-func writeAdobe2APIImageEditFormFields(writer *multipart.Writer, info *relaycommon.RelayInfo, request dto.ImageRequest, modelName string) {
+func writeAdobe2APIImageEditFormFields(writer *multipart.Writer, info *relaycommon.RelayInfo, request dto.ImageRequest, modelName string) error {
 	_ = writer.WriteField("model", modelName)
 	if prompt := strings.TrimSpace(request.Prompt); prompt != "" {
 		_ = writer.WriteField("prompt", prompt)
 	}
+	if isAdobe2APIGPTImageModelName(modelName) {
+		quality, err := adobe2APIGPTImageQuality(request.Quality)
+		if err != nil {
+			return err
+		}
+		_ = writer.WriteField("quality", quality)
+	}
+	exactSize, billedResolution, usesExactSize, err := adobe2APIExactGPTImageParameters(info, request, modelName)
+	if err != nil {
+		return err
+	}
+	if usesExactSize {
+		_ = writer.WriteField("size", exactSize)
+		_ = writer.WriteField("image_size", billedResolution)
+		return nil
+	}
 	if aspectRatio := adobe2APIAspectRatio(request); aspectRatio != "" {
+		if isAdobe2APIGPTImageModelName(modelName) {
+			if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
+				return err
+			}
+		}
 		_ = writer.WriteField("aspect_ratio", aspectRatio)
 	}
-	if imageSize := adobe2APIImageSize(info, request); imageSize != "" {
+	imageSize := adobe2APIImageSize(info, request)
+	if isAdobe2APIGPTImageModelName(modelName) {
+		if billedResolution, ok := adobe2APIBilledGPTImageResolution(info); ok {
+			imageSize = billedResolution
+		}
+	}
+	if imageSize != "" {
 		_ = writer.WriteField("image_size", imageSize)
+	}
+	return nil
+}
+
+func adobe2APIExactGPTImageParameters(info *relaycommon.RelayInfo, request dto.ImageRequest, modelName string) (string, string, bool, error) {
+	if !isAdobe2APIGPTImageModelName(modelName) || !looksLikeImageDimensions(request.Size) {
+		return "", "", false, nil
+	}
+	resolution, ok := adobe2APIBilledGPTImageResolution(info)
+	if !ok {
+		return "", "", false, fmt.Errorf("exact size requires a fixed 1K, 2K, or 4K GPT Image model")
+	}
+	width, height, _ := parseImageDimensions(request.Size)
+	exactSize := fmt.Sprintf("%dx%d", width, height)
+	if err := imagevendor.ValidateGPTImageExactSize(exactSize, resolution); err != nil {
+		return "", "", false, err
+	}
+	return exactSize, resolution, true, nil
+}
+
+func isAdobe2APIGPTImageModelName(modelName string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(modelName)), "gpt-image")
+}
+
+func adobe2APIBilledGPTImageResolution(info *relaycommon.RelayInfo) (string, bool) {
+	if info == nil {
+		return "", false
+	}
+	if fixed, ok := imagevendor.FixedResolutionSKU(info.OriginModelName); ok {
+		return fixed, true
+	}
+	name := strings.ToLower(strings.TrimSpace(info.OriginModelName))
+	if !strings.Contains(name, "gpt-image") {
+		return "", false
+	}
+	for _, resolution := range []string{"1K", "2K", "4K"} {
+		if strings.HasSuffix(name, "-"+strings.ToLower(resolution)) {
+			return resolution, true
+		}
+	}
+	return "", false
+}
+
+func adobe2APIGPTImageQuality(quality string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(quality)) {
+	case "", "auto", "standard", "medium", "2k":
+		return "medium", nil
+	case "low", "1k":
+		return "low", nil
+	case "high", "hd", "4k":
+		return "high", nil
+	default:
+		return "", fmt.Errorf("quality must be one of: low, medium, high")
 	}
 }
 

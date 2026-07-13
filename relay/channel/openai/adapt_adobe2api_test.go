@@ -84,23 +84,75 @@ func TestConvertAdobe2APIGPTImageSKUFallsBackToPublicUpstreamModel(t *testing.T)
 	assertAdobe2APIField(t, body, "image_size", "1K")
 }
 
-func TestConvertAdobe2APIFixedSKUUsesSizeOnlyForAspectRatio(t *testing.T) {
+func TestConvertAdobe2APIFixedSKUPreservesExactSizeAndBilledTier(t *testing.T) {
 	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
 		OriginModelName: "adobe-firefly-gpt-image-2-4k",
 	}, dto.ImageRequest{
-		Model:  "adobe-firefly-gpt-image-2-4k",
-		Prompt: "a panoramic poster",
-		Size:   "8192x1024",
+		Model:   "adobe-firefly-gpt-image-2-4k",
+		Prompt:  "a panoramic poster",
+		Size:    "3840x2048",
+		Quality: "high",
 	})
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
 	body := bodyAny.(map[string]any)
 	assertAdobe2APIField(t, body, "model", "gpt-image")
+	assertAdobe2APIField(t, body, "size", "3840x2048")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	assertAdobe2APIField(t, body, "aspect_ratio", "8:1")
-	if _, exists := body["size"]; exists {
-		t.Fatalf("raw client size must not reach Adobe2API: %#v", body)
+	assertAdobe2APIField(t, body, "quality", "high")
+	for _, key := range []string{"aspect_ratio"} {
+		if _, exists := body[key]; exists {
+			t.Fatalf("exact-size request must not contain %q: %#v", key, body)
+		}
+	}
+}
+
+func TestConvertAdobe2APIExactSizePreservesAllBilledTiers(t *testing.T) {
+	tests := []struct {
+		model   string
+		size    string
+		quality string
+	}{
+		{"adobe-firefly-gpt-image-2-1k", "1024x1024", "low"},
+		{"adobe-firefly-gpt-image-2-2k", "3072x1280", "medium"},
+		{"adobe-firefly-gpt-image-2-4k", "3840x2048", "high"},
+	}
+	for _, test := range tests {
+		bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+			OriginModelName: test.model,
+		}, dto.ImageRequest{
+			Model:   test.model,
+			Prompt:  "test",
+			Size:    test.size,
+			Quality: test.quality,
+		})
+		if err != nil {
+			t.Fatalf("%s: convert: %v", test.model, err)
+		}
+		body := bodyAny.(map[string]any)
+		assertAdobe2APIField(t, body, "size", test.size)
+		assertAdobe2APIField(t, body, "image_size", strings.ToUpper(test.model[len(test.model)-2:]))
+		assertAdobe2APIField(t, body, "quality", test.quality)
+	}
+}
+
+func TestConvertAdobe2APIGPTQualityDefaultsToMediumWithoutChangingTier(t *testing.T) {
+	for _, quality := range []string{"", "auto", "medium"} {
+		bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+			OriginModelName: "adobe-firefly-gpt-image-2-4k",
+		}, dto.ImageRequest{
+			Model:   "adobe-firefly-gpt-image-2-4k",
+			Prompt:  "test",
+			Size:    "3840x2048",
+			Quality: quality,
+		})
+		if err != nil {
+			t.Fatalf("quality %q: convert: %v", quality, err)
+		}
+		body := bodyAny.(map[string]any)
+		assertAdobe2APIField(t, body, "image_size", "4K")
+		assertAdobe2APIField(t, body, "quality", "medium")
 	}
 }
 
@@ -169,7 +221,23 @@ func TestValidateAdobe2APIImageInputsRejectsTooManyAndOversizedInlineReferences(
 	}
 }
 
-func TestConvertAdobe2APIImageRequestStripsUnsupportedOpenAIParams(t *testing.T) {
+func TestValidateAdobe2APIImageInputsRejectsGPTContractBeforeQueue(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-1k",
+		ChannelMeta:     &relaycommon.ChannelMeta{ChannelId: 75},
+	}
+	for _, request := range []dto.ImageRequest{
+		{Model: "adobe-firefly-gpt-image-2-1k", Size: "2048x1024", Quality: "low"},
+		{Model: "adobe-firefly-gpt-image-2-1k", Size: "8:1", Quality: "low"},
+		{Model: "adobe-firefly-gpt-image-2-1k", Size: "1024x1024", Quality: "ultra"},
+	} {
+		if err := ValidateAdobe2APIImageInputs(nil, info, request); err == nil {
+			t.Fatalf("expected pre-queue contract rejection for %#v", request)
+		}
+	}
+}
+
+func TestConvertAdobe2APIImageRequestPreservesGPTSizeAndStripsUnsupportedParams(t *testing.T) {
 	n := uint(1)
 	request := dto.ImageRequest{
 		Model:             "cy-img2-gpt-image-2-4k",
@@ -195,12 +263,66 @@ func TestConvertAdobe2APIImageRequestStripsUnsupportedOpenAIParams(t *testing.T)
 		t.Fatalf("convert: %v", err)
 	}
 	body := bodyAny.(map[string]any)
-	assertAdobe2APIField(t, body, "aspect_ratio", "16:9")
+	assertAdobe2APIField(t, body, "size", "3840x2160")
 	assertAdobe2APIField(t, body, "image_size", "4K")
-	for _, key := range []string{"n", "size", "quality", "background", "output_format", "output_compression", "moderation", "response_format", "output_resolution"} {
+	assertAdobe2APIField(t, body, "quality", "high")
+	for _, key := range []string{"n", "aspect_ratio", "background", "output_format", "output_compression", "moderation", "response_format", "output_resolution"} {
 		if _, exists := body[key]; exists {
 			t.Fatalf("strict Adobe2API body contains unsupported field %q: %#v", key, body)
 		}
+	}
+}
+
+func TestConvertAdobe2APIGPTRatioStillUsesCalculatedSizeContract(t *testing.T) {
+	bodyAny, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-4k",
+	}, dto.ImageRequest{
+		Model:   "adobe-firefly-gpt-image-2-4k",
+		Prompt:  "a panoramic poster",
+		Size:    "15:8",
+		Quality: "high",
+	})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	assertAdobe2APIField(t, body, "image_size", "4K")
+	assertAdobe2APIField(t, body, "aspect_ratio", "15:8")
+	assertAdobe2APIField(t, body, "quality", "high")
+	for _, key := range []string{"size"} {
+		if _, exists := body[key]; exists {
+			t.Fatalf("ratio request must not contain exact field %q: %#v", key, body)
+		}
+	}
+}
+
+func TestConvertAdobe2APIGPTRatioRejectsProviderLimit(t *testing.T) {
+	_, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-4k",
+	}, dto.ImageRequest{
+		Model:  "adobe-firefly-gpt-image-2-4k",
+		Prompt: "a panoramic poster",
+		Size:   "8:1",
+	})
+	if err == nil || !strings.Contains(err.Error(), "3:1") {
+		t.Fatalf("expected provider ratio rejection, got %v", err)
+	}
+}
+
+func TestConvertAdobe2APIExactSizeRequiresBilledTier(t *testing.T) {
+	_, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gpt-image",
+		},
+	}, dto.ImageRequest{
+		Model:   "adobe-firefly-gpt-image-2",
+		Prompt:  "test",
+		Size:    "2048x2048",
+		Quality: "medium",
+	})
+	if err == nil || !strings.Contains(err.Error(), "fixed 1K, 2K, or 4K") {
+		t.Fatalf("expected billed-tier rejection, got %v", err)
 	}
 }
 
@@ -442,6 +564,38 @@ func TestBuildAdobe2APIImageEditMultipartUsesRepeatedImageField(t *testing.T) {
 	}
 }
 
+func TestWriteAdobe2APIImageEditFormPreservesExactGPTSize(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	err := writeAdobe2APIImageEditFormFields(writer, &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-gpt-image-2-4k",
+	}, dto.ImageRequest{
+		Prompt:  "edit",
+		Size:    "3840x2048",
+		Quality: "high",
+	}, "gpt-image")
+	if err != nil {
+		t.Fatalf("write fields: %v", err)
+	}
+	_ = writer.Close()
+	parsed, err := multipart.NewReader(&body, writer.Boundary()).ReadForm(1 << 20)
+	if err != nil {
+		t.Fatalf("parse multipart: %v", err)
+	}
+	if got := parsed.Value["size"]; len(got) != 1 || got[0] != "3840x2048" {
+		t.Fatalf("size = %#v", got)
+	}
+	if got := parsed.Value["image_size"]; len(got) != 1 || got[0] != "4K" {
+		t.Fatalf("image_size = %#v", got)
+	}
+	if got := parsed.Value["quality"]; len(got) != 1 || got[0] != "high" {
+		t.Fatalf("quality = %#v", got)
+	}
+	if len(parsed.Value["aspect_ratio"]) != 0 {
+		t.Fatalf("exact request must not include ratio fields: %#v", parsed.Value)
+	}
+}
+
 func TestConvertAdobe2APIImageRequestAddsReferenceImagesForEdits(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "gpt-image",
@@ -451,7 +605,7 @@ func TestConvertAdobe2APIImageRequestAddsReferenceImagesForEdits(t *testing.T) {
 		Model:  "gpt-image",
 		Prompt: "make it cinematic",
 		Image:  json.RawMessage(`"https://example.com/ref.png"`),
-		Size:   "1024x1792",
+		Size:   "9:16",
 	}
 	bodyAny, err := ConvertAdobe2APIImageRequest(nil, info, request)
 	if err != nil {
