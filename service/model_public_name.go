@@ -298,6 +298,9 @@ func extractInboundModelName(c *gin.Context) (modelName string, source string, e
 	if c.Request.Method == http.MethodGet {
 		return "", "", nil
 	}
+	if err := normalizeImageJSONContentType(c); err != nil {
+		return "", "", err
+	}
 
 	contentType := c.Request.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "application/json") {
@@ -352,6 +355,31 @@ func extractInboundModelName(c *gin.Context) (modelName string, source string, e
 	}
 
 	return "", "", nil
+}
+
+func normalizeImageJSONContentType(c *gin.Context) error {
+	if c == nil || c.Request == nil || c.Request.Method != http.MethodPost {
+		return nil
+	}
+	path := c.Request.URL.Path
+	if path != "/v1/images/generations" && path != "/v1/images/edits" && path != "/v1/edits" {
+		return nil
+	}
+	if !common.IsMultipartContentTypeWithoutBoundary(c.Request.Header.Get("Content-Type")) {
+		return nil
+	}
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return err
+	}
+	body, err := storage.Bytes()
+	if err != nil {
+		return err
+	}
+	if gjson.ValidBytes(body) {
+		c.Request.Header.Set("Content-Type", "application/json")
+	}
+	return nil
 }
 
 func rewriteInboundModel(c *gin.Context, internalName string, source string) error {
