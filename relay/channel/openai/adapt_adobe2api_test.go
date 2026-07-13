@@ -141,13 +141,23 @@ func TestValidateAdobe2APIImageInputsRejectsTooManyAndOversizedInlineReferences(
 		OriginModelName: "adobe-firefly-gpt-image-2-2k",
 		ChannelMeta:     &relaycommon.ChannelMeta{ChannelId: 75},
 	}
-	tooMany := make([]string, adobe2APIMaxInputImages+1)
+	maximum := make([]string, 9)
+	for i := range maximum {
+		maximum[i] = "https://example.com/reference.png"
+	}
+	maximumRaw, _ := json.Marshal(maximum)
+	err := ValidateAdobe2APIImageInputs(nil, info, dto.ImageRequest{Images: maximumRaw})
+	if err != nil {
+		t.Fatalf("expected nine references to pass validation, got %v", err)
+	}
+
+	tooMany := make([]string, 10)
 	for i := range tooMany {
 		tooMany[i] = "https://example.com/reference.png"
 	}
 	tooManyRaw, _ := json.Marshal(tooMany)
-	err := ValidateAdobe2APIImageInputs(nil, info, dto.ImageRequest{Images: tooManyRaw})
-	if err == nil || !strings.Contains(err.Error(), "too many images") {
+	err = ValidateAdobe2APIImageInputs(nil, info, dto.ImageRequest{Images: tooManyRaw})
+	if err == nil || !strings.Contains(err.Error(), "too many images, max 9") {
 		t.Fatalf("expected image count validation error, got %v", err)
 	}
 

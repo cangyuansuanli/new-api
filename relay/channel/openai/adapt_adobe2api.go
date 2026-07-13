@@ -55,7 +55,7 @@ var adobe2APIVideoModelPrefixes = []string{
 }
 
 const (
-	adobe2APIMaxInputImages = 6
+	adobe2APIMaxInputImages = 9
 	adobe2APIMaxImageBytes  = int64(10 << 20)
 )
 
