@@ -158,6 +158,18 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 			want:          ReferenceMaterialMessageZH,
 		},
 		{
+			name:          "leonardo_reference_duration_too_long_zh",
+			raw:           "All cookies failed. cookie#202: leonardo: media upload failed: DURATION_TOO_LONG",
+			preferChinese: true,
+			want:          "参考视频或音频超过模型时长限制，请缩短素材后重试。",
+		},
+		{
+			name:          "leonardo_public_reference_duration_too_long_zh",
+			raw:           "Reference video or audio exceeds the model's duration limit. Shorten the source media and retry.",
+			preferChinese: true,
+			want:          "参考视频或音频超过模型时长限制，请缩短素材后重试。",
+		},
+		{
 			name: "leonardo_audio_upload_en",
 			raw:  "All cookies failed. cookie#8: leonardo: UploadImage: originalFilename is required for audio uploads",
 			want: ReferenceMaterialMessageEN,
@@ -165,6 +177,12 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 		{
 			name:          "leonardo_pool_depleted_zh",
 			raw:           "All cookies failed. cookie#5: depleted (auto-disabled)",
+			preferChinese: true,
+			want:          PoolUnavailableMessageZH,
+		},
+		{
+			name:          "leonardo_pool_busy_cooldown_zh",
+			raw:           "All cookies failed. cookie#253: cooldown (generation recently failed) | cookie#268: busy (max in-flight)",
 			preferChinese: true,
 			want:          PoolUnavailableMessageZH,
 		},
@@ -183,19 +201,25 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 			name:          "leonardo_upstream_no_detail_zh",
 			raw:           "leonardo: video generation failed (FAILED, upstream returned no detail; try fewer references or a simpler prompt)",
 			preferChinese: true,
-			want:          GenerationFailedMessageZH,
+			want:          "视频生成失败，上游未返回具体原因。如有参考素材，它们已通过上传和基础格式校验；生成阶段仍可能因内容审核、提示词与素材组合过于复杂或模型暂时不稳定而失败。请简化提示词、减少或更换参考素材后重试。",
+		},
+		{
+			name:          "leonardo_public_no_detail_zh",
+			raw:           "Video generation failed without a specific provider reason. Any submitted references passed upload and basic format checks; generation-stage moderation, complex prompt/reference combinations, or temporary model instability may still cause failure. Try a simpler prompt, fewer or different references, then retry.",
+			preferChinese: true,
+			want:          "视频生成失败，上游未返回具体原因。如有参考素材，它们已通过上传和基础格式校验；生成阶段仍可能因内容审核、提示词与素材组合过于复杂或模型暂时不稳定而失败。请简化提示词、减少或更换参考素材后重试。",
 		},
 		{
 			name:          "leonardo_upstream_empty_output_zh",
 			raw:           "leonardo: video generation failed (FAILED): upstream rejected the job with no output; try a shorter prompt or fewer references",
 			preferChinese: true,
-			want:          GenerationFailedMessageZH,
+			want:          GenerationFailedNoDetailZH,
 		},
 		{
 			name:          "leonardo_upstream_new_empty_output_zh",
 			raw:           "leonardo: video generation failed (FAILED): upstream returned FAILED with no output and no failure detail",
 			preferChinese: true,
-			want:          GenerationFailedMessageZH,
+			want:          GenerationFailedNoDetailZH,
 		},
 		{
 			name:          "leonardo_upstream_detail_passthrough_zh",
@@ -208,6 +232,12 @@ func TestNormalizeClientErrorMessageUnified(t *testing.T) {
 			raw:           "leonardo: video generation failed (FAILED): rejected by content moderation",
 			preferChinese: true,
 			want:          ContentPolicyMessageZH,
+		},
+		{
+			name:          "leonardo_upstream_model_overloaded_zh",
+			raw:           "leonardo: video generation failed (FAILED): model overloaded",
+			preferChinese: true,
+			want:          UpstreamUnavailableMessageZH,
 		},
 		{
 			name:          "leonardo_reference_images_limit_zh",

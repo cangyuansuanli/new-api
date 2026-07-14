@@ -77,6 +77,8 @@ JSON 示例：
 
 提交与轮询响应都使用统一视频对象：`id`、`object: "video"`、`model`、`status`、`progress`、`created_at`；成功时可通过响应结果 URL 或 `/content` 取片，失败时读取 `error.message`。`status` 只向客户暴露 `queued`、`in_progress`、`completed`、`failed`。
 
+Leonardo `cy-sd4-*` 的失败消息按可操作原因归一化：号池并发占满、冷却中或模型过载显示服务暂时不可用；上传媒体返回 `DURATION_TOO_LONG` 时提示缩短参考音视频；上游只返回 `FAILED` 且没有失败字段/输出时，明确说明上游未提供具体原因，并建议简化提示词、减少或更换参考素材。如请求包含参考素材，静默失败表示素材已完成上传和基础格式校验，不代表生成阶段内容审核、提示词与素材组合或模型稳定性一定通过。Cookie、账号及内部上游错误不得透传给客户。
+
 时间字段对外统一为整数 Unix 秒。上游若返回带小数的 Unix 秒，`oaivideo/shared` 会在协议边界截断为整数，不能因供应商时间精度差异导致任务提交或轮询失败。
 
 `/v1/chat/completions`、`/v1/video/generations`、`/v1/videos/generations` 等均是部分供应商的内部上游协议，不属于公开视频 API，也不得出现在客户调用示例中。

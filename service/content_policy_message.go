@@ -23,12 +23,14 @@ const (
 
 	ReferenceMaterialMessageZH = "参考素材处理失败，请重新上传后重试。"
 	ReferenceMaterialMessageEN = "Reference material could not be processed, please re-upload and retry."
+	ReferenceDurationTooLongZH = "参考视频或音频超过模型时长限制，请缩短素材后重试。"
+	ReferenceDurationTooLongEN = "Reference video or audio exceeds the model's duration limit. Shorten the source media and retry."
 
 	GenerationFailedMessageZH = "视频生成失败，请稍后重试。"
 	GenerationFailedMessageEN = "Video generation failed, please retry later."
 
-	GenerationFailedNoDetailZH = GenerationFailedMessageZH
-	GenerationFailedNoDetailEN = GenerationFailedMessageEN
+	GenerationFailedNoDetailZH = "视频生成失败，上游未返回具体原因。如有参考素材，它们已通过上传和基础格式校验；生成阶段仍可能因内容审核、提示词与素材组合过于复杂或模型暂时不稳定而失败。请简化提示词、减少或更换参考素材后重试。"
+	GenerationFailedNoDetailEN = "Video generation failed without a specific provider reason. Any submitted references passed upload and basic format checks; generation-stage moderation, complex prompt/reference combinations, or temporary model instability may still cause failure. Try a simpler prompt, fewer or different references, then retry."
 
 	InvalidRequestMessageZH = "请求参数不符合要求，请检查后重试。"
 	InvalidRequestMessageEN = "Request parameters are invalid, please check and retry."
@@ -175,6 +177,7 @@ func IsUpstreamUnavailableError(text string) bool {
 		"upstream request failed",
 		"no capacity available",
 		"capacity available for model",
+		"model overloaded",
 		"bad response status code 502",
 		"bad response status code 503",
 		"bad response status code 504",
@@ -243,6 +246,12 @@ func IsLeonardoPoolReferenceMaterialError(text string) bool {
 	return containsAny(lower, text, patterns...)
 }
 
+func IsLeonardoReferenceDurationTooLongError(text string) bool {
+	lower := strings.ToLower(stripStatusCodePrefix(text))
+	return strings.Contains(lower, "duration_too_long") ||
+		strings.Contains(lower, "reference video or audio exceeds the model's duration limit")
+}
+
 func IsLeonardoPoolInvalidRequestError(text string) bool {
 	lower := strings.ToLower(stripStatusCodePrefix(text))
 	patterns := []string{
@@ -266,6 +275,8 @@ func IsLeonardoPoolCapacityError(text string) bool {
 		"dynamic proxy fetch failed",
 		"auth_expired",
 		"failed to fetch token",
+		"busy (max in-flight)",
+		"cooldown (generation recently failed)",
 	}
 	return containsAny(lower, text, patterns...)
 }
@@ -298,6 +309,14 @@ func extractLeonardoUpstreamFailureDetail(raw string) (detail string, noDetail b
 		}
 	}
 	return "", false
+}
+
+func isGenerationFailureWithoutDetail(raw string) bool {
+	lower := strings.ToLower(strings.TrimSpace(raw))
+	return strings.Contains(lower, "upstream returned no detail") ||
+		strings.Contains(lower, "without a specific provider reason") ||
+		strings.Contains(lower, "upstream rejected the job with no output") ||
+		strings.Contains(lower, "no output and no failure detail")
 }
 
 func NormalizeClientErrorMessage(c *gin.Context, raw string) string {
@@ -334,6 +353,12 @@ func NormalizeClientErrorMessageForLang(preferChinese bool, raw string) string {
 		}
 		return MissingReferenceMessageEN
 	}
+	if IsLeonardoReferenceDurationTooLongError(raw) {
+		if preferChinese {
+			return ReferenceDurationTooLongZH
+		}
+		return ReferenceDurationTooLongEN
+	}
 	if IsLeonardoPoolReferenceMaterialError(raw) {
 		if preferChinese {
 			return ReferenceMaterialMessageZH
@@ -354,6 +379,12 @@ func NormalizeClientErrorMessageForLang(preferChinese bool, raw string) string {
 			return PoolUnavailableMessageZH
 		}
 		return PoolUnavailableMessageEN
+	}
+	if isGenerationFailureWithoutDetail(raw) {
+		if preferChinese {
+			return GenerationFailedNoDetailZH
+		}
+		return GenerationFailedNoDetailEN
 	}
 	if detail, noDetail := extractLeonardoUpstreamFailureDetail(raw); noDetail {
 		if preferChinese {
