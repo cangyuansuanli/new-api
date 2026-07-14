@@ -32,7 +32,7 @@ func SetWebRouter(router *gin.Engine, assets ThemeAssets) {
 	router.Use(static.Serve("/", themeFS))
 	router.NoRoute(func(c *gin.Context) {
 		c.Set(middleware.RouteTagKey, "web")
-		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") || strings.HasPrefix(c.Request.RequestURI, "/assets") {
+		if shouldReturnNotFound(c.Request.URL.Path) {
 			controller.RelayNotFound(c)
 			return
 		}
@@ -44,4 +44,11 @@ func SetWebRouter(router *gin.Engine, assets ThemeAssets) {
 			c.Data(http.StatusOK, "text/html; charset=utf-8", assets.DefaultIndexPage)
 		}
 	})
+}
+
+func shouldReturnNotFound(path string) bool {
+	return strings.HasPrefix(path, "/v1") ||
+		strings.HasPrefix(path, "/api") ||
+		strings.HasPrefix(path, "/assets") ||
+		strings.HasPrefix(path, "/static/")
 }

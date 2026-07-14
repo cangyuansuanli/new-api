@@ -28,13 +28,14 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
-import { toAuthRedirectParam } from '@/features/auth/lib/redirect-path'
 import { getStatus } from '@/lib/api'
 import { installBuildMetadata } from '@/lib/build-metadata'
+import { scheduleChunkReloadMarkerClear } from '@/lib/chunk-recovery'
 import '@/lib/dayjs'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
 import { handleServerError } from '@/lib/handle-server-error'
+import { toAuthRedirectParam } from '@/features/auth/lib/redirect-path'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -48,6 +49,7 @@ import './styles/index.css'
 // VChart theme is driven by our ThemeProvider (html.light/html.dark) via per-chart `theme` prop.
 initializeFrontendCache()
 installBuildMetadata()
+scheduleChunkReloadMarkerClear()
 
 const queryClient = new QueryClient({
   defaultOptions: {

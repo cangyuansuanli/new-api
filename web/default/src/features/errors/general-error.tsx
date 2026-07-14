@@ -16,8 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect } from 'react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { reloadAfterChunkLoadError } from '@/lib/chunk-recovery'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -45,6 +47,11 @@ export function GeneralError({
   const navigate = useNavigate()
   const { history } = useRouter()
   const status = getHttpStatus(error)
+
+  useEffect(() => {
+    reloadAfterChunkLoadError(error)
+  }, [error])
+
   const isRateLimited = status === 429
   const title = isRateLimited
     ? t('Too many requests')
