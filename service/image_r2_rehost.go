@@ -334,6 +334,18 @@ func RehostImageDataForClient(ctx context.Context, userID int, storeID, channelB
 		if strings.TrimSpace(item.Url) == "" {
 			continue
 		}
+		if strings.HasPrefix(strings.TrimSpace(item.Url), "data:") {
+			data, mimeType, err := decodeDataURI(strings.TrimSpace(item.Url))
+			if err != nil {
+				return nil, fmt.Errorf("decode upstream image data uri: %w", err)
+			}
+			uploaded, err := UploadGeneratedImageBytes(ctx, userID, storeID, index, data, mimeType)
+			if err != nil {
+				return nil, fmt.Errorf("rehost upstream image data uri: %w", err)
+			}
+			item.Url = uploaded.PublicURL
+			continue
+		}
 		policy := imagevendor.ResolveRehostPolicy(originModel)
 		if policy.TrustPublicURL != nil && policy.TrustPublicURL(item.Url) {
 			continue

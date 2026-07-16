@@ -85,6 +85,23 @@ func TestDecodeImageDataItemDataURI(t *testing.T) {
 	}
 }
 
+func TestRehostImageDataForClientDecodesDataURIBeforeUpload(t *testing.T) {
+	t.Setenv("R2_ACCOUNT_ID", "test-account")
+	t.Setenv("R2_ACCESS_KEY_ID", "test-key")
+	t.Setenv("R2_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("R2_USER_BUCKET", "test-bucket")
+	t.Setenv("R2_USER_PUBLIC_BASE_URL", "https://example.com")
+
+	images := []dto.ImageData{{Url: "data:image/png;base64,%%%"}}
+	_, err := RehostImageDataForClient(context.Background(), 1, "task_test", "https://api.example.com", "cy-img2-gpt-image-2-4k", images, false)
+	if err == nil || !strings.Contains(err.Error(), "decode upstream image data uri") {
+		t.Fatalf("expected data URI decode error, got %v", err)
+	}
+	if strings.Contains(err.Error(), "unsupported protocol scheme") {
+		t.Fatalf("data URI must not be passed to HTTP downloader: %v", err)
+	}
+}
+
 func TestRehostTaskImageResultURLsRejectsUpstreamURLWithoutPolicy(t *testing.T) {
 	images := []dto.ImageData{{Url: "https://upstream.example/a.png"}}
 	_, err := RehostTaskImageResultURLs(context.Background(), 1, "task_test", "https://api.example.com", "go2api-gpt-image-2-1k", images)
