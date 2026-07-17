@@ -116,7 +116,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-vid2-*` / `cy-sd1-grok-video*` | Chat Video | 内部转 chat/completions，读 SSE/JSON 视频 URL | 提交时即归一化为已完成任务 |
 | `cy-gv1-grok-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
 | `cy-sd1-seedance*` | Seedance | multipart 透传 `/v1/videos` | OpenAI Video 形 |
-| `cy-sd4-seedance*` | Seedance | Leonardo 渠道 | OpenAI Video 形 |
+| `cy-sd4-seedance*` | Seedance / Adobe | Leonardo 渠道使用原协议；Adobe 专线按 channel 75 识别并将上游模型映射为 `cy-sd5-*` | OpenAI Video 形 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | Seedance | Tengda body 转换 | OpenAI Video 形 |
 | `adobe-*sora*` / `adobe-*veo*` | Adobe | 严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
 | 其他（Sora 等） | default | 标准 OpenAI Video | OpenAI Video 形 |

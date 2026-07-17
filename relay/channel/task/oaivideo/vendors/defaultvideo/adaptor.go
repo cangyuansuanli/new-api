@@ -126,7 +126,7 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 	dResp.ID = info.PublicTaskID
 	dResp.TaskID = info.PublicTaskID
-	c.JSON(http.StatusOK, dResp)
+	c.JSON(http.StatusOK, service.PatchClientFacingModelObjectFromContext(c, dResp))
 	return upstreamID, responseBody, nil
 }
 

@@ -59,6 +59,33 @@ func TestBuildRequestBodyUsesAdobeStrictVideoSchema(t *testing.T) {
 	}
 }
 
+func TestBuildRequestBodyUsesMappedSeedanceSourceModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{"model":"cy-sd4-seedance-2.0-fast","prompt":"test","duration":4,"resolution":"480p"}`
+	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "cy-sd4-seedance-2.0-fast", Prompt: "test", Duration: 4})
+
+	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "cy-sd5-seedance-2.0-fast"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := basecommon.Unmarshal(out, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["model"] != "cy-sd5-seedance-2.0-fast" {
+		t.Fatalf("mapped source model was not used: %#v", payload)
+	}
+}
+
 func TestAdobeUsesTypedSubmitAndSucceededResponse(t *testing.T) {
 	url, err := (&TaskAdaptor{}).BuildRequestURL(&relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://adobe.example.test/"},

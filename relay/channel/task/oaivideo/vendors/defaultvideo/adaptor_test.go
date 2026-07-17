@@ -1,12 +1,46 @@
 package defaultvideo
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/gin-gonic/gin"
 )
+
+func TestDoResponseUsesClientFacingModelName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c := gin.CreateTestContextOnly(recorder, gin.New())
+	service.SetClientModelNameContext(c, "seedance-2.0")
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"id":"upstream-id","status":"running","model":"cy-sd5-seedance-2.0"}`)),
+	}
+
+	upstreamID, _, taskErr := (&TaskAdaptor{}).DoResponse(c, resp, &relaycommon.RelayInfo{
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{PublicTaskID: "task-public"},
+	})
+	if taskErr != nil {
+		t.Fatal(taskErr)
+	}
+	if upstreamID != "upstream-id" {
+		t.Fatalf("unexpected upstream id: %s", upstreamID)
+	}
+	var body map[string]any
+	if err := common.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["model"] != "seedance-2.0" {
+		t.Fatalf("upstream model leaked in create response: %#v", body)
+	}
+}
 
 func TestParseTaskResult_GZFormat(t *testing.T) {
 	adaptor := &TaskAdaptor{}
