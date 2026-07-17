@@ -3,6 +3,20 @@
 
 BEGIN;
 
+INSERT INTO model_channel_prefixes (
+    prefix, note, enabled, sort_order, created_time, updated_time
+)
+VALUES (
+    'cy-sd5-', '视频线路 SD5', TRUE, 135,
+    EXTRACT(EPOCH FROM NOW())::BIGINT,
+    EXTRACT(EPOCH FROM NOW())::BIGINT
+)
+ON CONFLICT (prefix) DO UPDATE SET
+    note = EXCLUDED.note,
+    enabled = TRUE,
+    deleted_at = NULL,
+    updated_time = EXCLUDED.updated_time;
+
 UPDATE channels
 SET models = array_to_string(
         ARRAY(
