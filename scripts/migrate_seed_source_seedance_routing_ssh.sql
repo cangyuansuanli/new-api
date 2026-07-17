@@ -75,7 +75,7 @@ INSERT INTO model_ui_param_profiles (
     '{"images":9,"videos":3,"audios":3,"imageMaxBytes":10485760,"videoMaxBytes":52428800,"audioMaxBytes":15728640,"video":{"minDurationMs":1000,"maxDurationMs":15000,"totalMaxDurationMs":45000},"audio":{"maxDurationMs":15000},"fullReferenceMode":{"label":"全能参考","descriptionWithImages":"9 图 / 3 视频 / 3 音频"},"validationHint":"全能参考最多 9 图、3 视频、3 音频；首尾帧与全能参考互斥。","showTempMediaHint":true,"prependReferenceGuide":true}',
     '{"resolution":{"enabled":true,"options":[{"value":"480p","label":"480p"},{"value":"720p","label":"720p"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true,"hint":"是否生成原生音频，默认开启"},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧与 9/3/3 全能参考互斥；成对指定 first + last"}}',
     '[]',
-    '[{"text":"Seedance 2.0 新源：480p / 720p、4–15 秒任意整数，支持 9 图 / 3 视频 / 3 音频全能参考与首尾帧。"}]',
+    '[{"text":"Seedance 2.0：480p / 720p、4–15 秒任意整数，支持 9 图 / 3 视频 / 3 音频全能参考与首尾帧。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 )
 ON CONFLICT (capability, profile_id) DO UPDATE SET
@@ -94,8 +94,8 @@ SELECT v.model_name, v.description, v.tags, 1,
     1, 0, 'video-tpl-cy-sd5-seedance-933-async',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('cy-sd5-seedance-2.0', 'Seedance 2.0 新源标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。', 'video,seedance,sd5,933'),
-    ('cy-sd5-seedance-2.0-fast', 'Seedance 2.0 新源 Fast。参数同标准版，快速出片。', 'video,seedance,sd5,933,fast')
+    ('cy-sd5-seedance-2.0', 'Seedance 2.0 标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。', 'video,seedance,sd5,933'),
+    ('cy-sd5-seedance-2.0-fast', 'Seedance 2.0 Fast。参数同标准版，快速出片。', 'video,seedance,sd5,933,fast')
 ) AS v(model_name, description, tags)
 WHERE NOT EXISTS (
     SELECT 1 FROM models m WHERE m.model_name = v.model_name AND m.deleted_at IS NULL
@@ -108,8 +108,8 @@ UPDATE models AS m SET
     video_profile_id = 'video-tpl-cy-sd5-seedance-933-async',
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('cy-sd5-seedance-2.0', 'Seedance 2.0 新源标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。', 'video,seedance,sd5,933'),
-    ('cy-sd5-seedance-2.0-fast', 'Seedance 2.0 新源 Fast。参数同标准版，快速出片。', 'video,seedance,sd5,933,fast')
+    ('cy-sd5-seedance-2.0', 'Seedance 2.0 标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。', 'video,seedance,sd5,933'),
+    ('cy-sd5-seedance-2.0-fast', 'Seedance 2.0 Fast。参数同标准版，快速出片。', 'video,seedance,sd5,933,fast')
 ) AS v(model_name, description, tags)
 WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 

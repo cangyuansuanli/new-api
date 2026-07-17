@@ -13,7 +13,7 @@ MODELS = {
     "cy-sd5-seedance-2.0": {
         "public": "sd5-seedance-2.0",
         "profile": "video-tpl-cy-sd5-seedance-933-async",
-        "description": "Seedance 2.0 新源标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。",
+        "description": "Seedance 2.0 标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。",
         "tags": "video,seedance,sd5,933",
         "duration": list(range(4, 16)),
         "default_duration": 4,
@@ -30,7 +30,7 @@ MODELS = {
     "cy-sd5-seedance-2.0-fast": {
         "public": "sd5-seedance-2.0-fast",
         "profile": "video-tpl-cy-sd5-seedance-933-async",
-        "description": "Seedance 2.0 新源 Fast。参数同标准版，快速出片。",
+        "description": "Seedance 2.0 Fast。参数同标准版，快速出片。",
         "tags": "video,seedance,sd5,933,fast",
         "duration": list(range(4, 16)),
         "default_duration": 4,
@@ -179,14 +179,14 @@ def build_api_doc(conf: dict) -> dict:
             params.append(
                 {
                     "name": "reference_videos",
-                    "description": f"可选，HTTPS 直链数组，最多 {conf['max_videos']} 条；素材下载与上传均直连，不经过动态代理。",
+                    "description": f"可选，最多 {conf['max_videos']} 条公网可访问的 HTTPS 视频 URL。",
                 }
             )
         if conf.get("max_audios"):
             params.append(
                 {
                     "name": "reference_audios",
-                    "description": f"可选，HTTPS 直链数组，最多 {conf['max_audios']} 条；素材下载与上传均直连，不经过动态代理。",
+                    "description": f"可选，最多 {conf['max_audios']} 条公网可访问的 HTTPS 音频 URL。",
                 }
             )
     if conf.get("supports_negative_prompt"):
@@ -284,7 +284,7 @@ def build_api_doc(conf: dict) -> dict:
                 "minimum": "images / reference_videos / reference_audios 至少一项",
                 "trigger": "reference_mode=media",
                 "prompt_refs": "提示词可按前端素材顺序引用 @Image / @Video / @Audio。",
-                "notes": "最多 9 图、3 视频、3 音频；素材链接需可直连访问。",
+                "notes": "最多 9 图、3 视频、3 音频；URL 素材需公网可访问。",
             },
         ]
         examples = [
