@@ -43,6 +43,7 @@
 | adapt_adobe2api.go | `mask is only supported for Adobe GPT Image 2` | ✅ |
 | entity.py | `type must be one of: character, object, location` | ❌ 透传 |
 | Adobe 上游原始错误 | 各类 Firefly moderation 原文 | 部分（走 common content policy） |
+| adobe2api video poll | `451 prompt_unsafe`, `provided prompt is considered unsafe` | ✅（adobe.go + common；画布需 relay 带 `X-Cangyuan-Client` 才返回中文） |
 
 ## grok.go（cy-gv1 / geeknowgrok）
 

@@ -51,6 +51,11 @@ func normalizeAdobe(preferChinese bool, raw string) (string, bool) {
 		}
 		return "Reference image preprocessing failed. Please try a different image format.", true
 	}
+	if strings.Contains(lower, "prompt_unsafe") ||
+		strings.Contains(lower, "provided prompt is considered unsafe") ||
+		strings.Contains(lower, "cannot be used to generate content") {
+		return localized(preferChinese, ContentPolicyMessageZH, ContentPolicyMessageEN), true
+	}
 
 	return "", false
 }
