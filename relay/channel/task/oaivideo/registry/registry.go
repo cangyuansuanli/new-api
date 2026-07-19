@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/adobe"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/chatvideo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
@@ -21,7 +22,8 @@ const (
 	VendorSora     Vendor = "sora"
 	VendorAdobe    Vendor = "adobe"
 	VendorChat     Vendor = "chat-video"
-	VendorGrok     Vendor = "grok-generations"
+	VendorGrok        Vendor = "grok-generations"
+	VendorGeeknowGrok Vendor = "geeknow-grok"
 	VendorManju    Vendor = "manju"
 	VendorSD5      Vendor = "sd5-seedance"
 	VendorSeedance Vendor = "seedance"
@@ -45,6 +47,9 @@ func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseUR
 	}
 	if chatvideo.IsRelay(originModel) {
 		return VendorChat
+	}
+	if geeknowgrok.IsRelay(originModel, upstreamModel) {
+		return VendorGeeknowGrok
 	}
 	if grok.IsRelay(originModel, upstreamModel) {
 		return VendorGrok

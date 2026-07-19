@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/adobe"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/chatvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
@@ -50,7 +51,8 @@ type RouterAdaptor struct {
 	native   delegate
 	adobe    delegate
 	chat     delegate
-	grok     delegate
+	grok        delegate
+	geeknowGrok delegate
 	manju    delegate
 	sd5      delegate
 	seedance delegate
@@ -61,7 +63,8 @@ func NewRouterAdaptor() channel.TaskAdaptor {
 		native:   &defaultvideo.TaskAdaptor{},
 		adobe:    &adobe.TaskAdaptor{},
 		chat:     &chatvideo.TaskAdaptor{},
-		grok:     &grok.TaskAdaptor{},
+		grok:        &grok.TaskAdaptor{},
+		geeknowGrok: &geeknowgrok.TaskAdaptor{},
 		manju:    &manju.TaskAdaptor{},
 		sd5:      &sd5.TaskAdaptor{},
 		seedance: &seedance.TaskAdaptor{},
@@ -79,6 +82,8 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 		return r.chat
 	case registry.VendorGrok:
 		return r.grok
+	case registry.VendorGeeknowGrok:
+		return r.geeknowGrok
 	case registry.VendorManju:
 		return r.manju
 	case registry.VendorSD5:
@@ -183,6 +188,7 @@ func (r *RouterAdaptor) GetModelList() []string {
 	models = append(models, r.adobe.GetModelList()...)
 	models = append(models, r.chat.GetModelList()...)
 	models = append(models, r.grok.GetModelList()...)
+	models = append(models, r.geeknowGrok.GetModelList()...)
 	models = append(models, r.manju.GetModelList()...)
 	models = append(models, r.sd5.GetModelList()...)
 	return append(models, r.seedance.GetModelList()...)
@@ -254,6 +260,8 @@ func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (
 			return r.chat.ParseTaskResult(respBody)
 		case registry.VendorGrok:
 			return r.grok.ParseTaskResult(respBody)
+		case registry.VendorGeeknowGrok:
+			return r.geeknowGrok.ParseTaskResult(respBody)
 		case registry.VendorManju:
 			return r.manju.ParseTaskResult(respBody)
 		case registry.VendorSD5:

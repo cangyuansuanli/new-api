@@ -13,6 +13,7 @@ relay/channel/task/oaivideo/
     ├── manju/
     ├── chatvideo/    # 聚合线路 chat 上游，对外仍是统一任务
     ├── grok/         # 119337 generations endpoint + envelope normalization
+    ├── geeknowgrok/  # Geeknow grok-imagine-video* via /v1/videos JSON
     ├── seedance/
     ├── adobe/        # Adobe typed video endpoint + strict JSON normalization
     └── defaultvideo/ # sora-2 等标准 OpenAI Video 兜底
@@ -22,7 +23,7 @@ relay/channel/task/oaivideo/
 
 所有视频模型共用 [`service/task_polling.go`](../service/task_polling.go) 中的 `TaskPollingLoop`（每 15 秒）：
 
-1. `FetchTask` — Router 使用任务保存的 internal / upstream 模型重新选择 vendor；标准线路请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，Grok 请求 `/v1/video/generations/{upstream_task_id}`
+1. `FetchTask` — Router 使用任务保存的 internal / upstream 模型重新选择 vendor；标准线路与 Geeknow Grok 请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，119337 Grok 请求 `/v1/video/generations/{upstream_task_id}`
 2. `ParseTaskResultForTask` / `ParseTaskResult` — 优先由任务对应 Vendor 归一化上游 JSON；仅当专用解析未识别状态时才回退通用 `{code,data}` 任务响应解析，避免包裹结构“可反序列化但丢失结果 URL”
 3. 写 DB（CAS `UpdateWithStatus`）
 4. `AdjustBillingOnComplete` — 按 Vendor 结算差额
@@ -95,7 +96,8 @@ Leonardo `cy-sd4-*` 的失败消息按可操作原因归一化：号池并发占
 | Vendor | 上游时长字段 | 说明 |
 |--------|------------------|------|
 | default（Sora 等标准 OpenAI Video） | `seconds` | 上游 `/v1/videos` 契约 |
-| Grok generations | `seconds` | 上游 `/v1/video/generations`；参考图统一为 `image_urls` 字符串数组 |
+| Grok generations (119337) | `seconds` (integer) | 上游 `/v1/video/generations`；参考图统一为 `image_urls` 字符串数组 |
+| Geeknow Grok | `seconds` (string) | 上游 `/v1/videos`；单图 `image`，多图 `images`；`resolution` 为 `480P`/`720P` |
 | Seedance | `duration` | OAIREGBox 按秒视频契约 |
 | Adobe | `duration` | Adobe typed `/v1/videos/generations` 严格 schema |
 
@@ -117,7 +119,8 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 |-------------------|--------|----------|----------|
 | `manju-openai-sora*` | Manju | chat/completions 转换 | Manju 响应形（`platform:sora2` 等） |
 | `cy-vid2-*` / `cy-sd1-grok-video*` | Chat Video | 内部转 chat/completions，读 SSE/JSON 视频 URL | 提交时即归一化为已完成任务 |
-| `cy-gv1-grok-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
+| `cy-gv1-grok-video*` + upstream `grok-image-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
+| `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
 | `cy-sd1-seedance*` | Seedance | multipart 透传 `/v1/videos` | OpenAI Video 形 |
 | `cy-sd4-seedance*` | Seedance | Leonardo 渠道，独立 4 图 / 3 视频 / 1 音频 profile | OpenAI Video 形 |
 | `cy-sd5-seedance*` | SD5 Seedance | 按模型名前缀独立路由，不依赖 Adobe 渠道 ID 或模型映射；seed、9 图 / 3 视频 / 3 音频（合计最多 12）严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |

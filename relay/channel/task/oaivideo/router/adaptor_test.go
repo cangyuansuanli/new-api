@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/registry"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/chatvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
@@ -28,6 +29,8 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance"},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", "chat"},
 		{"cy-gv1-grok-video-1.5", "grok-video-1.5", "grok"},
+		{"cy-gv1-grok-video", "grok-imagine-video", "geeknow-grok"},
+		{"cy-gv1-grok-video-1.5", "grok-imagine-video-1.5-preview", "geeknow-grok"},
 		{"sora-2", "sora-2", "default"},
 		{"cy-sd1-seedance-2.0-mini-480p", "Seedance-2.0-480p", "seedance"},
 	}
@@ -55,6 +58,10 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		case "grok":
 			if _, ok := d.(*grok.TaskAdaptor); !ok {
 				t.Fatalf("%s: expected Grok adaptor", tc.origin)
+			}
+		case "geeknow-grok":
+			if _, ok := d.(*geeknowgrok.TaskAdaptor); !ok {
+				t.Fatalf("%s: expected Geeknow Grok adaptor", tc.origin)
 			}
 		case "sd5":
 			if _, ok := d.(*sd5.TaskAdaptor); !ok {
