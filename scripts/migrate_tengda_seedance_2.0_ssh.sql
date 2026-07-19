@@ -42,5 +42,5 @@ COMMIT;
 SELECT model_name, video_profile_id
 FROM models
 WHERE deleted_at IS NULL
-  AND (model_name LIKE 'cy-sd2-seedance%' OR model_name = 'tengd-Seedance-2.0')
+  AND (model_name ILIKE 'cy-sd2-seedance%' OR model_name = 'tengd-Seedance-2.0')
 ORDER BY model_name;

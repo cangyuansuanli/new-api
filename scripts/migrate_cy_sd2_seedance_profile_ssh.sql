@@ -33,7 +33,7 @@ UPDATE models SET
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 WHERE deleted_at IS NULL
   AND (
-      model_name LIKE 'cy-sd2-seedance%'
+      model_name ILIKE 'cy-sd2-seedance%'
       OR model_name = 'tengd-Seedance-2.0'
   );
 
