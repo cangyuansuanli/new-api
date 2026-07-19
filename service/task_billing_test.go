@@ -215,6 +215,41 @@ func countLogs(t *testing.T) int64 {
 // RefundTaskQuota tests
 // ===========================================================================
 
+func TestRefundTaskQuota_RefundableSkipsDashboardQuota(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID = 20
+	const preConsumed = 3000
+
+	seedUser(t, userID, 10000)
+	task := makeTask(userID, 0, preConsumed, 0, BillingSourceWallet, 0)
+
+	RefundTaskQuota(ctx, task, "task failed: upstream error")
+
+	require.Eventually(t, func() bool {
+		return getCachedQuotaData(userID, "test-model") == nil
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestRefundTaskQuota_NonRefundableRecordsDashboardQuota(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID = 21
+	const preConsumed = 3000
+
+	seedUser(t, userID, 10000)
+	task := makeTask(userID, 0, preConsumed, 0, BillingSourceWallet, 0)
+
+	RefundTaskQuota(ctx, task, "The generated images appear to be unsafe. Try modifying the prompts or the seeds.")
+
+	require.Eventually(t, func() bool {
+		qd := getCachedQuotaData(userID, "test-model")
+		return qd != nil && qd.Count == 1 && qd.Quota == preConsumed
+	}, time.Second, 10*time.Millisecond)
+}
+
 func TestRefundTaskQuota_Wallet(t *testing.T) {
 	truncate(t)
 	ctx := context.Background()
@@ -692,6 +727,10 @@ func TestSettle_PerCallBilling_SkipsAdaptorAdjust(t *testing.T) {
 	assert.Equal(t, tokenRemain, getTokenRemainQuota(t, tokenID))
 	assert.Equal(t, preConsumed, task.Quota)
 	assert.Equal(t, int64(0), countLogs(t))
+	require.Eventually(t, func() bool {
+		qd := getCachedQuotaData(userID, "test-model")
+		return qd != nil && qd.Count == 1 && qd.Quota == preConsumed
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestSettle_PerCallBilling_SkipsTotalTokens(t *testing.T) {
