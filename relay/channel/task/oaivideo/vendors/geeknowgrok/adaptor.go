@@ -57,6 +57,22 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	return nil
 }
 
+func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if info == nil || strings.TrimSpace(info.ChannelBaseUrl) == "" {
+		return "", fmt.Errorf("Geeknow Grok video base url is empty")
+	}
+	return strings.TrimRight(info.ChannelBaseUrl, "/") + "/v1/videos", nil
+}
+
+func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
+	if info == nil || strings.TrimSpace(info.ApiKey) == "" {
+		return fmt.Errorf("Geeknow Grok video api key is empty")
+	}
+	req.Header.Set("Authorization", "Bearer "+info.ApiKey)
+	req.Header.Set("Content-Type", "application/json")
+	return nil
+}
+
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
