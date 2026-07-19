@@ -51,9 +51,7 @@ func GetUserLogs(c *gin.Context) {
 		return
 	}
 	pageInfo.SetTotal(int(total))
-	for i := range logs {
-		logs[i].ModelName = service.ToPublicModelName(logs[i].ModelName)
-	}
+	service.ApplyClientFacingModelNamesToLogs(logs)
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
 	return
@@ -92,6 +90,7 @@ func GetLogByKey(c *gin.Context) {
 		})
 		return
 	}
+	service.ApplyClientFacingModelNamesToLogs(logs)
 	c.JSON(200, gin.H{
 		"success": true,
 		"message": "",

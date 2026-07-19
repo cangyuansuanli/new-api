@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -11,6 +12,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// ClientTaskProperties 是对外任务日志/列表可见的 properties 子集（不含 internal/upstream 模型名）。
+type ClientTaskProperties struct {
+	Input     string `json:"input,omitempty"`
+	ModelName string `json:"model_name,omitempty"`
+	TaskKind  string `json:"task_kind,omitempty"`
+}
 
 // ClientFacingModelFromContext 返回同步响应对客户端展示的 public 模型名。
 func ClientFacingModelFromContext(c *gin.Context) string {
@@ -125,4 +133,80 @@ func PatchClientFacingModelObjectFromContext(c *gin.Context, object interface{})
 // PatchClientFacingModelJSONFromTask 用 task 持久化的 public 名 patch 响应 JSON。
 func PatchClientFacingModelJSONFromTask(task *model.Task, data []byte) ([]byte, error) {
 	return PatchClientFacingModelJSON(ClientFacingModelFromTask(task), data)
+}
+
+// ClientFacingTaskProperties 返回任务 DTO 对客户端可见的 properties。
+func ClientFacingTaskProperties(task *model.Task) *ClientTaskProperties {
+	if task == nil {
+		return nil
+	}
+	public := ClientFacingModelFromTask(task)
+	if public == "" && strings.TrimSpace(task.Properties.Input) == "" && strings.TrimSpace(task.Properties.TaskKind) == "" {
+		return nil
+	}
+	return &ClientTaskProperties{
+		Input:     task.Properties.Input,
+		ModelName: public,
+		TaskKind:  task.Properties.TaskKind,
+	}
+}
+
+// ApplyClientFacingModelNamesToLogs 将消费日志的 model_name 转为 public 名。
+func ApplyClientFacingModelNamesToLogs(logs []*model.Log) {
+	for i := range logs {
+		if logs[i] == nil {
+			continue
+		}
+		logs[i].ModelName = ToPublicModelName(logs[i].ModelName)
+	}
+}
+
+// PublicQuotaDataForClient 将 quota_data 的 model_name 转为 public 名，并合并同一时段的重复 public 名。
+func PublicQuotaDataForClient(items []*model.QuotaData) []*model.QuotaData {
+	if len(items) == 0 {
+		return items
+	}
+
+	type aggKey struct {
+		userID    int
+		username  string
+		modelName string
+		createdAt int64
+	}
+
+	merged := make(map[aggKey]*model.QuotaData, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		public := ToPublicModelName(item.ModelName)
+		key := aggKey{
+			userID:    item.UserID,
+			username:  item.Username,
+			modelName: public,
+			createdAt: item.CreatedAt,
+		}
+		if existing, ok := merged[key]; ok {
+			existing.Count += item.Count
+			existing.Quota += item.Quota
+			existing.TokenUsed += item.TokenUsed
+			continue
+		}
+		copy := *item
+		copy.ModelName = public
+		copy.Id = 0
+		merged[key] = &copy
+	}
+
+	out := make([]*model.QuotaData, 0, len(merged))
+	for _, item := range merged {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt != out[j].CreatedAt {
+			return out[i].CreatedAt < out[j].CreatedAt
+		}
+		return out[i].ModelName < out[j].ModelName
+	})
+	return out
 }

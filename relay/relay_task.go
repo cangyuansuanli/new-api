@@ -581,5 +581,12 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 func TaskModel2DtoForClient(c *gin.Context, task *model.Task) *dto.TaskDto {
 	taskDto := TaskModel2Dto(task)
 	taskDto.FailReason = service.NormalizeClientErrorMessage(c, taskDto.FailReason)
+	if c != nil && model.IsAdmin(c.GetInt("id")) {
+		return taskDto
+	}
+	taskDto.Properties = service.ClientFacingTaskProperties(task)
+	if patched, err := service.PatchClientFacingModelJSONFromTask(task, taskDto.Data); err == nil {
+		taskDto.Data = patched
+	}
 	return taskDto
 }
