@@ -7,8 +7,8 @@ import json
 import subprocess
 import time
 
-PROFILE = "video-tpl-seedance-async"
-MODEL = "tengd-Seedance-2.0"
+PROFILE = "video-tpl-cy-sd2-seedance-async"
+MODEL = "cy-sd2-Seedance-2.0"
 VENDOR_ID = 6
 PRICE_PER_JOB = 4.50
 
@@ -24,8 +24,7 @@ PARAMS = [
     {"name": "aspect_ratio", "description": "画幅，默认 16:9。支持 16:9、9:16、1:1、21:9、3:4、4:3。"},
     {"name": "duration", "description": "时长秒数，4–15 任意整数。"},
     {"name": "resolution", "description": "清晰度：480p 或 720p。"},
-    {"name": "image_url", "description": "单张主参考图（公网 URL 或 data:image/...;base64,...）。与 reference_image_urls 传 1 张效果相同。"},
-    {"name": "reference_image_urls", "description": "参考图 URL 数组，与 image_url 合计 ≤9。元素可为字符串，或 {\"url\",\"name\"} 对象。"},
+    {"name": "reference_image_urls", "description": "参考图 URL 数组 1–9。元素可为字符串，或 {\"url\",\"name\"} 对象。"},
     {"name": "reference_images", "description": "推荐写法：[{\"url\":\"…\",\"name\":\"志强\"},…]，用于 @人物 绑定。"},
     {"name": "reference_image_names", "description": "与 reference_image_urls 同序一一对应的人物名；不传则需在 prompt 自行声明绑定关系。"},
     {"name": "reference_videos", "description": "参考视频数组 ≤3（mp4/mov，单条 2–15s，24–60fps，≤50MB，多条总 ≤15s）。"},
@@ -40,15 +39,15 @@ GENERATION_MODES = [
     {
         "label": "图生视频",
         "minimum": "prompt + ≥1 张图",
-        "trigger": "image_url 或 reference_image_urls（1–9 张，统一写法）",
+        "trigger": "reference_image_urls（1–9 张）",
         "prompt_refs": "@image1 … @image9",
     },
     {
         "label": "全能参考（933）",
-        "minimum": "prompt + ≥1 张主图",
+        "minimum": "prompt + ≥1 张图",
         "trigger": "上 + reference_videos ≤3 + reference_audios ≤3",
         "prompt_refs": "@image1 … @video3 / @audio3",
-        "notes": "带视频/音频参考时必须同时提供 ≥1 张主图",
+        "notes": "带视频/音频参考时必须同时提供 ≥1 张参考图（reference_image_urls）",
     },
     {
         "label": "首尾帧",

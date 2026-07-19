@@ -11,7 +11,9 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedance"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
@@ -24,15 +26,15 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		want     string
 	}{
 		{"manju-openai-sora2", "sora2", "manju"},
-		{"cy-sd4-seedance-2.0", "seedance-2.0", "seedance"},
+		{"cy-sd4-seedance-2.0", "seedance-2.0", "seedance-leonardo"},
 		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", "sd5"},
-		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance"},
+		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance-tengda"},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", "chat"},
 		{"cy-gv1-grok-video-1.5", "grok-video-1.5", "grok"},
 		{"cy-gv1-grok-video", "grok-imagine-video", "geeknow-grok"},
 		{"cy-gv1-grok-video-1.5", "grok-imagine-video-1.5-preview", "geeknow-grok"},
 		{"sora-2", "sora-2", "default"},
-		{"cy-sd1-seedance-2.0-mini-480p", "Seedance-2.0-480p", "seedance"},
+		{"cy-sd1-seedance-2.0-mini-480p", "Seedance-2.0-480p", "seedance-oairegbox"},
 	}
 	for _, tc := range cases {
 		info := &relaycommon.RelayInfo{
@@ -47,9 +49,17 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 			if _, ok := d.(*manju.TaskAdaptor); !ok {
 				t.Fatalf("%s: expected manju adaptor", tc.origin)
 			}
-		case "seedance":
-			if _, ok := d.(*seedance.TaskAdaptor); !ok {
-				t.Fatalf("%s: expected seedance adaptor", tc.origin)
+		case "seedance-oairegbox":
+			if _, ok := d.(*seedanceoairegbox.TaskAdaptor); !ok {
+				t.Fatalf("%s: expected seedance-oairegbox adaptor", tc.origin)
+			}
+		case "seedance-leonardo":
+			if _, ok := d.(*seedanceleonardo.TaskAdaptor); !ok {
+				t.Fatalf("%s: expected seedance-leonardo adaptor", tc.origin)
+			}
+		case "seedance-tengda":
+			if _, ok := d.(*seedancetengda.TaskAdaptor); !ok {
+				t.Fatalf("%s: expected seedance-tengda adaptor", tc.origin)
 			}
 		case "chat":
 			if _, ok := d.(*chatvideo.TaskAdaptor); !ok {
@@ -114,7 +124,7 @@ func TestRouterAdaptor_NilSafeAdjustBilling(t *testing.T) {
 
 func TestRouterAdaptor_VendorResolveMatchesPick(t *testing.T) {
 	origin := "cy-sd1-seedance-2.0-fast-720p"
-	if registry.Resolve(origin, "") != registry.VendorSeedance {
-		t.Fatal("registry should classify cy-sd1 as seedance")
+	if registry.Resolve(origin, "") != registry.VendorSeedanceOairegbox {
+		t.Fatal("registry should classify cy-sd1 as seedance-oairegbox")
 	}
 }

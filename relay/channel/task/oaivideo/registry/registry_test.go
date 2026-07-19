@@ -9,12 +9,12 @@ func TestResolve(t *testing.T) {
 		want     Vendor
 	}{
 		{"manju-openai-sora2", "sora2", VendorManju},
-		{"cy-sd1-seedance-2.0-fast-720p", "Seedance-2.0-720p", VendorSeedance},
-		{"cy-sd4-seedance-2.0", "seedance-2.0", VendorSeedance},
+		{"cy-sd1-seedance-2.0-fast-720p", "Seedance-2.0-720p", VendorSeedanceOairegbox},
+		{"cy-sd4-seedance-2.0", "seedance-2.0", VendorSeedanceLeonardo},
 		{"cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", VendorSD5},
 		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", VendorSD5},
-		{"cy-sd2-seedance-2.0", "manxue-2.0", VendorSeedance},
-		{"tengd-seedance-2.0", "manxue-2.0", VendorSeedance},
+		{"cy-sd2-seedance-2.0", "manxue-2.0", VendorSeedanceTengda},
+		{"tengd-seedance-2.0", "manxue-2.0", VendorSeedanceTengda},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", VendorChat},
 		{"cy-sd1-grok-video", "grok-imagine-video", VendorChat},
 		{"cy-gv1-grok-video", "grok-image-video", VendorGrok},
@@ -41,7 +41,7 @@ func TestResolveWithChannelKeepsSD5SeparateFromAdobe(t *testing.T) {
 }
 
 func TestResolve_CySd1NotTengda(t *testing.T) {
-	if Resolve("cy-sd1-seedance-2.0-720p", "manxue-2.0") != VendorSeedance {
-		t.Fatal("cy-sd1 should resolve to seedance even with tengda upstream name")
+	if Resolve("cy-sd1-seedance-2.0-720p", "manxue-2.0") != VendorSeedanceOairegbox {
+		t.Fatal("cy-sd1 should resolve to seedance-oairegbox even with tengda upstream name")
 	}
 }

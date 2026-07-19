@@ -11,7 +11,9 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedance"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
@@ -19,14 +21,16 @@ import (
 type Vendor string
 
 const (
-	VendorSora     Vendor = "sora"
-	VendorAdobe    Vendor = "adobe"
-	VendorChat     Vendor = "chat-video"
-	VendorGrok        Vendor = "grok-generations"
-	VendorGeeknowGrok Vendor = "geeknow-grok"
-	VendorManju    Vendor = "manju"
-	VendorSD5      Vendor = "sd5-seedance"
-	VendorSeedance Vendor = "seedance"
+	VendorSora               Vendor = "sora"
+	VendorAdobe              Vendor = "adobe"
+	VendorChat               Vendor = "chat-video"
+	VendorGrok               Vendor = "grok-generations"
+	VendorGeeknowGrok        Vendor = "geeknow-grok"
+	VendorManju              Vendor = "manju"
+	VendorSD5                Vendor = "sd5-seedance"
+	VendorSeedanceOairegbox  Vendor = "seedance-oairegbox"
+	VendorSeedanceLeonardo   Vendor = "seedance-leonardo"
+	VendorSeedanceTengda     Vendor = "seedance-tengda"
 )
 
 // Resolve 按 internal/upstream 模型名解析 Vendor；供应商专用协议优先于默认 OpenAI Video。
@@ -35,9 +39,6 @@ func Resolve(originModel, upstreamModel string) Vendor {
 }
 
 // ResolveWithChannel resolves vendor-specific request and response behavior.
-// Adobe is identified by the channel as well as the model because channel
-// mappings commonly expose upstream names such as "sora2" without the Adobe
-// prefix.
 func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseURL string) Vendor {
 	if sd5.IsRelay(originModel, upstreamModel) {
 		return VendorSD5
@@ -57,8 +58,14 @@ func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseUR
 	if manju.IsRelay(originModel, upstreamModel) {
 		return VendorManju
 	}
-	if seedance.IsRelay(originModel, upstreamModel) {
-		return VendorSeedance
+	if seedancetengda.IsRelay(originModel, upstreamModel) {
+		return VendorSeedanceTengda
+	}
+	if seedanceleonardo.IsRelay(originModel) {
+		return VendorSeedanceLeonardo
+	}
+	if seedanceoairegbox.IsRelay(originModel) {
+		return VendorSeedanceOairegbox
 	}
 	return VendorSora
 }

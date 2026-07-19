@@ -1,44 +1,23 @@
-package seedance
+package seedancetengda
 
 import "testing"
 
-func TestIsLeonardoRelay(t *testing.T) {
-	if !IsLeonardoRelay("cy-sd4-seedance-2.0") {
-		t.Fatal("expected leonardo relay")
-	}
-	if IsLeonardoRelay("sora-2") {
-		t.Fatal("sora must not match leonardo")
-	}
-}
-
-func TestIsOairegboxRelay(t *testing.T) {
-	if !IsOairegboxRelay("cy-sd1-seedance-2.0-fast-720p") {
-		t.Fatal("expected oairegbox relay")
-	}
-	if IsOairegboxRelay("cy-sd4-seedance-2.0") {
-		t.Fatal("cy-sd4 must not match oairegbox prefix alone")
-	}
-	if !IsRelay("cy-sd1-seedance-2.0-mini-480p", "") {
-		t.Fatal("cy-sd1 should match seedance IsRelay")
-	}
-}
-
-func TestIsTengdaRelay(t *testing.T) {
-	if !IsTengdaRelay("cy-sd2-Seedance-2.0", "manxue-2.0") {
+func TestIsRelay(t *testing.T) {
+	if !IsRelay("cy-sd2-Seedance-2.0", "manxue-2.0") {
 		t.Fatal("expected tengda relay")
 	}
-	if !IsTengdaRelay("tengd-Seedance-2.0", "manxue-2.0") {
+	if !IsRelay("tengd-Seedance-2.0", "manxue-2.0") {
 		t.Fatal("expected tengd relay")
 	}
-	if IsTengdaRelay("cy-sd1-seedance-2.0-720p", "Seedance-2.0-720p") {
+	if IsRelay("cy-sd1-seedance-2.0-720p", "Seedance-2.0-720p") {
 		t.Fatal("cy-sd1 must not match tengda relay")
 	}
-	if IsTengdaRelay("cy-sd4-seedance-2.0", "seedance-2.0") {
+	if IsRelay("cy-sd4-seedance-2.0", "seedance-2.0") {
 		t.Fatal("cy-sd4 must not match tengda relay")
 	}
 }
 
-func TestMaybeConvertTengdaBody_NativePassthrough(t *testing.T) {
+func TestConvertBody_NativePassthrough(t *testing.T) {
 	in := map[string]interface{}{
 		"model": "manxue-2.0",
 		"content": []interface{}{
@@ -51,7 +30,7 @@ func TestMaybeConvertTengdaBody_NativePassthrough(t *testing.T) {
 			},
 		},
 	}
-	out, err := maybeConvertTengdaBody(in, "manxue-2.0")
+	out, err := convertBody(in, "manxue-2.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,12 +39,12 @@ func TestMaybeConvertTengdaBody_NativePassthrough(t *testing.T) {
 	}
 }
 
-func TestMaybeConvertTengdaBody_AudioWithoutImage(t *testing.T) {
+func TestConvertBody_AudioWithoutImage(t *testing.T) {
 	in := map[string]interface{}{
 		"prompt":           "test",
 		"reference_audios": []interface{}{"https://example.com/a.mp3"},
 	}
-	out, err := maybeConvertTengdaBody(in, "manxue-2.0")
+	out, err := convertBody(in, "manxue-2.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -75,15 +54,17 @@ func TestMaybeConvertTengdaBody_AudioWithoutImage(t *testing.T) {
 	}
 }
 
-func TestMaybeConvertTengdaBody_FlatConversion(t *testing.T) {
+func TestConvertBody_FlatConversion(t *testing.T) {
 	in := map[string]interface{}{
 		"prompt":       "ocean waves",
 		"duration":     8,
 		"aspect_ratio": "16:9",
 		"resolution":   "720p",
-		"image_url":    "https://example.com/a.jpg",
+		"reference_image_urls": []interface{}{
+			"https://example.com/a.jpg",
+		},
 	}
-	out, err := maybeConvertTengdaBody(in, "manxue-2.0")
+	out, err := convertBody(in, "manxue-2.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

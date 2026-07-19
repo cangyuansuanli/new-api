@@ -21,14 +21,16 @@
 ```
 oaivideo/
 ├── router/          # 门面：GetTaskAdaptor 返回 RouterAdaptor
-    ├── registry/        # 模型/渠道 → Vendor（manju / grok / seedance / adobe / default）
+├── registry/        # 模型/渠道 → Vendor（manju / grok / seedance-* / adobe / default）
 ├── shared/          # 协议共享：FetchVideoTask、解析、multipart 透传
 └── vendors/
     ├── manju/       # manju-openai-sora*（chat/completions 提交）
     ├── chatvideo/   # 聚合视频线路：统一任务请求 → chat/completions
     ├── grok/        # cy-gv1 + 119337：/v1/video/generations 提交、轮询与响应归一化
     ├── geeknowgrok/ # Geeknow Grok：/v1/videos JSON（grok-imagine-video 系列）
-    ├── seedance/    # cy-sd1 / cy-sd2 / cy-sd4 / tengd-seedance*
+    ├── seedanceoairegbox/ # cy-sd1 → OAIREGBox flat /v1/videos
+    ├── seedancetengda/    # cy-sd2 / tengd → Tengda content[] JSON
+    ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
     ├── sd5/         # cy-sd5 Seedance：typed JSON、seed、9/3/3（合计 12）
     ├── adobe/       # Adobe2API typed video：/v1/videos/generations
     └── defaultvideo/ # 兜底：sora-2 等标准 OpenAI Video
@@ -42,7 +44,7 @@ Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`
 
 路由表与轮询行为详见 [`docs/video-task-routing.md`](../../../docs/video-task-routing.md)。
 
-`seedance` 适配器把上游 `queued` / `in_progress`（包括 Leonardo 插件内部的 `delayed`）统一保留为非终态；只有上游明确 `failed` 才结算失败。提交接口应立即返回任务 ID，生成耗时不占用提交请求。
+`seedanceoairegbox` / `seedancetengda` / `seedanceleonardo` 适配器把上游 `queued` / `in_progress`（包括 Leonardo 插件内部的 `delayed`）统一保留为非终态；只有上游明确 `failed` 才结算失败。提交接口应立即返回任务 ID，生成耗时不占用提交请求。
 
 Seedance 2.0 支持纯 prompt 文生，也支持参考图、参考视频或参考音频单独提交；vendor 转换不得将参考图作为视频/音频参考的前置条件。
 

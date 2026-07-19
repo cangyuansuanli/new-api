@@ -1,4 +1,4 @@
-package seedance
+package seedancetengda
 
 import (
 	"fmt"
@@ -8,26 +8,24 @@ import (
 	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 )
 
-const tengdaUpstreamModel = "manxue-2.0"
-
-func maybeConvertTengdaBody(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
+func convertBody(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
 	if body == nil {
 		return body, nil
 	}
-	if isGeeknowNativeSeedanceBody(body) {
+	if isGeeknowNativeBody(body) {
 		out := cloneBodyMap(body)
 		out["model"] = upstreamModel
 		return out, nil
 	}
-	if !needsFlatToGeeknowConversion(body) {
+	if !needsFlatConversion(body) {
 		out := cloneBodyMap(body)
 		out["model"] = upstreamModel
 		return out, nil
 	}
-	return convertFlatSeedanceToGeeknow(body, upstreamModel)
+	return convertFlatToGeeknow(body, upstreamModel)
 }
 
-func needsFlatToGeeknowConversion(body map[string]interface{}) bool {
+func needsFlatConversion(body map[string]interface{}) bool {
 	if hasFlatSeedanceFields(body) {
 		return true
 	}
@@ -40,7 +38,7 @@ func needsFlatToGeeknowConversion(body map[string]interface{}) bool {
 	return false
 }
 
-func isGeeknowNativeSeedanceBody(body map[string]interface{}) bool {
+func isGeeknowNativeBody(body map[string]interface{}) bool {
 	contentRaw, ok := body["content"]
 	if !ok {
 		return false
@@ -68,24 +66,7 @@ func isGeeknowNativeSeedanceBody(body map[string]interface{}) bool {
 	return false
 }
 
-func hasFlatSeedanceFields(body map[string]interface{}) bool {
-	for _, key := range []string{
-		"image_url",
-		"reference_image_urls",
-		"reference_images",
-		"reference_videos",
-		"reference_audios",
-		"first_image_url",
-		"last_image_url",
-	} {
-		if _, ok := body[key]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
+func convertFlatToGeeknow(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
 	prompt := strings.TrimSpace(oaivideo.AsString(body["prompt"]))
 	if prompt == "" {
 		return nil, fmt.Errorf("prompt is required")
@@ -106,8 +87,8 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 		out["resolution"] = resolution
 	}
 
-	firstURL := strings.TrimSpace(oaivideo.AsString(body["first_image_url"]))
-	lastURL := strings.TrimSpace(oaivideo.AsString(body["last_image_url"]))
+	firstURL := strings.TrimSpace(oaivideo.AsString(body[flatKeyFirstImageURL]))
+	lastURL := strings.TrimSpace(oaivideo.AsString(body[flatKeyLastImageURL]))
 	content := make([]map[string]interface{}, 0, 8)
 
 	if firstURL != "" || lastURL != "" {
@@ -126,9 +107,9 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 			})
 		}
 	} else {
-		imageURLs := collectImageURLs(body)
-		videoURLs := oaivideo.CollectStringList(body["reference_videos"])
-		audioURLs := oaivideo.CollectStringList(body["reference_audios"])
+		imageURLs := collectReferenceImageURLs(body)
+		videoURLs := oaivideo.CollectStringList(body[flatKeyReferenceVideos])
+		audioURLs := oaivideo.CollectStringList(body[flatKeyReferenceAudios])
 
 		for _, url := range imageURLs {
 			content = append(content, map[string]interface{}{
@@ -172,38 +153,6 @@ func convertFlatSeedanceToGeeknow(body map[string]interface{}, upstreamModel str
 	}
 
 	return out, nil
-}
-
-func collectImageURLs(body map[string]interface{}) []string {
-	seen := map[string]struct{}{}
-	out := make([]string, 0, 9)
-	add := func(url string) {
-		url = strings.TrimSpace(url)
-		if url == "" {
-			return
-		}
-		if _, ok := seen[url]; ok {
-			return
-		}
-		seen[url] = struct{}{}
-		out = append(out, url)
-	}
-	add(oaivideo.AsString(body["image_url"]))
-	for _, url := range oaivideo.CollectStringList(body["reference_image_urls"]) {
-		add(url)
-	}
-	switch refs := body["reference_images"].(type) {
-	case []interface{}:
-		for _, item := range refs {
-			switch v := item.(type) {
-			case string:
-				add(v)
-			case map[string]interface{}:
-				add(oaivideo.AsString(v["url"]))
-			}
-		}
-	}
-	return out
 }
 
 func pickSeconds(body map[string]interface{}) string {

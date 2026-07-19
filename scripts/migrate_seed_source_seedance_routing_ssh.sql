@@ -72,10 +72,10 @@ INSERT INTO model_ui_param_profiles (
 ) VALUES (
     'video', 'video-tpl-cy-sd5-seedance-933-async', '["cy-sd5-seedance"]', 93,
     'videos-json-async', 'seedance-flat', FALSE, '{}', NULL,
-    '{"images":9,"videos":3,"audios":3,"imageMaxBytes":10485760,"videoMaxBytes":52428800,"audioMaxBytes":15728640,"video":{"minDurationMs":1000,"maxDurationMs":15000,"totalMaxDurationMs":45000},"audio":{"maxDurationMs":15000},"fullReferenceMode":{"label":"全能参考","descriptionWithImages":"9 图 / 3 视频 / 3 音频"},"validationHint":"全能参考最多 9 图、3 视频、3 音频；首尾帧与全能参考互斥。","showTempMediaHint":true,"prependReferenceGuide":true}',
-    '{"resolution":{"enabled":true,"options":[{"value":"480p","label":"480p"},{"value":"720p","label":"720p"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true,"hint":"是否生成原生音频，默认开启"},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧与 9/3/3 全能参考互斥；成对指定 first + last"}}',
+    '{"images":9,"videos":3,"audios":3,"total":12,"imageMaxBytes":10485760,"videoMaxBytes":52428800,"audioMaxBytes":15728640,"video":{"minDurationMs":1000,"maxDurationMs":15000,"totalMaxDurationMs":45000},"audio":{"maxDurationMs":15000},"fullReferenceMode":{"label":"全能参考","descriptionWithImages":"最多 9 图 / 3 视频 / 3 音频，三类合计不超过 12"},"validationHint":"全能参考最多 9 图、3 视频、3 音频，三类合计不超过 12；首尾帧与全能参考互斥。","showTempMediaHint":true,"prependReferenceGuide":true}',
+    '{"resolution":{"enabled":true,"options":[{"value":"480p","label":"480p"},{"value":"720p","label":"720p"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true,"hint":"是否生成原生音频，默认开启"},"watermark":{"enabled":false},"seed":{"enabled":true,"min":0,"max":2147483647,"hint":"可选整数种子；相同输入可用于复现，显式 0 也会透传。"},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧与 9/3/3 全能参考互斥；成对指定 first + last"}}',
     '[]',
-    '[{"text":"Seedance 2.0：480p / 720p、4–15 秒任意整数，支持 9 图 / 3 视频 / 3 音频全能参考与首尾帧。"}]',
+    '[{"text":"Seedance 2.0：480p / 720p、4–15 秒任意整数、可选整数 seed；支持 9 图 / 3 视频 / 3 音频且合计不超过 12，也支持首尾帧。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 )
 ON CONFLICT (capability, profile_id) DO UPDATE SET

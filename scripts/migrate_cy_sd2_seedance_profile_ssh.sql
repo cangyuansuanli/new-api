@@ -1,6 +1,6 @@
--- 腾达 Seedance 2.0：绑定 cy-sd2 独立 profile（源站 SSH 执行）
--- 与 migrate_cy_sd2_seedance_profile_ssh.sql 相同；保留文件名以兼容既有文档。
--- contabo: docker exec -i newapi-postgres psql -U root -d new-api < migrate_tengda_seedance_2.0_ssh.sql
+-- cy-sd2 / 腾达 Seedance 2.0：独立 UI profile（源站 SSH 执行）
+-- contabo: docker exec -i newapi-postgres psql -U root -d new-api < migrate_cy_sd2_seedance_profile_ssh.sql
+-- 部署 new-api 后执行；seed 数据见 scripts/seed_data/model_ui_params_video.json → video-tpl-cy-sd2-seedance-async
 
 BEGIN;
 

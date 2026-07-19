@@ -1,4 +1,4 @@
-package seedance
+package seedanceoairegbox
 
 import (
 	"bytes"
@@ -10,12 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func multipartSeedanceContext(t *testing.T, duration string) *gin.Context {
+func multipartContext(t *testing.T, model, duration string) *gin.Context {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	_ = writer.WriteField("model", "cy-sd1-seedance-2.0-4k")
+	_ = writer.WriteField("model", model)
 	_ = writer.WriteField("prompt", "test")
 	if duration != "" {
 		_ = writer.WriteField("duration", duration)
@@ -29,17 +29,17 @@ func multipartSeedanceContext(t *testing.T, duration string) *gin.Context {
 	return c
 }
 
-func TestValidateRequestRejectsMissingOairegboxDuration(t *testing.T) {
-	c := multipartSeedanceContext(t, "")
+func TestValidateRequestRejectsMissingDuration(t *testing.T) {
+	c := multipartContext(t, "cy-sd1-seedance-2.0-4k", "")
 	info := &relaycommon.RelayInfo{OriginModelName: "cy-sd1-seedance-2.0-4k"}
 	if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, info); taskErr == nil {
 		t.Fatal("expected missing duration error")
 	}
 }
 
-func TestValidateRequestRejectsOutOfRangeOairegboxDuration(t *testing.T) {
+func TestValidateRequestRejectsOutOfRangeDuration(t *testing.T) {
 	for _, duration := range []string{"1", "16"} {
-		c := multipartSeedanceContext(t, duration)
+		c := multipartContext(t, "cy-sd1-seedance-2.0-4k", duration)
 		info := &relaycommon.RelayInfo{OriginModelName: "cy-sd1-seedance-2.0-4k"}
 		if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, info); taskErr == nil {
 			t.Fatalf("expected duration %s to be rejected", duration)
@@ -47,30 +47,10 @@ func TestValidateRequestRejectsOutOfRangeOairegboxDuration(t *testing.T) {
 	}
 }
 
-func TestValidateRequestAcceptsOairegboxDurationRange(t *testing.T) {
-	c := multipartSeedanceContext(t, "15")
+func TestValidateRequestAcceptsDurationRange(t *testing.T) {
+	c := multipartContext(t, "cy-sd1-seedance-2.0-4k", "15")
 	info := &relaycommon.RelayInfo{OriginModelName: "cy-sd1-seedance-2.0-4k"}
 	if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, info); taskErr != nil {
 		t.Fatalf("unexpected error: %v", taskErr)
-	}
-}
-
-func TestValidateRequestRejectsLeonardoMini8sDurationOverEight(t *testing.T) {
-	for _, duration := range []string{"9", "15"} {
-		c := multipartSeedanceContext(t, duration)
-		info := &relaycommon.RelayInfo{OriginModelName: leonardoSeedanceMini8sModel}
-		if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, info); taskErr == nil {
-			t.Fatalf("expected duration %s to be rejected", duration)
-		}
-	}
-}
-
-func TestValidateRequestAcceptsLeonardoMini8sDurationAtMostEight(t *testing.T) {
-	for _, duration := range []string{"", "4", "8"} {
-		c := multipartSeedanceContext(t, duration)
-		info := &relaycommon.RelayInfo{OriginModelName: leonardoSeedanceMini8sModel}
-		if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, info); taskErr != nil {
-			t.Fatalf("duration %s should be accepted: %v", duration, taskErr)
-		}
 	}
 }
