@@ -98,3 +98,61 @@ func TestPatchClientFacingModelJSONFromContext(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(out), `"model":"public-model"`)
 }
+
+func TestClientFacingTaskPropertiesHidesInternalNames(t *testing.T) {
+	task := &model.Task{
+		Properties: model.Properties{
+			Input:             "prompt",
+			OriginModelName:   "cy-img1-gpt-image-2",
+			UpstreamModelName: "gpt-image-2-w",
+			ClientModelName:   "gpt-image-2",
+			TaskKind:          "image",
+		},
+	}
+	props := ClientFacingTaskProperties(task)
+	require.NotNil(t, props)
+	require.Equal(t, "gpt-image-2", props.ModelName)
+	require.Equal(t, "prompt", props.Input)
+	require.Equal(t, "image", props.TaskKind)
+}
+
+func TestApplyClientFacingModelNamesToLogs(t *testing.T) {
+	modelPublicRegistryMu.Lock()
+	previousRegistry := modelPublicRegistryData
+	modelPublicRegistryData.channelPrefixes = []string{"cy-img1-"}
+	modelPublicRegistryMu.Unlock()
+	t.Cleanup(func() {
+		modelPublicRegistryMu.Lock()
+		modelPublicRegistryData = previousRegistry
+		modelPublicRegistryMu.Unlock()
+	})
+
+	logs := []*model.Log{{ModelName: "cy-img1-gpt-image-2"}}
+	ApplyClientFacingModelNamesToLogs(logs)
+	require.Equal(t, "gpt-image-2", logs[0].ModelName)
+}
+
+func TestPublicQuotaDataForClientAggregatesByPublicName(t *testing.T) {
+	modelPublicRegistryMu.Lock()
+	previousRegistry := modelPublicRegistryData
+	modelPublicRegistryData.internalToPublic = map[string]string{
+		"cy-img1-gpt-image-2":          "gpt-image-2",
+		"adobe-firefly-gpt-image-2-1k": "gpt-image-2-1k",
+	}
+	modelPublicRegistryMu.Unlock()
+	t.Cleanup(func() {
+		modelPublicRegistryMu.Lock()
+		modelPublicRegistryData = previousRegistry
+		modelPublicRegistryMu.Unlock()
+	})
+
+	items := []*model.QuotaData{
+		{UserID: 1, Username: "u1", ModelName: "cy-img1-gpt-image-2", CreatedAt: 100, Count: 2, Quota: 20, TokenUsed: 0},
+		{UserID: 1, Username: "u1", ModelName: "adobe-firefly-gpt-image-2-1k", CreatedAt: 100, Count: 1, Quota: 10, TokenUsed: 0},
+	}
+	out := PublicQuotaDataForClient(items)
+	require.Len(t, out, 2)
+	require.Equal(t, "gpt-image-2", out[0].ModelName)
+	require.Equal(t, 2, out[0].Count)
+	require.Equal(t, "gpt-image-2-1k", out[1].ModelName)
+}
