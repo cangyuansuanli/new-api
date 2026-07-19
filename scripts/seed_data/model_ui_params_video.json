@@ -645,7 +645,7 @@
             },
             "hints": [
                 {
-                    "text": "Adobe Firefly Sora2/Sora2 Pro：支持 4/8/12 秒、16:9/9:16、单张帧参考图、negative_prompt 与声音开关。"
+                    "text": "Sora2/Sora2 Pro：支持 4/8/12 秒、16:9/9:16、单张帧参考图、negative_prompt 与声音开关。"
                 }
             ]
         },
@@ -712,7 +712,7 @@
             },
             "hints": [
                 {
-                    "text": "Adobe Firefly Veo 3.1 标准版/Fast：reference_mode=frame，最多 2 张首尾帧参考图；支持 4/6/8 秒、16:9/9:16、720p/1080p。"
+                    "text": "Veo 3.1 标准版/Fast：reference_mode=frame，最多 2 张首尾帧参考图；支持 4/6/8 秒、16:9/9:16、720p/1080p。"
                 }
             ]
         },
@@ -778,7 +778,7 @@
             },
             "hints": [
                 {
-                    "text": "Adobe Firefly Veo 3.1 Ref：reference_mode=image，最多 3 张主体或素材参考图，不表示首尾帧；支持 4/6/8 秒、16:9/9:16、720p/1080p。"
+                    "text": "Veo 3.1 Ref：reference_mode=image，最多 3 张主体或素材参考图，不表示首尾帧；支持 4/6/8 秒、16:9/9:16、720p/1080p。"
                 }
             ]
         },
@@ -2062,7 +2062,7 @@
             },
             "hints": [
                 {
-                    "text": "Seedance 2.0 特惠（cy-sd2）：480p/720p、4–15 秒；933 全能参考与首尾帧；客户端 flat JSON，relay 转 Tengda content[]。"
+                    "text": "Seedance 2.0 特惠：480p/720p、4–15 秒；933 全能参考与首尾帧。"
                 }
             ]
         },
@@ -2297,7 +2297,7 @@
             ]
         },
         {
-            "id": "video-tpl-cy-sd4-seedance-async",
+            "id": "video-tpl-seedance-subscription-async",
             "apiMode": "videos-json-async",
             "payloadBuilder": "seedance-flat",
             "match": [
@@ -2417,7 +2417,7 @@
             ]
         },
         {
-            "id": "video-tpl-cy-sd5-seedance-933-async",
+            "id": "video-tpl-seedance-fullref-async",
             "apiMode": "videos-json-async",
             "payloadBuilder": "seedance-flat",
             "match": [

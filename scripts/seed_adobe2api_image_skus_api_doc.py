@@ -67,13 +67,21 @@ def specs() -> list[dict]:
             ratios = GPT_IMAGE_RATIOS
             profile_family = "gpt-image-2-"
         for tier in TIERS:
+            if family == "nano-banana-pro":
+                profile = f"image-tpl-nano-banana-pro-{tier}"
+            elif family == "nano-banana2":
+                profile = f"image-tpl-nano-banana2-{tier}"
+            elif family == "gpt-image-2":
+                profile = f"image-tpl-gpt-image-2-{tier}"
+            else:
+                profile = f"image-tpl-nano-banana-tier-{tier}"
             result.append(
                 {
                     "internal": f"adobe-firefly-{family}-{tier}",
                     "public": f"{family}-{tier}",
                     "label": label,
                     "tier": tier.upper(),
-                    "profile": f"image-tpl-adobe2api-{profile_family}{tier}",
+                    "profile": profile,
                     "ratios": ratios,
                 }
             )
@@ -249,7 +257,7 @@ def validate_gpt_image_profiles() -> None:
     profile_doc = json.loads(PROFILE_JSON_PATH.read_text(encoding="utf-8"))
     profiles = {profile.get("id"): profile for profile in profile_doc.get("profiles", [])}
     for tier in TIERS:
-        profile_id = f"image-tpl-adobe2api-gpt-image-2-{tier}"
+        profile_id = f"image-tpl-gpt-image-2-{tier}"
         profile = profiles.get(profile_id)
         if not profile:
             raise ValueError(f"missing image profile {profile_id}")

@@ -23,10 +23,10 @@ INSERT INTO model_ui_param_profiles (
     params, option_rules, hints, note, created_time, updated_time
 ) VALUES (
     'video',
-    'video-tpl-cy-sd4-seedance-mini-8s',
+    'video-tpl-seedance-mini-8s-async',
     'videos-json-async',
     'seedance-flat',
-    'seedance-cy-sd4-mini-8s',
+    'seedance-mini-8s',
     FALSE,
     '',
     '{}',
@@ -91,10 +91,10 @@ INSERT INTO model_ui_param_profiles (
     }',
     '[]',
     '[
-      {"text": "Leonardo Seedance 2.0 Mini 8 秒特惠：标准 480p / HD 720p；输出时长 4–8 秒。"},
+      {"text": "Seedance 2.0 Mini 8 秒特惠：标准 480p / HD 720p；输出时长 4–8 秒。"},
       {"text": "多模态 4 图 / 3 视频（总时长 ≤8 秒）/ 1 音频（≤8 秒）；与首尾帧互斥。"}
     ]',
-    'Leonardo 1300 积分号池专用 8 秒产品；按次计费，失败不计费。',
+    'Mini 8 秒特惠专用 8 秒产品；按次计费，失败不计费。',
     EXTRACT(EPOCH FROM NOW())::BIGINT,
     EXTRACT(EPOCH FROM NOW())::BIGINT
 )
@@ -118,13 +118,13 @@ INSERT INTO models (
     video_profile_id, api_doc, created_time, updated_time
 ) SELECT
     'cy-sd4-seedance-2.0-mini-8s',
-    'Seedance 2.0 Mini 8 秒特惠。Leonardo 订阅号 1300 积分号池，480p / 720p，支持 4–8 秒。',
+    'Seedance 2.0 Mini 8 秒特惠。480p / 720p，支持 4–8 秒。',
     'video,seedance,subscription,mini,8s',
     4,
     '{"openai-video":{"path":"/v1/videos","method":"POST"}}',
     1,
     0,
-    'video-tpl-cy-sd4-seedance-mini-8s',
+    'video-tpl-seedance-mini-8s-async',
     jsonb_build_object(
         'dispatch_mode', 'async',
         'intro', 'Seedance 2.0 Mini 8 秒特惠视频。模型：{{model}}。按条计费，失败不计费。',
@@ -158,13 +158,13 @@ WHERE NOT EXISTS (
 );
 
 UPDATE models
-SET description = 'Seedance 2.0 Mini 8 秒特惠。Leonardo 订阅号 1300 积分号池，480p / 720p，支持 4–8 秒。',
+SET description = 'Seedance 2.0 Mini 8 秒特惠。480p / 720p，支持 4–8 秒。',
     tags = 'video,seedance,subscription,mini,8s',
     vendor_id = 4,
     endpoints = '{"openai-video":{"path":"/v1/videos","method":"POST"}}',
     status = 1,
     sync_official = 0,
-    video_profile_id = 'video-tpl-cy-sd4-seedance-mini-8s',
+    video_profile_id = 'video-tpl-seedance-mini-8s-async',
     api_doc = jsonb_build_object(
         'dispatch_mode', 'async',
         'intro', 'Seedance 2.0 Mini 8 秒特惠视频。模型：{{model}}。按条计费，失败不计费。',

@@ -57,10 +57,11 @@ func GetPricing(c *gin.Context) {
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
-	if service.ModelPublicNameEnabled() {
-		for i := range pricing {
+	for i := range pricing {
+		if service.ModelPublicNameEnabled() {
 			pricing[i].ModelName = service.ToPublicModelName(pricing[i].ModelName)
 		}
+		service.SanitizeClientFacingPricing(&pricing[i])
 	}
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {

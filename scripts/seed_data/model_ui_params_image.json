@@ -26,7 +26,7 @@
     },
     "profiles": [
         {
-            "id": "image-tpl-adobe2api-1k",
+            "id": "image-tpl-nano-banana-tier-1k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": [
@@ -52,11 +52,11 @@
                 "moderation": {"enabled": false}
             },
             "hints": [
-                {"text": "Adobe2API 1K 固定档位；服务端会忽略 prompt 中的分辨率文字并固定发送 image_size=1K。"}
+                {"text": "1K 固定档位；服务端会忽略 prompt 中的分辨率文字并固定发送 image_size=1K。"}
             ]
         },
         {
-            "id": "image-tpl-adobe2api-2k",
+            "id": "image-tpl-nano-banana-tier-2k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": [
@@ -82,7 +82,7 @@
                 "moderation": {"enabled": false}
             },
             "hints": [
-                {"text": "Adobe2API 2K 固定档位；服务端固定发送 image_size=2K，错档结构化参数会在扣费前拒绝。"}
+                {"text": "2K 固定档位；服务端固定发送 image_size=2K，错档结构化参数会在扣费前拒绝。"}
             ]
         },
         {
@@ -155,7 +155,7 @@
             },
             "hints": [
                 {
-                    "text": "并发生成可能触发上游限流，建议控制单次张数与并发。"
+                    "text": "并发生成可能触发限流，建议控制单次张数与并发。"
                 }
             ]
         },
@@ -1357,7 +1357,7 @@
             ]
         },
         {
-            "id": "image-tpl-adobe2api-4k",
+            "id": "image-tpl-nano-banana-tier-4k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": [
@@ -1431,15 +1431,15 @@
             },
             "hints": [
                 {
-                    "text": "Adobe2API 4K 固定档位；服务端固定发送 image_size=4K，错档结构化参数会在扣费前拒绝。"
+                    "text": "4K 固定档位；服务端固定发送 image_size=4K，错档结构化参数会在扣费前拒绝。"
                 },
                 {
-                    "text": "输出由上游固定为 PNG；格式、压缩、背景和审核参数不开放。"
+                    "text": "输出固定为 PNG；格式、压缩、背景和审核参数不开放。"
                 }
             ]
         },
         {
-            "id": "image-tpl-adobe2api-nano-banana-pro-1k",
+            "id": "image-tpl-nano-banana-pro-1k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": ["adobe-firefly-nano-banana-pro-1k"],
@@ -1464,7 +1464,7 @@
             "hints": [{"text": "Nano Banana Pro 1K 固定档位；API 支持任意正整数 W:H，画幅比例不会改变 1K 计费和分辨率档位。"}]
         },
         {
-            "id": "image-tpl-adobe2api-nano-banana-pro-2k",
+            "id": "image-tpl-nano-banana-pro-2k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": ["adobe-firefly-nano-banana-pro-2k"],
@@ -1489,7 +1489,7 @@
             "hints": [{"text": "Nano Banana Pro 2K 固定档位；API 支持任意正整数 W:H，画幅比例不会改变 2K 计费和分辨率档位。"}]
         },
         {
-            "id": "image-tpl-adobe2api-nano-banana-pro-4k",
+            "id": "image-tpl-nano-banana-pro-4k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": ["adobe-firefly-nano-banana-pro-4k"],
@@ -1514,7 +1514,7 @@
             "hints": [{"text": "Nano Banana Pro 4K 固定档位；API 支持任意正整数 W:H，画幅比例不会改变 4K 计费和分辨率档位。"}]
         },
         {
-            "id": "image-tpl-adobe2api-nano-banana2-1k",
+            "id": "image-tpl-nano-banana2-1k",
             "api_mode": "images-json-async",
             "match_mode": "exact",
             "match": ["adobe-firefly-nano-banana2-1k"],
@@ -1531,10 +1531,10 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Adobe2API Nano Banana 2 1K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
+            "hints": [{"text": "Nano Banana 2 1K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
         },
         {
-            "id": "image-tpl-adobe2api-nano-banana2-2k",
+            "id": "image-tpl-nano-banana2-2k",
             "api_mode": "images-json-async", "match_mode": "exact",
             "match": ["adobe-firefly-nano-banana2-2k"],
             "params": {
@@ -1550,10 +1550,10 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Adobe2API Nano Banana 2 2K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
+            "hints": [{"text": "Nano Banana 2 2K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
         },
         {
-            "id": "image-tpl-adobe2api-nano-banana2-4k",
+            "id": "image-tpl-nano-banana2-4k",
             "api_mode": "images-json-async", "match_mode": "exact",
             "match": ["adobe-firefly-nano-banana2-4k"],
             "params": {
@@ -1569,10 +1569,10 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Adobe2API Nano Banana 2 4K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
+            "hints": [{"text": "Nano Banana 2 4K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
         },
         {
-            "id": "image-tpl-adobe2api-gpt-image-2-1k",
+            "id": "image-tpl-gpt-image-2-1k",
             "api_mode": "images-json-async", "match_mode": "exact",
             "match": ["adobe-firefly-gpt-image-2-1k"],
             "params": {
@@ -1595,7 +1595,7 @@
             "hints": [{"text": "GPT Image 2 1K 固定计费档位；quality 默认 medium，可选 low / medium / high 且不改变计费。精确 size 原样发送：16px 对齐、最长边不超过 3840px、比例不超过 3:1、总像素 655360–1048576；比例输入按 1K 预算计算。"}]
         },
         {
-            "id": "image-tpl-adobe2api-gpt-image-2-2k",
+            "id": "image-tpl-gpt-image-2-2k",
             "api_mode": "images-json-async", "match_mode": "exact",
             "match": ["adobe-firefly-gpt-image-2-2k"],
             "params": {
@@ -1618,7 +1618,7 @@
             "hints": [{"text": "GPT Image 2 2K 固定计费档位；quality 默认 medium，可选 low / medium / high 且不改变计费。精确 size 原样发送：16px 对齐、最长边不超过 3840px、比例不超过 3:1、总像素 655360–4194304；比例输入按 2K 预算计算。"}]
         },
         {
-            "id": "image-tpl-adobe2api-gpt-image-2-4k",
+            "id": "image-tpl-gpt-image-2-4k",
             "api_mode": "images-json-async", "match_mode": "exact",
             "match": ["adobe-firefly-gpt-image-2-4k"],
             "params": {

@@ -40,7 +40,7 @@ QUERY_RESP = {"id": "task_abc123", "status": "completed", "data": [{"url": "/v1/
 DOCS: dict[str, dict] = {
     "oairegbox-omni-fast": {
         "intro": (
-            "OAIREGBox Omni 文生/图生视频（Gemini Veo）。固定 720p、约 10 秒，按次 ¥0.40。"
+            "Omni 文生/图生视频。固定 720p、约 10 秒，按次 ¥0.40。"
             "JSON 提交 aspect_ratio；单图 JSON image_url；多图 multipart input_reference 文件；"
             "首尾帧 JSON first_image_url / last_image_url。"
         ),
@@ -59,7 +59,7 @@ DOCS: dict[str, dict] = {
     },
     "oairegbox-omni-fast-no-water": {
         "intro": (
-            "OAIREGBox Omni 无水印版。固定 720p、约 10 秒，按次 ¥0.50。"
+            "Omni 无水印版。固定 720p、约 10 秒，按次 ¥0.50。"
             "出片经自动清洗，完成前可能多一个 processing 阶段。参数同 omni-fast。"
         ),
         "params": [
@@ -80,9 +80,9 @@ DOCS: dict[str, dict] = {
     },
     "oairegbox-omni-v2v": {
         "intro": (
-            "OAIREGBox Omni 视频转视频（V2V）。按次 ¥0.55。"
+            "Omni 视频转视频（V2V）。按次 ¥0.55。"
             "JSON 传 video_url，或 multipart 上传 input_video（≤5MB）。固定 720p、约 10 秒。"
-            "客户端 model 传 omni-v2v（勿传上游名 omni-fast-v2v）。"
+            "请传 public 名 omni-v2v。"
         ),
         "params": V2V_PARAMS,
         "basic_request_json": {
@@ -100,8 +100,8 @@ DOCS: dict[str, dict] = {
     },
     "oairegbox-omni-v2v-no-water": {
         "intro": (
-            "OAIREGBox Omni V2V 无水印版。按次 ¥0.65。参数同 omni-v2v，出片经自动清洗。"
-            "客户端 model 传 omni-v2v-no-water（勿传上游名 omni-fast-v2v-no-water）。"
+            "Omni V2V 无水印版。按次 ¥0.65。参数同 omni-v2v，出片经自动清洗。"
+            "请传 public 名 omni-v2v-no-water。"
         ),
         "params": V2V_PARAMS,
         "basic_request_json": {

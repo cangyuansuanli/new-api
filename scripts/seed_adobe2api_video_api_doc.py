@@ -12,7 +12,7 @@ import time
 MODELS = {
     "cy-sd5-seedance-2.0": {
         "public": "sd5-seedance-2.0",
-        "profile": "video-tpl-cy-sd5-seedance-933-async",
+        "profile": "video-tpl-seedance-fullref-async",
         "description": "Seedance 2.0 标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。",
         "tags": "video,seedance,sd5,933",
         "duration": list(range(4, 16)),
@@ -29,7 +29,7 @@ MODELS = {
     },
     "cy-sd5-seedance-2.0-fast": {
         "public": "sd5-seedance-2.0-fast",
-        "profile": "video-tpl-cy-sd5-seedance-933-async",
+        "profile": "video-tpl-seedance-fullref-async",
         "description": "Seedance 2.0 Fast。参数同标准版，快速出片。",
         "tags": "video,seedance,sd5,933,fast",
         "duration": list(range(4, 16)),
@@ -47,7 +47,7 @@ MODELS = {
     "adobe-sora2": {
         "public": "sora-2",
         "profile": "video-tpl-adobe-sora2-json-async",
-        "description": "Adobe Firefly Sora2 标准版。支持文生视频、单张帧参考图和负面提示词。",
+        "description": "Sora2 标准版。支持文生视频、单张帧参考图和负面提示词。",
         "tags": "video,sora,adobe,firefly",
         "duration": [4, 8, 12],
         "resolution": None,
@@ -59,7 +59,7 @@ MODELS = {
     "adobe-sora2-pro": {
         "public": "sora-2-pro",
         "profile": "video-tpl-adobe-sora2-json-async",
-        "description": "Adobe Firefly Sora2 Pro 高阶版。参数与标准版一致，支持单张帧参考图和负面提示词。",
+        "description": "Sora2 Pro 高阶版。参数与标准版一致，支持单张帧参考图和负面提示词。",
         "tags": "video,sora,adobe,firefly,pro",
         "duration": [4, 8, 12],
         "resolution": None,
@@ -71,7 +71,7 @@ MODELS = {
     "adobe-veo31": {
         "public": "veo-3-1",
         "profile": "video-tpl-adobe-veo31-json-async",
-        "description": "Adobe Firefly Veo 3.1 标准版。支持文生视频与最多 2 张首尾帧参考图。",
+        "description": "Veo 3.1 标准版。支持文生视频与最多 2 张首尾帧参考图。",
         "tags": "video,veo,adobe,firefly",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
@@ -83,7 +83,7 @@ MODELS = {
     "adobe-veo31-ref": {
         "public": "veo-3-1-ref",
         "profile": "video-tpl-adobe-veo31-ref-json-async",
-        "description": "Adobe Firefly Veo 3.1 素材参考版。最多 3 张主体或素材参考图。",
+        "description": "Veo 3.1 素材参考版。最多 3 张主体或素材参考图。",
         "tags": "video,veo,adobe,firefly,reference",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
@@ -95,7 +95,7 @@ MODELS = {
     "adobe-veo31-fast": {
         "public": "veo-3-1-fast",
         "profile": "video-tpl-adobe-veo31-json-async",
-        "description": "Adobe Firefly Veo 3.1 Fast 快速版。支持文生视频与最多 2 张首尾帧参考图。",
+        "description": "Veo 3.1 Fast 快速版。支持文生视频与最多 2 张首尾帧参考图。",
         "tags": "video,veo,adobe,firefly,fast",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
@@ -246,7 +246,7 @@ def build_api_doc(conf: dict) -> dict:
     intro = (
         "Seedance 2.0 视频：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
         if conf.get("max_videos")
-        else "Adobe2API Firefly 视频：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
+        else "OpenAI Video 兼容接口：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
     )
     if supports_references:
         intro += conf["variant"]
