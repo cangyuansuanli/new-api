@@ -148,7 +148,7 @@ export default function SettingsSensitiveWords(props) {
               <Col span={24}>
                 <Form.TextArea
                   label={t('审查白名单用户 ID')}
-                  extraText={t('一行一个用户 ID；跳过本地词表拦截，被上游内容审查拒绝时不退还预扣额度')}
+                  extraText={t('一行一个用户 ID；跳过本地词表拦截，生图被上游内容审查拒绝时不退还预扣额度')}
                   placeholder={t('一行一个用户 ID')}
                   field={'SensitiveReviewWhitelistUserIds'}
                   onChange={(value) =>

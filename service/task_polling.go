@@ -476,7 +476,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed: %s", task.TaskID, task.FailReason))
 		taskResult.Progress = taskcommon.ProgressComplete
 		if quota != 0 {
-			if ShouldRefundTaskOnFailure(task.UserId, taskResult.Reason, responseBody) {
+			if ShouldRefundTaskOnFailure(task.UserId, task.Action, taskResult.Reason, responseBody) {
 				shouldRefund = true
 			} else {
 				logger.LogInfo(ctx, fmt.Sprintf("Task %s failed with non-refundable error, skip refund: %s", task.TaskID, taskResult.Reason))

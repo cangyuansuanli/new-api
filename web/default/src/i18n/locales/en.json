@@ -4776,7 +4776,7 @@
     "When enabled, newly created tokens start in the first auto group.": "When enabled, newly created tokens start in the first auto group.",
     "Local sensitive prompt block": "Local sensitive prompt block",
     "Sensitive review whitelist user IDs": "Sensitive review whitelist user IDs",
-    "Whitelisted users bypass local keyword blocking; upstream content review failures are charged.": "Whitelisted users bypass local keyword blocking; upstream content review failures are not refunded.",
+    "Whitelisted users bypass local keyword blocking; upstream content review failures are charged.": "Whitelisted users bypass local keyword blocking; upstream image content review failures are not refunded (video and other tasks still refund).",
     "When disabled, prompts are forwarded to upstream; upstream content policy failures are charged normally.": "When disabled, prompts are forwarded to upstream; non-whitelisted users will be refunded when upstream content review rejects the request.",
     "When enabled, the store field will be blocked": "When enabled, the store field will be blocked",
     "When enabled, users can pick this group when creating tokens.": "When enabled, users can pick this group when creating tokens.",

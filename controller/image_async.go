@@ -155,7 +155,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 	var taskErr *dto.TaskError
 	defer func() {
 		if taskErr != nil {
-			service.MaybeRefundBilling(c, relayInfo.Billing, taskErr.Message, nil)
+			service.MaybeRefundBilling(c, action, relayInfo.Billing, taskErr.Message, nil)
 		}
 	}()
 

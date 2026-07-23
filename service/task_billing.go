@@ -336,17 +336,42 @@ func isUpstreamContentReviewFailure(reason, code string, responseBody []byte) bo
 	return false
 }
 
-// shouldKeepChargeForWhitelistUpstreamReview 白名单用户被上游内容审查拒绝时不退预扣费。
-func shouldKeepChargeForWhitelistUpstreamReview(userId int, reason, code string, responseBody []byte) bool {
+type refundScope struct {
+	action     string
+	imageRelay bool
+}
+
+func isSensitiveReviewWhitelistChargeScope(scope refundScope) bool {
+	if scope.imageRelay {
+		return true
+	}
+	switch scope.action {
+	case constant.TaskActionImageGenerate, constant.TaskActionImageEdit:
+		return true
+	default:
+		return false
+	}
+}
+
+// shouldKeepChargeForWhitelistUpstreamReview 白名单用户在上游内容审查拒绝时不退预扣费（仅生图场景）。
+func shouldKeepChargeForWhitelistUpstreamReview(userId int, scope refundScope, reason, code string, responseBody []byte) bool {
 	if !setting.IsSensitiveReviewWhitelistUser(userId) {
+		return false
+	}
+	if !isSensitiveReviewWhitelistChargeScope(scope) {
 		return false
 	}
 	return isUpstreamContentReviewFailure(reason, code, responseBody)
 }
 
 // ShouldRefundTaskOnFailure 决定异步/同步失败时是否退还预扣额度。
-func ShouldRefundTaskOnFailure(userId int, reason string, responseBody []byte) bool {
-	if shouldKeepChargeForWhitelistUpstreamReview(userId, reason, "", responseBody) {
+// action 为异步任务 action；非生图 action 时白名单上游拒审仍退款。
+func ShouldRefundTaskOnFailure(userId int, action, reason string, responseBody []byte) bool {
+	return shouldRefundTaskOnFailure(userId, refundScope{action: action}, reason, responseBody)
+}
+
+func shouldRefundTaskOnFailure(userId int, scope refundScope, reason string, responseBody []byte) bool {
+	if shouldKeepChargeForWhitelistUpstreamReview(userId, scope, reason, "", responseBody) {
 		return false
 	}
 	if IsUpstreamRefundableTaskFailure(reason) {
@@ -393,7 +418,7 @@ func ShouldRefundTaskOnFailure(userId int, reason string, responseBody []byte) b
 }
 
 // ShouldRefundRelayError 决定同步 Relay 失败时是否退还 BillingSession 预扣费。
-func ShouldRefundRelayError(c *gin.Context, apiErr *types.NewAPIError) bool {
+func ShouldRefundRelayError(c *gin.Context, relayFormat types.RelayFormat, apiErr *types.NewAPIError) bool {
 	if apiErr == nil {
 		return false
 	}
@@ -422,14 +447,12 @@ func ShouldRefundRelayError(c *gin.Context, apiErr *types.NewAPIError) bool {
 			},
 		})
 	}
-	if shouldKeepChargeForWhitelistUpstreamReview(userId, reason, code, body) {
-		return false
-	}
-	return ShouldRefundTaskOnFailure(userId, reason, body)
+	scope := refundScope{imageRelay: relayFormat == types.RelayFormatOpenAIImage}
+	return shouldRefundTaskOnFailure(userId, scope, reason, body)
 }
 
 // ShouldRefundTaskError 决定 Task 提交接口失败时是否退还 BillingSession 预扣费。
-func ShouldRefundTaskError(c *gin.Context, taskErr *dto.TaskError) bool {
+func ShouldRefundTaskError(c *gin.Context, action string, taskErr *dto.TaskError) bool {
 	if taskErr == nil {
 		return false
 	}
@@ -440,11 +463,11 @@ func ShouldRefundTaskError(c *gin.Context, taskErr *dto.TaskError) bool {
 	if taskErr.LocalError {
 		return true
 	}
-	return ShouldRefundTaskOnFailure(userId, taskErr.Message, nil)
+	return ShouldRefundTaskOnFailure(userId, action, taskErr.Message, nil)
 }
 
 // MaybeRefundBilling 在失败时按策略退还 BillingSession 预扣费（同步/异步提交共用）。
-func MaybeRefundBilling(c *gin.Context, billing relaycommon.BillingSettler, reason string, responseBody []byte) {
+func MaybeRefundBilling(c *gin.Context, action string, billing relaycommon.BillingSettler, reason string, responseBody []byte) {
 	if billing == nil {
 		return
 	}
@@ -452,7 +475,7 @@ func MaybeRefundBilling(c *gin.Context, billing relaycommon.BillingSettler, reas
 	if c != nil {
 		userId = c.GetInt("id")
 	}
-	if ShouldRefundTaskOnFailure(userId, reason, responseBody) {
+	if shouldRefundTaskOnFailure(userId, refundScope{action: action}, reason, responseBody) {
 		billing.Refund(c)
 		return
 	}
@@ -466,7 +489,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	if quota == 0 {
 		return
 	}
-	if !ShouldRefundTaskOnFailure(task.UserId, reason, nil) {
+	if !ShouldRefundTaskOnFailure(task.UserId, task.Action, reason, nil) {
 		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed with non-refundable error, keep charge: %s", task.TaskID, reason))
 		recordTaskBillingConsumeLog(ctx, task, quota, reason, quota)
 		return

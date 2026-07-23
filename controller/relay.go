@@ -182,7 +182,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
 			if relayInfo.Billing != nil {
-				if service.ShouldRefundRelayError(c, newAPIError) {
+				if service.ShouldRefundRelayError(c, relayFormat, newAPIError) {
 					relayInfo.Billing.Refund(c)
 				} else {
 					logger.LogInfo(c, fmt.Sprintf("skip billing refund for non-refundable relay error: %s", newAPIError.Error()))
@@ -519,7 +519,7 @@ func RelayTask(c *gin.Context) {
 	var taskErr *dto.TaskError
 	defer func() {
 		if taskErr != nil {
-			service.MaybeRefundBilling(c, relayInfo.Billing, taskErr.Message, nil)
+			service.MaybeRefundBilling(c, relayInfo.Action, relayInfo.Billing, taskErr.Message, nil)
 		}
 	}()
 

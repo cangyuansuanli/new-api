@@ -11,7 +11,7 @@ var CheckSensitiveOnPromptEnabled = true
 // LocalSensitivePromptBlockEnabled 本地敏感词前置拦截：关闭后不检查词表、直接转发上游。
 var LocalSensitivePromptBlockEnabled = true
 
-// SensitiveReviewWhitelistUserIds 审查白名单用户：跳过本地词表前置拦截；上游内容审查拒绝时仍扣费。
+// SensitiveReviewWhitelistUserIds 审查白名单用户：跳过本地词表前置拦截；生图上游内容审查拒绝时仍扣费。
 var SensitiveReviewWhitelistUserIds = map[int]struct{}{}
 
 //var CheckSensitiveOnCompletionEnabled = true
