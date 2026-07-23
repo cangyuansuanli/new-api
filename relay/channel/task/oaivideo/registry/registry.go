@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omnii2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
@@ -28,12 +29,17 @@ const (
 	VendorGrok               Vendor = "grok-generations"
 	VendorGeeknowGrok        Vendor = "geeknow-grok"
 	VendorManju              Vendor = "manju"
+	VendorOmniI2V            Vendor = "omni-i2v"
 	VendorOmniV2V            Vendor = "omni-v2v"
 	VendorSD5                Vendor = "sd5-seedance"
 	VendorSeedanceOairegbox  Vendor = "seedance-oairegbox"
 	VendorSeedanceLeonardo   Vendor = "seedance-leonardo"
 	VendorSeedanceTengda     Vendor = "seedance-tengda"
 )
+
+func IsOmniVideoModel(originModel, upstreamModel string) bool {
+	return omniv2v.IsRelay(originModel, upstreamModel) || omnii2v.IsRelay(originModel, upstreamModel)
+}
 
 // Resolve 按 internal/upstream 模型名解析 Vendor；供应商专用协议优先于默认 OpenAI Video。
 func Resolve(originModel, upstreamModel string) Vendor {
@@ -62,6 +68,9 @@ func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseUR
 	}
 	if omniv2v.IsRelay(originModel, upstreamModel) {
 		return VendorOmniV2V
+	}
+	if omnii2v.IsRelay(originModel, upstreamModel) {
+		return VendorOmniI2V
 	}
 	if seedancetengda.IsRelay(originModel, upstreamModel) {
 		return VendorSeedanceTengda

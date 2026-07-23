@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	oavregistry "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/registry"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -390,7 +391,32 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/responses/compact") && modelRequest.Model != "" {
 		modelRequest.Model = ratio_setting.WithCompactModelSuffix(modelRequest.Model)
 	}
+	if err := validateOmniVideoEndpoint(c, modelRequest.Model); err != nil {
+		return nil, false, err
+	}
 	return &modelRequest, shouldSelectChannel, nil
+}
+
+func validateOmniVideoEndpoint(c *gin.Context, modelName string) error {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" || c == nil || c.Request == nil || c.Request.URL == nil {
+		return nil
+	}
+	path := c.Request.URL.Path
+	if strings.HasPrefix(path, "/v1/videos") {
+		return nil
+	}
+	if !oavregistry.IsOmniVideoModel(modelName, "") {
+		return nil
+	}
+	switch {
+	case strings.HasPrefix(path, "/v1/responses"),
+		path == "/v1/chat/completions",
+		strings.HasPrefix(path, "/pg/chat/completions"):
+		return fmt.Errorf("模型 %s 为 Omni 异步视频，请使用 POST /v1/videos 提交任务", modelName)
+	default:
+		return nil
+	}
 }
 
 // 修复 #4834: 异步任务查询（shouldSelectChannel=false）不再走 token 模型限制校验；

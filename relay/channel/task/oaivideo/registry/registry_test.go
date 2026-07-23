@@ -17,6 +17,8 @@ func TestResolve(t *testing.T) {
 		{"tengd-seedance-2.0", "manxue-2.0", VendorSeedanceTengda},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", VendorChat},
 		{"cy-sd1-grok-video", "grok-imagine-video", VendorChat},
+		{"cy-sd1-omni-fast", "omni-fast", VendorOmniI2V},
+		{"cy-sd1-omni-v2v", "omni-fast-v2v", VendorOmniV2V},
 		{"cy-gv1-grok-video", "grok-image-video", VendorGrok},
 		{"cy-gv1-grok-video-1.5", "grok-video-1.5", VendorGrok},
 		{"cy-gv1-grok-video", "grok-imagine-video", VendorGeeknowGrok},

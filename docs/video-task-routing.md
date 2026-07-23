@@ -18,6 +18,7 @@ relay/channel/task/oaivideo/
     ├── seedancetengda/    # cy-sd2 → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
     ├── sd5/               # cy-sd5 → Adobe2API generations
+    ├── omnii2v/         # cy-sd1 omni-fast* flat → upstream images/image_url
     ├── omniv2v/         # cy-sd1 omni-fast-v2v* flat → upstream videos/images
     ├── adobe/        # Adobe typed video endpoint + strict JSON normalization
     └── defaultvideo/ # sora-2 等标准 OpenAI Video 兜底
@@ -126,6 +127,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-gv1-grok-video*` + upstream `grok-image-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
+| `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
 | `cy-sd4-seedance*` | seedance-leonardo | cy-sd4 白名单 flat JSON → Leonardo `/v1/videos` | OpenAI Video 形 |
 | `cy-sd5-seedance*` | SD5 Seedance | 按模型名前缀独立路由，不依赖 Adobe 渠道 ID 或模型映射；seed、9 图 / 3 视频 / 3 音频（合计最多 12）严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |

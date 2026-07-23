@@ -41,6 +41,34 @@ func TestGetModelRequestVideoSubmitSelectsChannel(t *testing.T) {
 	require.True(t, shouldSelectChannel)
 }
 
+func TestGetModelRequestRejectsOmniVideoOnResponsesPath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := strings.NewReader(`{"model":"omni-fast","input":[{"role":"user","content":"test"}]}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", body)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	_, _, err := getModelRequest(c)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "POST /v1/videos")
+}
+
+func TestGetModelRequestAllowsOmniVideoOnVideosPath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := strings.NewReader(`{"model":"omni-fast","prompt":"test","aspect_ratio":"16:9"}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", body)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	_, shouldSelectChannel, err := getModelRequest(c)
+	require.NoError(t, err)
+	require.True(t, shouldSelectChannel)
+}
+
 func TestDistributeVideoTaskFetchSkipsModelLimitAndNilChannel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
