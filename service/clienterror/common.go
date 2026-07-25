@@ -45,7 +45,7 @@ func IsRealFaceReferenceError(text string) bool {
 		return false
 	}
 	lower := strings.ToLower(text)
-	patterns := []string{
+	directPatterns := []string{
 		"real face",
 		"real human face",
 		"human face",
@@ -53,6 +53,24 @@ func IsRealFaceReferenceError(text string) bool {
 		"faces in reference",
 		"face in reference",
 		"face detected in reference",
+		"reference image contains",
+		"reference image rejected",
+		"reference video contains",
+		"reference images or videos contain real human faces",
+		"真实人脸",
+		"真人脸",
+		"参考图含真人",
+		"参考素材含真人",
+		"真人素材",
+		"真人参考",
+	}
+	if containsAny(lower, text, directPatterns...) {
+		return true
+	}
+	if !hasReferenceMediaContext(lower, text) {
+		return false
+	}
+	contextualPatterns := []string{
 		"realistic human",
 		"real person",
 		"identifiable person",
@@ -60,17 +78,25 @@ func IsRealFaceReferenceError(text string) bool {
 		"celebrity likeness",
 		"likeness of",
 		"deepfake",
-		"reference image rejected",
-		"真实人脸",
-		"真人脸",
 		"含有人脸",
 		"包含人脸",
-		"参考图含真人",
-		"参考素材含真人",
-		"真人素材",
-		"真人参考",
 	}
-	return containsAny(lower, text, patterns...)
+	return containsAny(lower, text, contextualPatterns...)
+}
+
+func hasReferenceMediaContext(lower, text string) bool {
+	referenceContext := []string{
+		"reference image",
+		"reference video",
+		"reference material",
+		"reference images",
+		"reference videos",
+		"input_reference",
+		"参考图",
+		"参考视频",
+		"参考素材",
+	}
+	return containsAny(lower, text, referenceContext...)
 }
 
 func IsContentPolicyViolation(text string) bool {

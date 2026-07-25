@@ -8,6 +8,7 @@
 |------|------|
 | [`service/clienterror/normalize.go`](../service/clienterror/normalize.go) | **唯一翻译入口** + 规则注册顺序 |
 | [`service/clienterror/common.go`](../service/clienterror/common.go) | 跨渠道：内容审查、超时、体积/提示词、参考素材 |
+| [`service/clienterror/omni.go`](../service/clienterror/omni.go) | oairegbox Omni / Veo（cy-sd1-omni-*）内容审查拒绝 |
 | [`service/clienterror/leonardo.go`](../service/clienterror/leonardo.go) | Leonardo 池 / cy-sd4 多模态（含号池 humanize） |
 | [`service/clienterror/upstream_humanize.go`](../service/clienterror/upstream_humanize.go) | **跨渠道** HTTP/503/容量不可用（不含 vendor 名） |
 | [`service/clienterror/adobe.go`](../service/clienterror/adobe.go) | Adobe2API / cy-sd5 |

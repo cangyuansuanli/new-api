@@ -27,3 +27,13 @@ func TestNormalizeClientErrorMessageForLang_AdobePromptUnsafeMessageOnly(t *test
 		t.Fatalf("NormalizeClientErrorMessageForLang(zh, message only) = %q, want %q", got, ContentPolicyMessageZH)
 	}
 }
+
+func TestIsRealFaceReferenceError_ReferenceImageFaceStillMatches(t *testing.T) {
+	raw := "The reference image contains a real person's face and cannot be used to generate content."
+	if !IsRealFaceReferenceError(raw) {
+		t.Fatalf("IsRealFaceReferenceError(%q) = false, want true", raw)
+	}
+	if got := NormalizeClientErrorMessageForLang(true, raw); got != ReferenceRealFaceMessageZH {
+		t.Fatalf("NormalizeClientErrorMessageForLang(zh) = %q, want %q", got, ReferenceRealFaceMessageZH)
+	}
+}
