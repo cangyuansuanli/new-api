@@ -119,6 +119,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		Model:              formData.Get("model"),
 		Mode:               formData.Get("mode"),
 		Image:              formData.Get("image"),
+		ImageUrl:           formData.Get("image_url"),
 		Size:               formData.Get("size"),
 		AspectRatio:        formData.Get("aspect_ratio"),
 		Resolution:         formData.Get("resolution"),
@@ -126,6 +127,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		VideoURL:           formData.Get("video_url"),
 		ReferenceVideos:    append([]string(nil), formData["reference_videos"]...),
 		ImageUrls:          append([]string(nil), formData["image_urls"]...),
+		ReferenceImages:    append([]string(nil), formData["reference_images"]...),
 		ReferenceImageUrls: append([]string(nil), formData["reference_image_urls"]...),
 		InputReference:     formData.Get("input_reference"),
 		Metadata:           make(map[string]interface{}),
@@ -149,6 +151,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 	if images := formData["images"]; len(images) > 0 {
 		req.Images = images
 	}
+	normalizeTaskSubmitImages(&req)
 
 	for key, values := range formData {
 		if len(values) > 0 && !isKnownTaskField(key) {
@@ -242,8 +245,10 @@ func isKnownTaskField(field string) bool {
 		"model":                true,
 		"mode":                 true,
 		"image":                true,
+		"image_url":            true,
 		"images":               true,
 		"image_urls":           true,
+		"reference_images":     true,
 		"reference_image_urls": true,
 		"size":                 true,
 		"aspect_ratio":         true,

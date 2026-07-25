@@ -8,16 +8,11 @@ import (
 
 const (
 	flatKeyReferenceImageURLs = "reference_image_urls"
-	flatKeyReferenceImages    = "reference_images"
 	flatKeyReferenceVideos    = "reference_videos"
 	flatKeyReferenceAudios    = "reference_audios"
 	flatKeyFirstImageURL      = "first_image_url"
 	flatKeyLastImageURL       = "last_image_url"
 )
-
-func collectReferenceImageURLs(body map[string]interface{}) []string {
-	return oaivideo.CollectReferenceImageURLs(body)
-}
 
 func referenceImageURLsField(urls []string) interface{} {
 	if len(urls) == 0 {

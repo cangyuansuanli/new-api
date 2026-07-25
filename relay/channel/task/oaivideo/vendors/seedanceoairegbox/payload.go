@@ -6,7 +6,7 @@ import (
 	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 )
 
-func buildUpstreamBody(body map[string]interface{}, upstreamModel string, duration int) map[string]interface{} {
+func buildUpstreamBody(body map[string]interface{}, upstreamModel string, duration int, referenceImages []string) map[string]interface{} {
 	prompt := strings.TrimSpace(oaivideo.AsString(body["prompt"]))
 	out := map[string]interface{}{
 		"model":  strings.TrimSpace(upstreamModel),
@@ -27,8 +27,8 @@ func buildUpstreamBody(body map[string]interface{}, upstreamModel string, durati
 	copyStringField(out, body, flatKeyFirstImageURL)
 	copyStringField(out, body, flatKeyLastImageURL)
 
-	if imageURLs := collectReferenceImageURLs(body); len(imageURLs) > 0 {
-		out[flatKeyReferenceImageURLs] = referenceImageURLsField(imageURLs)
+	if len(referenceImages) > 0 {
+		out[flatKeyReferenceImageURLs] = referenceImageURLsField(referenceImages)
 	}
 	copyPassthroughField(out, body, flatKeyReferenceVideos)
 	copyPassthroughField(out, body, flatKeyReferenceAudios)

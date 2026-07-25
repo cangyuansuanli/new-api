@@ -241,33 +241,6 @@ func CollectStringList(raw interface{}) []string {
 	return out
 }
 
-// CollectReferenceImageURLs normalizes the public image aliases accepted by
-// the video API into a de-duplicated reference-image list.
-func CollectReferenceImageURLs(body map[string]interface{}) []string {
-	if body == nil {
-		return nil
-	}
-	seen := map[string]struct{}{}
-	out := make([]string, 0, 9)
-	for _, key := range []string{
-		"reference_image_urls",
-		"reference_images",
-		"images",
-		"image_urls",
-		"image_url",
-		"image",
-	} {
-		for _, url := range CollectStringList(body[key]) {
-			if _, ok := seen[url]; ok {
-				continue
-			}
-			seen[url] = struct{}{}
-			out = append(out, url)
-		}
-	}
-	return out
-}
-
 func extractRefURL(item interface{}) string {
 	switch v := item.(type) {
 	case string:

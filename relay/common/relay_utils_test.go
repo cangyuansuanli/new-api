@@ -70,6 +70,30 @@ func TestValidateMultipartDirectReadsDurationField(t *testing.T) {
 	}
 }
 
+func TestValidateMultipartDirectNormalizesImageURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("model", "seedance-2.0-fast")
+	_ = writer.WriteField("prompt", "test")
+	_ = writer.WriteField("image_url", "https://example.com/ref.jpg")
+	_ = writer.Close()
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", &body)
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	if taskErr := ValidateMultipartDirect(c, &RelayInfo{}); taskErr != nil {
+		t.Fatalf("ValidateMultipartDirect: %v", taskErr)
+	}
+	req, err := GetTaskRequest(c)
+	if err != nil {
+		t.Fatalf("GetTaskRequest: %v", err)
+	}
+	if len(req.Images) != 1 || req.Images[0] != "https://example.com/ref.jpg" {
+		t.Fatalf("normalized images = %#v", req.Images)
+	}
+}
+
 func TestValidateMultipartDirectRejectsConflictingDurationAliases(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
