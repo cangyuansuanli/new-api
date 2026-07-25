@@ -76,6 +76,17 @@ func TestBuildUpstreamBody_CanonicalOnly(t *testing.T) {
 	}
 }
 
+func TestBuildUpstreamBody_NormalizesImageURL(t *testing.T) {
+	out := buildUpstreamBody(map[string]interface{}{
+		"prompt":    "test",
+		"image_url": "https://example.com/reference.jpg",
+	}, "seedance-2.0-fast", 8)
+	refs, ok := out["reference_image_urls"].([]interface{})
+	if !ok || len(refs) != 1 || refs[0] != "https://example.com/reference.jpg" {
+		t.Fatalf("expected image_url to become a reference image, got %v", out["reference_image_urls"])
+	}
+}
+
 func TestIsRelay(t *testing.T) {
 	if !IsRelay("cy-sd4-seedance-2.0") {
 		t.Fatal("expected leonardo relay")

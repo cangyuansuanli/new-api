@@ -82,3 +82,17 @@ func TestConvertBody_FlatConversion(t *testing.T) {
 		t.Fatalf("expected converted content, got %v", out["content"])
 	}
 }
+
+func TestConvertBody_ImageURLReference(t *testing.T) {
+	out, err := convertBody(map[string]interface{}{
+		"prompt":    "ocean waves",
+		"image_url": "https://example.com/reference.jpg",
+	}, "manxue-2.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	content, ok := out["content"].([]map[string]interface{})
+	if !ok || len(content) != 2 || content[1]["role"] != "reference_image" {
+		t.Fatalf("expected image_url reference content, got %v", out["content"])
+	}
+}
