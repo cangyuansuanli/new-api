@@ -10,6 +10,7 @@ import (
 
 func init() {
 	Register(normalizeCommon)
+	Register(normalizeOmni)
 	Register(normalizeLeonardo)
 	Register(normalizeAdobe)
 	Register(normalizeGrok)

@@ -17,7 +17,14 @@
 | adobe2api | `Failed to fetch image_url`, `image_url is empty` | ✅ |
 | new-api/adapt_adobe2api | `mask supports exactly one` | ✅（adobe.go） |
 | 通用 | `prompt length exceeds`, `prompt exceeds 4096 characters` | ✅ |
-| 真人脸 | `real human face`, `reference image rejected`, `可识别真人肖像` | ✅ |
+| 真人脸 | `real human face`, `reference image rejected`, `reference image contains`（弱信号需参考素材上下文）, `可识别真人肖像` | ✅ |
+
+## omni.go（oairegbox / cy-sd1-omni-*）
+
+| 上游来源 | 典型 raw | 状态 |
+|---------|---------|------|
+| oairegbox Veo 轮询 | `didn't pass content review`（含 identifiable real person 等） | ✅ → 内容审查文案，非参考图真人脸 |
+| oairegbox 产品文档 | `oairegbox-omni-video.md` §七 确定性拒绝 | ✅ |
 
 ## leonardo.go（cy-sd4 / leonardo-web2api）
 
