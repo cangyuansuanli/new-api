@@ -10,40 +10,6 @@ import time
 
 
 MODELS = {
-    "cy-sd5-seedance-2.0": {
-        "public": "sd5-seedance-2.0",
-        "profile": "video-tpl-seedance-fullref-async",
-        "description": "Seedance 2.0 标准版。支持 480p/720p 与 9 图、3 视频、3 音频全能参考。",
-        "tags": "video,seedance,sd5,933",
-        "duration": list(range(4, 16)),
-        "default_duration": 4,
-        "resolution": ["480p", "720p"],
-        "default_resolution": "480p",
-        "reference_mode": "media",
-        "reference_modes": ["frame", "media"],
-        "max_images": 9,
-        "max_videos": 3,
-        "max_audios": 3,
-        "supports_negative_prompt": True,
-        "variant": "全能参考最多 9 图、3 视频、3 音频；也支持成对首尾帧。",
-    },
-    "cy-sd5-seedance-2.0-fast": {
-        "public": "sd5-seedance-2.0-fast",
-        "profile": "video-tpl-seedance-fullref-async",
-        "description": "Seedance 2.0 Fast。参数同标准版，快速出片。",
-        "tags": "video,seedance,sd5,933,fast",
-        "duration": list(range(4, 16)),
-        "default_duration": 4,
-        "resolution": ["480p", "720p"],
-        "default_resolution": "480p",
-        "reference_mode": "media",
-        "reference_modes": ["frame", "media"],
-        "max_images": 9,
-        "max_videos": 3,
-        "max_audios": 3,
-        "supports_negative_prompt": True,
-        "variant": "全能参考最多 9 图、3 视频、3 音频；也支持成对首尾帧。",
-    },
     "adobe-sora2": {
         "public": "sora-2",
         "profile": "video-tpl-adobe-sora2-json-async",
@@ -107,8 +73,6 @@ MODELS = {
 }
 
 PRICE_USD = {
-    "cy-sd5-seedance-2.0": 3.85,
-    "cy-sd5-seedance-2.0-fast": 2.60,
     "adobe-sora2": 0.70,
     "adobe-sora2-pro": 0.90,
     "adobe-veo31": 0.90,
@@ -120,7 +84,6 @@ PRICE_USD = {
 def build_api_doc(conf: dict) -> dict:
     public_model = conf["public"]
     is_veo = conf["resolution"] is not None
-    is_seedance = bool(conf.get("max_audios"))
     supports_references = "reference_mode" in conf
     default_duration = conf.get("default_duration", conf["duration"][-1])
     default_resolution = conf.get("default_resolution", "1080p")
@@ -140,55 +103,21 @@ def build_api_doc(conf: dict) -> dict:
             }
         )
     if supports_references:
-        reference_mode_description = f"固定传 {conf['reference_mode']}；{conf['variant']}"
-        if is_seedance:
-            reference_mode_description = (
-                "可选 frame 或 media，默认 frame。frame 用于成对首尾帧；"
-                "media 用于 9 图 / 3 视频 / 3 音频全能参考；两种模式素材不可混用。"
-            )
         params.extend(
             [
                 {
                     "name": "reference_mode",
-                    "description": reference_mode_description,
+                    "description": f"固定传 {conf['reference_mode']}；{conf['variant']}",
                 },
                 {
                     "name": "images",
                     "description": (
                         f"可选，最多 {conf['max_images']} 张；支持 JPEG/PNG/WebP 的公网 URL 或 data URI，"
-                        "单张不超过 30MB。"
-                        + ("Seedance 仅在 reference_mode=media 时使用该字段。" if is_seedance else conf["variant"])
+                        f"单张不超过 30MB。{conf['variant']}"
                     ),
                 },
             ]
         )
-        if is_seedance:
-            params.extend(
-                [
-                    {
-                        "name": "first_image_url",
-                        "description": "首帧图片 URL；必须与 last_image_url 成对传入，并使用 reference_mode=frame。",
-                    },
-                    {
-                        "name": "last_image_url",
-                        "description": "尾帧图片 URL；必须与 first_image_url 成对传入，不得与 images/reference_videos/reference_audios 混用。",
-                    },
-                ]
-            )
-        if conf.get("max_videos"):
-            params.append(
-                {
-                    "name": "reference_videos",
-                    "description": f"可选，最多 {conf['max_videos']} 条公网可访问的 HTTPS 视频 URL。",
-                }
-            )
-        if conf.get("max_audios"):
-            params.append(
-                {
-                    "name": "reference_audios",
-                    "description": f"可选，最多 {conf['max_audios']} 条公网可访问的 HTTPS 音频 URL。",
-                }
-            )
     if conf.get("supports_negative_prompt"):
         params.append(
             {
@@ -228,70 +157,16 @@ def build_api_doc(conf: dict) -> dict:
             ]
         else:
             full_request["images"] = ["https://example.com/reference-frame.png"]
-        if conf.get("max_videos"):
-            full_request["reference_videos"] = [
-                "https://example.com/reference-1.mp4",
-                "https://example.com/reference-2.mp4",
-                "https://example.com/reference-3.mp4",
-            ]
-        if conf.get("max_audios"):
-            full_request["reference_audios"] = [
-                "https://example.com/reference-1.wav",
-                "https://example.com/reference-2.wav",
-                "https://example.com/reference-3.wav",
-            ]
     if conf.get("supports_negative_prompt"):
         full_request["negative_prompt"] = "画面抖动、主体变形、文字水印"
 
-    intro = (
-        "Seedance 2.0 视频：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
-        if conf.get("max_videos")
-        else "OpenAI Video 兼容接口：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
-    )
+    intro = "OpenAI Video 兼容接口：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
     if supports_references:
         intro += conf["variant"]
-    unsupported = "seed、n 或 response_format" if conf.get("max_audios") else "seed、n、音频参考或 response_format"
+    unsupported = "seed、n、音频参考或 response_format"
     if not conf.get("supports_negative_prompt"):
         unsupported = "negative_prompt、" + unsupported
     intro += f" 不支持 {unsupported}。"
-
-    generation_modes = []
-    examples = []
-    if is_seedance:
-        frame_request = dict(request)
-        frame_request.update(
-            {
-                "reference_mode": "frame",
-                "first_image_url": "https://example.com/first-frame.png",
-                "last_image_url": "https://example.com/last-frame.png",
-            }
-        )
-        generation_modes = [
-            {
-                "label": "文生视频",
-                "minimum": "model + prompt",
-                "trigger": "不传参考素材",
-                "notes": "默认 4 秒、9:16、480p；可显式选择 4–15 秒任意整数、480p/720p。",
-            },
-            {
-                "label": "首尾帧生视频",
-                "minimum": "first_image_url + last_image_url",
-                "trigger": "reference_mode=frame",
-                "notes": "首尾帧必须成对，不得与全能参考素材混用。",
-            },
-            {
-                "label": "全能参考",
-                "minimum": "images / reference_videos / reference_audios 至少一项",
-                "trigger": "reference_mode=media",
-                "prompt_refs": "提示词可按前端素材顺序引用 @Image / @Video / @Audio。",
-                "notes": "最多 9 图、3 视频、3 音频；URL 素材需公网可访问。",
-            },
-        ]
-        examples = [
-            {"title": "文生视频（4 秒·480p）", "request_json": request},
-            {"title": "首尾帧生视频", "request_json": frame_request},
-            {"title": "9 图 + 3 视频 + 3 音频全能参考", "request_json": full_request},
-        ]
 
     result = {
         "dispatch_mode": "async",
@@ -336,10 +211,6 @@ def build_api_doc(conf: dict) -> dict:
             },
         },
     }
-    if generation_modes:
-        result["generation_modes"] = generation_modes
-    if examples:
-        result["examples"] = examples
     return result
 
 
@@ -419,13 +290,6 @@ def main() -> None:
         for model, price in PRICE_USD.items():
             model_price[model] = price
         save_json_option("ModelPrice", model_price)
-        billing_mode = load_json_option("billing_setting.billing_mode")
-        request_unit = load_json_option("billing_setting.request_unit")
-        for model in ("cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0-fast"):
-            billing_mode[model] = "per_request"
-            request_unit[model] = "generation"
-        save_json_option("billing_setting.billing_mode", billing_mode)
-        save_json_option("billing_setting.request_unit", request_unit)
         print(f"api_doc + pricing updated: {len(MODELS)} Adobe2API video models")
     else:
         print(f"api_doc updated without pricing changes: {len(MODELS)} Adobe2API video models")
