@@ -112,6 +112,8 @@ Adobe Sora/Veo 模型继续过滤不支持的 seed。
 
 Seedance 2.0 的参考图统一使用 `reference_image_urls`（含单图）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。参考视频和参考音频均为可选且可独立使用；仅传 `prompt` 即为文生视频。Relay 在 registry 层按线路拆为独立 vendor：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`sd5-seedance`（cy-sd5）。Seedance vendor 不得因 `reference_videos` / `reference_audios` 存在而强制要求参考图，仍需保留各 profile 的数量、大小、时长与首尾帧互斥校验。
 
+公共图片别名必须在 `relay/common.TaskSubmitReq` 入口合并、去空并去重到 `Images`，vendor 只能消费该标准字段并渲染上游协议，不得再次从原始 JSON body 解析 `image` / `image_url` / `images` / `image_urls` / `reference_images` / `reference_image_urls`。`first_image_url` / `last_image_url` 是独立的首尾帧控制字段，不进入通用参考图归一化。
+
 Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/videos` + `GET /v1/videos/{id}`，Adobe vendor 内部将创建请求映射为上游 `POST /v1/videos/generations`，并使用上游 `GET /v1/videos/{id}` 轮询。Adobe 任务直接进入通用任务表和通用轮询，不再创建独立 worker，也不再包装成 chat。
 
 模型广场与 API 文档中的 Adobe 视频元数据必须同步使用 `openai-video` endpoint、`videos-json-async` UI profile 和 `dispatch_mode=async`；旧 `*-chat` profile 与 `/v1/chat/completions` 示例属于迁移前遗留数据，不能继续对客户展示。仅修正文档/profile 而不调整售价时，运行 `python3 scripts/seed_adobe2api_video_api_doc.py --docs-only`。

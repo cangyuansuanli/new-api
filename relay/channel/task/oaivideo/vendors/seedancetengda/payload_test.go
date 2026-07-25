@@ -30,7 +30,7 @@ func TestConvertBody_NativePassthrough(t *testing.T) {
 			},
 		},
 	}
-	out, err := convertBody(in, "manxue-2.0")
+	out, err := convertBody(in, "manxue-2.0", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestConvertBody_AudioWithoutImage(t *testing.T) {
 		"prompt":           "test",
 		"reference_audios": []interface{}{"https://example.com/a.mp3"},
 	}
-	out, err := convertBody(in, "manxue-2.0")
+	out, err := convertBody(in, "manxue-2.0", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestConvertBody_FlatConversion(t *testing.T) {
 			"https://example.com/a.jpg",
 		},
 	}
-	out, err := convertBody(in, "manxue-2.0")
+	out, err := convertBody(in, "manxue-2.0", []string{"https://example.com/a.jpg"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,11 +83,10 @@ func TestConvertBody_FlatConversion(t *testing.T) {
 	}
 }
 
-func TestConvertBody_ImageURLReference(t *testing.T) {
+func TestConvertBody_NormalizedImageReference(t *testing.T) {
 	out, err := convertBody(map[string]interface{}{
-		"prompt":    "ocean waves",
-		"image_url": "https://example.com/reference.jpg",
-	}, "manxue-2.0")
+		"prompt": "ocean waves",
+	}, "manxue-2.0", []string{"https://example.com/reference.jpg"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

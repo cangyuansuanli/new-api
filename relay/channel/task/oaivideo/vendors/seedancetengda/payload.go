@@ -8,7 +8,7 @@ import (
 	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 )
 
-func convertBody(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
+func convertBody(body map[string]interface{}, upstreamModel string, referenceImages []string) (map[string]interface{}, error) {
 	if body == nil {
 		return body, nil
 	}
@@ -17,15 +17,18 @@ func convertBody(body map[string]interface{}, upstreamModel string) (map[string]
 		out["model"] = upstreamModel
 		return out, nil
 	}
-	if !needsFlatConversion(body) {
+	if !needsFlatConversion(body, referenceImages) {
 		out := cloneBodyMap(body)
 		out["model"] = upstreamModel
 		return out, nil
 	}
-	return convertFlatToGeeknow(body, upstreamModel)
+	return convertFlatToGeeknow(body, upstreamModel, referenceImages)
 }
 
-func needsFlatConversion(body map[string]interface{}) bool {
+func needsFlatConversion(body map[string]interface{}, referenceImages []string) bool {
+	if len(referenceImages) > 0 {
+		return true
+	}
 	if hasFlatSeedanceFields(body) {
 		return true
 	}
@@ -66,7 +69,7 @@ func isGeeknowNativeBody(body map[string]interface{}) bool {
 	return false
 }
 
-func convertFlatToGeeknow(body map[string]interface{}, upstreamModel string) (map[string]interface{}, error) {
+func convertFlatToGeeknow(body map[string]interface{}, upstreamModel string, referenceImages []string) (map[string]interface{}, error) {
 	prompt := strings.TrimSpace(oaivideo.AsString(body["prompt"]))
 	if prompt == "" {
 		return nil, fmt.Errorf("prompt is required")
@@ -107,11 +110,10 @@ func convertFlatToGeeknow(body map[string]interface{}, upstreamModel string) (ma
 			})
 		}
 	} else {
-		imageURLs := collectReferenceImageURLs(body)
 		videoURLs := oaivideo.CollectStringList(body[flatKeyReferenceVideos])
 		audioURLs := oaivideo.CollectStringList(body[flatKeyReferenceAudios])
 
-		for _, url := range imageURLs {
+		for _, url := range referenceImages {
 			content = append(content, map[string]interface{}{
 				"type":      "image_url",
 				"role":      "reference_image",

@@ -2,17 +2,13 @@ package seedancetengda
 
 import (
 	"strings"
-
-	oaivideo "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/shared"
 )
 
 const (
-	flatKeyReferenceImageURLs = "reference_image_urls"
-	flatKeyReferenceImages    = "reference_images"
-	flatKeyReferenceVideos    = "reference_videos"
-	flatKeyReferenceAudios    = "reference_audios"
-	flatKeyFirstImageURL      = "first_image_url"
-	flatKeyLastImageURL       = "last_image_url"
+	flatKeyReferenceVideos = "reference_videos"
+	flatKeyReferenceAudios = "reference_audios"
+	flatKeyFirstImageURL   = "first_image_url"
+	flatKeyLastImageURL    = "last_image_url"
 )
 
 func hasFlatSeedanceFields(body map[string]interface{}) bool {
@@ -20,12 +16,6 @@ func hasFlatSeedanceFields(body map[string]interface{}) bool {
 		return false
 	}
 	for _, key := range []string{
-		flatKeyReferenceImageURLs,
-		flatKeyReferenceImages,
-		"images",
-		"image_urls",
-		"image_url",
-		"image",
 		flatKeyReferenceVideos,
 		flatKeyReferenceAudios,
 		flatKeyFirstImageURL,
@@ -36,10 +26,6 @@ func hasFlatSeedanceFields(body map[string]interface{}) bool {
 		}
 	}
 	return false
-}
-
-func collectReferenceImageURLs(body map[string]interface{}) []string {
-	return oaivideo.CollectReferenceImageURLs(body)
 }
 
 func mergeFlatDuration(out map[string]interface{}, body map[string]interface{}, taskDuration int) {

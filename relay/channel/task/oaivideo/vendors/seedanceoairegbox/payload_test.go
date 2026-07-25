@@ -16,7 +16,10 @@ func TestBuildUpstreamBody_ImageVideo933(t *testing.T) {
 		"resolution":   "720p",
 		"image_url":    "https://example.com/single.jpg",
 	}
-	out := buildUpstreamBody(in, "Seedance-2.0-720p", 0)
+	out := buildUpstreamBody(in, "Seedance-2.0-720p", 0, []string{
+		"https://example.com/ref.jpg",
+		"https://example.com/single.jpg",
+	})
 	if _, ok := out["image_url"]; ok {
 		t.Fatal("legacy image_url must not be forwarded")
 	}
@@ -38,7 +41,7 @@ func TestBuildUpstreamBody_TaskDurationOverridesBody(t *testing.T) {
 		"prompt":   "test",
 		"duration": 6,
 	}
-	out := buildUpstreamBody(in, "Seedance-2.0-fast-720p", 10)
+	out := buildUpstreamBody(in, "Seedance-2.0-fast-720p", 10, nil)
 	if out["duration"] != 10 {
 		t.Fatalf("expected task duration 10, got %v", out["duration"])
 	}
@@ -50,20 +53,5 @@ func TestIsRelay(t *testing.T) {
 	}
 	if IsRelay("cy-sd4-seedance-2.0") {
 		t.Fatal("cy-sd4 must not match oairegbox")
-	}
-}
-
-func TestCollectReferenceImageURLs_NormalizesPublicAliases(t *testing.T) {
-	in := map[string]interface{}{
-		"image_url": "https://example.com/single.jpg",
-		"image":     map[string]interface{}{"url": "https://example.com/object.jpg"},
-		"images":    []interface{}{"https://example.com/list.jpg", "https://example.com/single.jpg"},
-		"reference_image_urls": []interface{}{
-			"https://example.com/canonical.jpg",
-		},
-	}
-	urls := collectReferenceImageURLs(in)
-	if len(urls) != 4 {
-		t.Fatalf("expected four deduplicated aliases, got %v", urls)
 	}
 }

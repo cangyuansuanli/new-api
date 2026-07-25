@@ -700,8 +700,10 @@ type TaskSubmitReq struct {
 	Model              string                 `json:"model,omitempty"`
 	Mode               string                 `json:"mode,omitempty"`
 	Image              string                 `json:"image,omitempty"`
+	ImageUrl           string                 `json:"image_url,omitempty"`
 	Images             []string               `json:"images,omitempty"`
 	ImageUrls          []string               `json:"image_urls,omitempty"`
+	ReferenceImages    []string               `json:"reference_images,omitempty"`
 	ReferenceImageUrls []string               `json:"reference_image_urls,omitempty"`
 	ReferenceVideos    []string               `json:"reference_videos,omitempty"`
 	Size               string                 `json:"size,omitempty"`
@@ -734,18 +736,29 @@ func normalizeTaskSubmitImages(req *TaskSubmitReq) {
 	if req == nil {
 		return
 	}
-	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
-		req.Images = []string{req.Image}
+	seen := make(map[string]struct{})
+	normalized := make([]string, 0, len(req.Images)+len(req.ImageUrls)+len(req.ReferenceImages)+len(req.ReferenceImageUrls)+3)
+	add := func(values ...string) {
+		for _, value := range values {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				continue
+			}
+			if _, exists := seen[value]; exists {
+				continue
+			}
+			seen[value] = struct{}{}
+			normalized = append(normalized, value)
+		}
 	}
-	if len(req.Images) == 0 && strings.TrimSpace(req.InputReference) != "" {
-		req.Images = []string{req.InputReference}
-	}
-	if len(req.Images) == 0 && len(req.ImageUrls) > 0 {
-		req.Images = append([]string(nil), req.ImageUrls...)
-	}
-	if len(req.Images) == 0 && len(req.ReferenceImageUrls) > 0 {
-		req.Images = append([]string(nil), req.ReferenceImageUrls...)
-	}
+	add(req.Images...)
+	add(req.Image)
+	add(req.ImageUrl)
+	add(req.InputReference)
+	add(req.ImageUrls...)
+	add(req.ReferenceImages...)
+	add(req.ReferenceImageUrls...)
+	req.Images = normalized
 }
 
 func (t *TaskSubmitReq) HasImage() bool {
@@ -762,12 +775,16 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	}
 
 	imageRaw := raw["image"]
+	imageURLRaw := raw["image_url"]
 	inputRefRaw := raw["input_reference"]
+	referenceImagesRaw := raw["reference_images"]
 	metadataRaw := raw["metadata"]
 	durationRaw := raw["duration"]
 	secondsRaw := raw["seconds"]
 	delete(raw, "image")
+	delete(raw, "image_url")
 	delete(raw, "input_reference")
+	delete(raw, "reference_images")
 	delete(raw, "metadata")
 	delete(raw, "duration")
 	delete(raw, "seconds")
@@ -794,6 +811,14 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	if refs, ok := unmarshalFlexibleStringSlice(imageURLRaw); ok {
+		if len(refs) == 1 {
+			t.ImageUrl = refs[0]
+		} else {
+			t.Images = append(t.Images, refs...)
+		}
+	}
+
 	if len(durationRaw) > 0 {
 		if v, ok := unmarshalFlexibleInt(durationRaw); ok {
 			t.Duration = v
@@ -814,6 +839,10 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 				t.Images = append([]string(nil), refs...)
 			}
 		}
+	}
+
+	if refs, ok := unmarshalFlexibleStringSlice(referenceImagesRaw); ok {
+		t.ReferenceImages = append(t.ReferenceImages, refs...)
 	}
 
 	if len(metadataRaw) > 0 {

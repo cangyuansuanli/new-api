@@ -87,3 +87,40 @@ func TestTaskSubmitReqUnmarshalInputReferenceObject(t *testing.T) {
 	require.Equal(t, "https://example.com/a.jpg", req.InputReference)
 	require.Equal(t, []string{"https://example.com/a.jpg"}, req.Images)
 }
+
+func TestTaskSubmitReqNormalizesAllImageAliases(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"image string", `{"prompt":"test","image":"https://example.com/ref.jpg"}`},
+		{"image object", `{"prompt":"test","image":{"url":"https://example.com/ref.jpg"}}`},
+		{"image_url", `{"prompt":"test","image_url":"https://example.com/ref.jpg"}`},
+		{"images", `{"prompt":"test","images":["https://example.com/ref.jpg"]}`},
+		{"image_urls", `{"prompt":"test","image_urls":["https://example.com/ref.jpg"]}`},
+		{"reference_images", `{"prompt":"test","reference_images":[{"url":"https://example.com/ref.jpg"}]}`},
+		{"reference_image_urls", `{"prompt":"test","reference_image_urls":["https://example.com/ref.jpg"]}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req TaskSubmitReq
+			require.NoError(t, json.Unmarshal([]byte(tt.body), &req))
+			require.Equal(t, []string{"https://example.com/ref.jpg"}, req.Images)
+		})
+	}
+}
+
+func TestTaskSubmitReqCombinesAndDeduplicatesImageAliases(t *testing.T) {
+	var req TaskSubmitReq
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"prompt":"test",
+		"images":["https://example.com/a.jpg","https://example.com/b.jpg"],
+		"image_url":"https://example.com/a.jpg",
+		"reference_image_urls":["https://example.com/c.jpg"]
+	}`), &req))
+	require.Equal(t, []string{
+		"https://example.com/a.jpg",
+		"https://example.com/b.jpg",
+		"https://example.com/c.jpg",
+	}, req.Images)
+}

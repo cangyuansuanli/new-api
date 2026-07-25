@@ -30,12 +30,12 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
-	duration := 0
-	if req, err := relaycommon.GetTaskRequest(c); err == nil {
-		duration = req.RequestedDurationSeconds()
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return nil, err
 	}
-	mergeFlatDuration(bodyMap, bodyMap, duration)
-	converted, convErr := convertBody(bodyMap, info.UpstreamModelName)
+	mergeFlatDuration(bodyMap, bodyMap, req.RequestedDurationSeconds())
+	converted, convErr := convertBody(bodyMap, info.UpstreamModelName, req.Images)
 	if convErr != nil {
 		return nil, convErr
 	}
