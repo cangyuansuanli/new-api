@@ -217,6 +217,10 @@ func AsBool(v interface{}) bool {
 func CollectStringList(raw interface{}) []string {
 	out := make([]string, 0)
 	switch v := raw.(type) {
+	case map[string]interface{}:
+		if s := extractRefURL(v); s != "" {
+			out = append(out, s)
+		}
 	case []interface{}:
 		for _, item := range v {
 			if s := extractRefURL(item); s != "" {
@@ -232,6 +236,33 @@ func CollectStringList(raw interface{}) []string {
 	case string:
 		if s := strings.TrimSpace(v); s != "" {
 			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// CollectReferenceImageURLs normalizes the public image aliases accepted by
+// the video API into a de-duplicated reference-image list.
+func CollectReferenceImageURLs(body map[string]interface{}) []string {
+	if body == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 9)
+	for _, key := range []string{
+		"reference_image_urls",
+		"reference_images",
+		"images",
+		"image_urls",
+		"image_url",
+		"image",
+	} {
+		for _, url := range CollectStringList(body[key]) {
+			if _, ok := seen[url]; ok {
+				continue
+			}
+			seen[url] = struct{}{}
+			out = append(out, url)
 		}
 	}
 	return out

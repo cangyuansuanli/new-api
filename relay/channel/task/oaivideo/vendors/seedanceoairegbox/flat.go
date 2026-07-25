@@ -16,37 +16,7 @@ const (
 )
 
 func collectReferenceImageURLs(body map[string]interface{}) []string {
-	if body == nil {
-		return nil
-	}
-	seen := map[string]struct{}{}
-	out := make([]string, 0, 9)
-	add := func(url string) {
-		url = strings.TrimSpace(url)
-		if url == "" {
-			return
-		}
-		if _, ok := seen[url]; ok {
-			return
-		}
-		seen[url] = struct{}{}
-		out = append(out, url)
-	}
-	for _, url := range oaivideo.CollectStringList(body[flatKeyReferenceImageURLs]) {
-		add(url)
-	}
-	switch refs := body[flatKeyReferenceImages].(type) {
-	case []interface{}:
-		for _, item := range refs {
-			switch v := item.(type) {
-			case string:
-				add(v)
-			case map[string]interface{}:
-				add(oaivideo.AsString(v["url"]))
-			}
-		}
-	}
-	return out
+	return oaivideo.CollectReferenceImageURLs(body)
 }
 
 func referenceImageURLsField(urls []string) interface{} {
