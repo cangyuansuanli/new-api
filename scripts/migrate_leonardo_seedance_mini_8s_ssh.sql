@@ -40,18 +40,14 @@ INSERT INTO model_ui_param_profiles (
       "video": {
         "minDurationMs": 4000,
         "maxDurationMs": 8000,
-        "totalMaxDurationMs": 8000,
-        "minWidth": 720,
-        "maxWidth": 2160,
-        "minHeight": 720,
-        "maxHeight": 2160
+        "totalMaxDurationMs": 8000
       },
       "audio": { "maxDurationMs": 8000 },
       "fullReferenceMode": {
         "label": "多模态",
         "descriptionWithImages": "多模态：图 + 可选视频/音频"
       },
-      "validationHint": "参考视频 mp4/mov，单条 4–8 秒、最多 3 条总时长 ≤8 秒；参考音频 ≤8 秒；素材宽高 720–2160px。",
+      "validationHint": "参考视频 mp4/mov，单条 4–8 秒、最多 3 条总时长 ≤8 秒；参考音频 ≤8 秒；参考视频像素上限由 Leonardo 上游判定。",
       "showTempMediaHint": true,
       "prependReferenceGuide": true
     }',
