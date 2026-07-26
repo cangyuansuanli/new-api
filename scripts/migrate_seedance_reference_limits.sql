@@ -49,11 +49,7 @@ SET validation_key = '',
   "video": {
     "minDurationMs": 4000,
     "maxDurationMs": 15000,
-    "totalMaxDurationMs": 15000,
-    "minWidth": 720,
-    "maxWidth": 2160,
-    "minHeight": 720,
-    "maxHeight": 2160
+    "totalMaxDurationMs": 15000
   },
   "audio": {
     "maxDurationMs": 15000
@@ -62,7 +58,7 @@ SET validation_key = '',
     "label": "多模态",
     "descriptionWithImages": "多模态：图 + 可选视频/音频"
   },
-  "validationHint": "参考视频 mp4/mov，单条 4–15 秒、最多 3 条总时长 ≤15 秒；参考音频 ≤15 秒；素材宽高 720–2160px。",
+  "validationHint": "参考视频 mp4/mov，单条 4–15 秒、最多 3 条总时长 ≤15 秒；参考音频 ≤15 秒；参考视频像素上限由 Leonardo 上游判定（Seedance 2.0 官方 API 未写宽高限制）。",
   "showTempMediaHint": true,
   "prependReferenceGuide": true
 }'::text,

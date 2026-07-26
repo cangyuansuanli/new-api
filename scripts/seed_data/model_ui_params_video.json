@@ -2313,9 +2313,7 @@
                 "video": {
                     "minDurationMs": 4000,
                     "maxDurationMs": 15000,
-                    "totalMaxDurationMs": 15000,
-                    "maxWidth": 2160,
-                    "maxHeight": 2160
+                    "totalMaxDurationMs": 15000
                 },
                 "audio": {
                     "maxDurationMs": 15000
@@ -2324,7 +2322,7 @@
                     "label": "多模态",
                     "descriptionWithImages": "多模态：图 + 可选视频/音频"
                 },
-                "validationHint": "参考视频 mp4/mov，单条 4–15 秒、最多 3 条总时长 ≤15 秒；参考音频 ≤15 秒；视频每边 ≤2160px（无 720px 最小边；画布测试路径跳过此项客户端校验）。",
+                "validationHint": "参考视频 mp4/mov，单条 4–15 秒、最多 3 条总时长 ≤15 秒；参考音频 ≤15 秒；参考视频像素上限由 Leonardo 上游判定（Seedance 2.0 官方 API 未写宽高限制）。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
