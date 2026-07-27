@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,15 @@ func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
 	model.DB = db
 	model.LOG_DB = db
 
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Ability{}, &model.Model{}, &model.Vendor{}))
+	require.NoError(t, db.AutoMigrate(
+		&model.User{},
+		&model.Channel{},
+		&model.Ability{},
+		&model.Model{},
+		&model.Vendor{},
+		&model.ModelPublicAlias{},
+		&model.ModelChannelPrefix{},
+	))
 	require.NoError(t, db.Create(&model.Channel{
 		Id:     1,
 		Name:   "enabled-model-list-channel",
@@ -222,7 +231,7 @@ func TestPricingAndModelListIgnoreEnabledAbilitiesFromDisabledChannels(t *testin
 		Id:     2,
 		Name:   "disabled-stale-ability-channel",
 		Type:   constant.ChannelTypeOpenAI,
-		Status: common.ChannelStatusDisabled,
+		Status: common.ChannelStatusManuallyDisabled,
 	}).Error)
 	require.NoError(t, db.Create(&[]model.Ability{
 		{Group: "default", Model: "claude-opus-4-7", ChannelId: 1, Enabled: true},
@@ -236,6 +245,46 @@ func TestPricingAndModelListIgnoreEnabledAbilitiesFromDisabledChannels(t *testin
 	pricing := pricingByModelName(model.GetPricing())
 	require.Contains(t, pricing, "claude-opus-4-7")
 	require.NotContains(t, pricing, "claude-opus-4.7")
+}
+
+func TestListModelsKeepsEndpointTypesWhenDisplayingPublicAlias(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1003,
+		Username: "public-model-list-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+		Setting:  `{"accept_unset_model_ratio_model":true}`,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     "default",
+		Model:     "vendor-public-model",
+		ChannelId: 1,
+		Enabled:   true,
+	}).Error)
+	require.NoError(t, db.Create(&model.ModelPublicAlias{
+		InternalName: "vendor-public-model",
+		PublicName:   "public-model",
+	}).Error)
+
+	model.InvalidatePricingCache()
+	require.NotEmpty(t, model.GetPricing())
+	require.NoError(t, service.RefreshModelPublicNameRegistry())
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set("id", 1003)
+
+	ListModels(ctx, constant.ChannelTypeOpenAI)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload listModelsResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Len(t, payload.Data, 1)
+	require.Equal(t, "public-model", payload.Data[0].Id)
+	require.Equal(t, []constant.EndpointType{constant.EndpointTypeOpenAI}, payload.Data[0].SupportedEndpointTypes)
 }
 
 func TestListModelsAnthropicEmptyListDoesNotPanic(t *testing.T) {

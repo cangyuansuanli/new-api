@@ -150,22 +150,22 @@ func getPreferredModelOwners(modelNames []string, groups []string) map[string]st
 	return owners
 }
 
-func buildOpenAIModel(modelName string, ownerByModel map[string]string) dto.OpenAIModels {
+func buildOpenAIModel(displayName string, internalName string, ownerByModel map[string]string) dto.OpenAIModels {
 	var oaiModel dto.OpenAIModels
-	if staticModel, ok := openAIModelsMap[modelName]; ok {
+	if staticModel, ok := openAIModelsMap[displayName]; ok {
 		oaiModel = staticModel
 	} else {
 		oaiModel = dto.OpenAIModels{
-			Id:      modelName,
+			Id:      displayName,
 			Object:  "model",
 			Created: 1626777600,
 			OwnedBy: "custom",
 		}
 	}
-	if owner, ok := ownerByModel[modelName]; ok && owner != "" {
+	if owner, ok := ownerByModel[internalName]; ok && owner != "" {
 		oaiModel.OwnedBy = owner
 	}
-	oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+	oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(internalName)
 	return oaiModel
 }
 
@@ -275,22 +275,23 @@ func ListModels(c *gin.Context, modelType int) {
 
 	var userOpenAiModels []dto.OpenAIModels
 	if service.ModelPublicNameEnabled() {
-		publicNames := service.PublicModelNamesFromInternals(userModelNames)
-		ownerByPublic := make(map[string]string, len(publicNames))
+		seenPublicNames := make(map[string]struct{}, len(userModelNames))
+		userOpenAiModels = make([]dto.OpenAIModels, 0, len(userModelNames))
 		for _, internal := range userModelNames {
 			public := service.ToPublicModelName(internal)
-			if owner, ok := ownerByModel[internal]; ok {
-				ownerByPublic[public] = owner
+			if public == "" {
+				continue
 			}
-		}
-		userOpenAiModels = make([]dto.OpenAIModels, 0, len(publicNames))
-		for _, publicName := range publicNames {
-			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(publicName, ownerByPublic))
+			if _, exists := seenPublicNames[public]; exists {
+				continue
+			}
+			seenPublicNames[public] = struct{}{}
+			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(public, internal, ownerByModel))
 		}
 	} else {
 		userOpenAiModels = make([]dto.OpenAIModels, 0, len(userModelNames))
 		for _, modelName := range userModelNames {
-			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(modelName, ownerByModel))
+			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(modelName, modelName, ownerByModel))
 		}
 	}
 
