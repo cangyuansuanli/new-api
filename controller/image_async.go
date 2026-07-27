@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -247,8 +248,18 @@ func RelayImageTaskSubmit(c *gin.Context) {
 			PerCallBilling:  service.ShouldTaskPerCallBilling(relayInfo.OriginModelName, relayInfo.PriceData.UsePrice, relayInfo.PriceData.OtherRatios),
 		}
 
-		if insertErr := task.Insert(); insertErr != nil {
+		globalLimit, perUserLimit := imageTaskAdmissionLimits(c)
+		if insertErr := model.InsertImageTaskWithAdmission(task, globalLimit, perUserLimit); insertErr != nil {
 			_ = image.CleanupEditSnapshotInputs(snapshot)
+			if errors.Is(insertErr, model.ErrImageTaskQueueFull) {
+				c.Header("Retry-After", "5")
+				taskErr = service.TaskErrorWrapperLocal(
+					insertErr,
+					"image_queue_full",
+					http.StatusTooManyRequests,
+				)
+				break
+			}
 			taskErr = service.TaskErrorWrapper(insertErr, "insert_task_failed", http.StatusInternalServerError)
 			break
 		}
@@ -267,31 +278,14 @@ func RelayImageTaskSubmit(c *gin.Context) {
 	}
 }
 
-func enforceImageTaskAdmission(c *gin.Context, userID int, channelID int) *dto.TaskError {
-	adobeChannelIDs := image.AdobeDirectChannelIDs()
-	isAdobeLane := image.IsAdobeDirectChannel(channelID)
-	global, perUser, err := model.CountActiveImageTasksForChannels(userID, adobeChannelIDs, isAdobeLane)
+func enforceImageTaskAdmission(c *gin.Context, userID int, _ int) *dto.TaskError {
+	global, perUser, err := model.CountActiveImageTasks(userID)
 	if err != nil {
 		return service.TaskErrorWrapper(err, "image_queue_status_failed", http.StatusInternalServerError)
 	}
-	globalLimit := int64(common.GetEnvOrDefault("IMAGE_ASYNC_MAX_QUEUED_GLOBAL", 2000))
-	perUserLimit := int64(common.GetEnvOrDefault("IMAGE_ASYNC_MAX_QUEUED_PER_USER", 200))
-	if isAdobeLane {
-		globalLimit = int64(common.GetEnvOrDefault("IMAGE_ASYNC_ADOBE_MAX_QUEUED_GLOBAL", 500))
-		perUserLimit = int64(common.GetEnvOrDefault("IMAGE_ASYNC_ADOBE_MAX_QUEUED_PER_USER", 100))
-	}
-	if c.GetBool("image_sync_wait") {
-		if isAdobeLane {
-			globalLimit = int64(common.GetEnvOrDefault("IMAGE_SYNC_ADOBE_MAX_BACKLOG", 32))
-		} else {
-			globalLimit = int64(common.GetEnvOrDefault("IMAGE_SYNC_MAX_BACKLOG", 64))
-		}
-	}
+	globalLimit, perUserLimit := imageTaskAdmissionLimits(c)
 	if (globalLimit > 0 && global >= globalLimit) || (perUserLimit > 0 && perUser >= perUserLimit) {
 		c.Header("Retry-After", "5")
-		if isAdobeLane {
-			c.Header("X-Image-Queue-Lane", "adobe")
-		}
 		return service.TaskErrorWrapperLocal(
 			fmt.Errorf("image queue is at capacity; retry later"),
 			"image_queue_full",
@@ -299,6 +293,22 @@ func enforceImageTaskAdmission(c *gin.Context, userID int, channelID int) *dto.T
 		)
 	}
 	return nil
+}
+
+func imageTaskAdmissionLimits(c *gin.Context) (globalLimit, perUserLimit int64) {
+	globalLimit = int64(common.GetEnvOrDefault("IMAGE_ASYNC_MAX_QUEUED_GLOBAL", 2000))
+	perUserLimit = int64(common.GetEnvOrDefault("IMAGE_ASYNC_MAX_QUEUED_PER_USER", 200))
+	if c.GetBool("image_sync_wait") {
+		globalLimit = imageSyncBacklogLimit()
+	}
+	return globalLimit, perUserLimit
+}
+
+func imageSyncBacklogLimit() int64 {
+	if limit := int64(common.GetEnvOrDefault("IMAGE_SYNC_MAX_BACKLOG", 0)); limit > 0 {
+		return limit
+	}
+	return int64(common.GetEnvOrDefault("IMAGE_SYNC_ADOBE_MAX_BACKLOG", 64))
 }
 
 func snapshotAsyncImageRequest(c *gin.Context, relayMode int, taskID string) ([]byte, string, error) {

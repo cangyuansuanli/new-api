@@ -1,11 +1,21 @@
 package model
 
 import (
+	"errors"
+	"fmt"
+	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"gorm.io/gorm"
 )
+
+var ErrImageTaskQueueFull = errors.New("image task queue is at capacity")
+
+const imageTaskAdmissionLockKey int64 = 0x696d6167655f7175
+
+var imageTaskAdmissionLocalMu sync.Mutex
 
 type ImageTaskStatus struct {
 	Status     TaskStatus
@@ -105,6 +115,70 @@ func fairImageTaskIDs(tasks []*Task, limit int) []string {
 
 func CountActiveImageTasks(userID int) (global int64, perUser int64, err error) {
 	return CountActiveImageTasksForChannels(userID, nil, false)
+}
+
+// InsertImageTaskWithAdmission serializes the final capacity check and insert.
+// PostgreSQL and MySQL share a database-level lock across every API process,
+// closing the COUNT-then-INSERT race at the durable database boundary. SQLite
+// deployments use an in-process lock; SQLite itself permits only one writer.
+func InsertImageTaskWithAdmission(task *Task, globalLimit, perUserLimit int64) error {
+	if task == nil {
+		return errors.New("image task is nil")
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		release, err := lockImageTaskAdmission(tx)
+		if err != nil {
+			return err
+		}
+		defer release()
+
+		statuses := []TaskStatus{TaskStatusSubmitted, TaskStatusQueued, TaskStatusInProgress}
+		query := tx.Model(&Task{}).
+			Where("platform = ? AND status IN ?", constant.TaskPlatformImage, statuses)
+		var global int64
+		if err := query.Count(&global).Error; err != nil {
+			return err
+		}
+		if globalLimit > 0 && global >= globalLimit {
+			return ErrImageTaskQueueFull
+		}
+
+		if perUserLimit > 0 {
+			var perUser int64
+			if err := query.Where("user_id = ?", task.UserId).Count(&perUser).Error; err != nil {
+				return err
+			}
+			if perUser >= perUserLimit {
+				return ErrImageTaskQueueFull
+			}
+		}
+		return tx.Create(task).Error
+	})
+}
+
+func lockImageTaskAdmission(tx *gorm.DB) (func(), error) {
+	if common.UsingPostgreSQL {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", imageTaskAdmissionLockKey).Error; err != nil {
+			return nil, err
+		}
+		return func() {}, nil
+	}
+	if common.UsingMySQL {
+		const lockName = "new_api_image_task_admission"
+		var acquired int
+		if err := tx.Raw("SELECT GET_LOCK(?, 10)", lockName).Scan(&acquired).Error; err != nil {
+			return nil, err
+		}
+		if acquired != 1 {
+			return nil, fmt.Errorf("timed out acquiring image task admission lock")
+		}
+		return func() {
+			_ = tx.Exec("SELECT RELEASE_LOCK(?)", lockName).Error
+		}, nil
+	}
+
+	imageTaskAdmissionLocalMu.Lock()
+	return imageTaskAdmissionLocalMu.Unlock, nil
 }
 
 // CountActiveImageTasksForChannels counts active tasks inside one channel
