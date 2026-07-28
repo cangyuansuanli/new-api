@@ -7,6 +7,16 @@
 
 BEGIN;
 
+-- Register the internal service-account group in GroupRatio so Root can see
+-- and manage it. It intentionally stays out of UserUsableGroups.
+INSERT INTO options (key, value)
+VALUES ('GroupRatio', '{"downstream-canghai":1}')
+ON CONFLICT (key) DO UPDATE
+SET value = (
+    COALESCE(NULLIF(BTRIM(options.value), ''), '{}')::jsonb
+    || '{"downstream-canghai":1}'::jsonb
+)::text;
+
 UPDATE channels
 SET "group" = concat_ws(',', NULLIF(BTRIM("group"), ''), 'downstream-canghai')
 WHERE id = 75
@@ -42,6 +52,11 @@ WHERE channel_id = 75
   );
 
 COMMIT;
+
+SELECT key, value
+FROM options
+WHERE key IN ('GroupRatio', 'UserUsableGroups')
+ORDER BY key;
 
 SELECT id, name, status, "group"
 FROM channels
