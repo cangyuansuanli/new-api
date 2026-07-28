@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"regexp"
 	"strconv"
@@ -343,12 +344,48 @@ func enqueueLocalImageTask(taskID string) bool {
 }
 
 func imageAsyncDispatchLoop(dispatcher *imageTaskDispatcher) {
+	for {
+		leadership, acquired, err := model.TryAcquireImageTaskDispatchLeadership(context.Background())
+		if err != nil {
+			common.SysError("image async dispatch leader acquire failed: " + err.Error())
+		} else if acquired {
+			common.SysLog("image async dispatch leader acquired by " + dispatcher.owner)
+			err = runImageAsyncDispatchLeader(dispatcher, leadership)
+			leadership.Release()
+			if err != nil {
+				common.SysError("image async dispatch leadership lost: " + err.Error())
+			}
+		}
+		time.Sleep(imageDispatchLeadershipRetryDelay(dispatcher.owner, dispatcher.config.dbScanInterval))
+	}
+}
+
+func runImageAsyncDispatchLeader(dispatcher *imageTaskDispatcher, leadership *model.ImageTaskDispatchLeadership) error {
 	ticker := time.NewTicker(dispatcher.config.dbScanInterval)
 	defer ticker.Stop()
 	for {
+		checkCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		err := leadership.Check(checkCtx)
+		cancel()
+		if err != nil {
+			return err
+		}
 		dispatchClaimableImageTasks(dispatcher)
 		<-ticker.C
 	}
+}
+
+func imageDispatchLeadershipRetryDelay(owner string, interval time.Duration) time.Duration {
+	if interval <= 0 {
+		interval = 15 * time.Second
+	}
+	window := interval / 5
+	if window < time.Second {
+		window = time.Second
+	}
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(owner))
+	return interval + time.Duration(uint64(hash.Sum32())%uint64(window))
 }
 
 func dispatchClaimableImageTasks(dispatcher *imageTaskDispatcher) {

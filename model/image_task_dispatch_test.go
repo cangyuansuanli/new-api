@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -221,6 +222,24 @@ func TestInsertImageTaskWithAdmissionConcurrentLimit(t *testing.T) {
 	var count int64
 	require.NoError(t, DB.Model(&Task{}).Where("user_id = ?", 7).Count(&count).Error)
 	require.Equal(t, int64(limit), count)
+}
+
+func TestImageTaskDispatchLeadershipSingleLocalLeader(t *testing.T) {
+	leader, acquired, err := TryAcquireImageTaskDispatchLeadership(context.Background())
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.NoError(t, leader.Check(context.Background()))
+
+	second, acquired, err := TryAcquireImageTaskDispatchLeadership(context.Background())
+	require.NoError(t, err)
+	require.False(t, acquired)
+	require.Nil(t, second)
+
+	leader.Release()
+	replacement, acquired, err := TryAcquireImageTaskDispatchLeadership(context.Background())
+	require.NoError(t, err)
+	require.True(t, acquired)
+	replacement.Release()
 }
 
 func TestGetImageTaskStatusLoadsOnlyStatusFields(t *testing.T) {

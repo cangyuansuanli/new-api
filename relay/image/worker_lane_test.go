@@ -2,6 +2,7 @@ package image
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -12,6 +13,14 @@ func TestAdobeDirectChannelIDsAreConfigurable(t *testing.T) {
 	require.True(t, IsAdobeDirectChannel(75))
 	require.True(t, IsAdobeDirectChannel(81))
 	require.False(t, IsAdobeDirectChannel(77))
+}
+
+func TestImageDispatchLeadershipRetryDelayIsStableAndJittered(t *testing.T) {
+	interval := 15 * time.Second
+	delay := imageDispatchLeadershipRetryDelay("image-worker-origin-1", interval)
+	require.GreaterOrEqual(t, delay, interval)
+	require.Less(t, delay, 18*time.Second)
+	require.Equal(t, delay, imageDispatchLeadershipRetryDelay("image-worker-origin-1", interval))
 }
 
 func TestEffectiveImageWorkerConcurrencyFoldsLegacyAdobeLane(t *testing.T) {

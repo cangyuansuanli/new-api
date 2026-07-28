@@ -1,6 +1,8 @@
 package model
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sync"
@@ -15,7 +17,86 @@ var ErrImageTaskQueueFull = errors.New("image task queue is at capacity")
 
 const imageTaskAdmissionLockKey int64 = 0x696d6167655f7175
 
+const imageTaskDispatchLeaderLockKey int64 = 0x696d675f7363616e
+
 var imageTaskAdmissionLocalMu sync.Mutex
+var imageTaskDispatchLeaderLocalMu sync.Mutex
+
+// ImageTaskDispatchLeadership owns the single durable-queue repair scanner.
+// PostgreSQL/MySQL leadership is tied to a dedicated database session, so the
+// lock is released automatically if the process or connection dies.
+type ImageTaskDispatchLeadership struct {
+	conn     *sql.Conn
+	local    bool
+	release  sync.Once
+	dbEngine string
+}
+
+func TryAcquireImageTaskDispatchLeadership(ctx context.Context) (*ImageTaskDispatchLeadership, bool, error) {
+	if !common.UsingPostgreSQL && !common.UsingMySQL {
+		if !imageTaskDispatchLeaderLocalMu.TryLock() {
+			return nil, false, nil
+		}
+		return &ImageTaskDispatchLeadership{local: true, dbEngine: "local"}, true, nil
+	}
+
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return nil, false, err
+	}
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	leader := &ImageTaskDispatchLeadership{conn: conn}
+	acquired := false
+	if common.UsingPostgreSQL {
+		leader.dbEngine = "postgresql"
+		err = conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", imageTaskDispatchLeaderLockKey).Scan(&acquired)
+	} else {
+		leader.dbEngine = "mysql"
+		var won int
+		err = conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 0)", "new_api_image_task_dispatch_leader").Scan(&won)
+		acquired = won == 1
+	}
+	if err != nil || !acquired {
+		_ = conn.Close()
+		return nil, false, err
+	}
+	return leader, true, nil
+}
+
+func (leadership *ImageTaskDispatchLeadership) Check(ctx context.Context) error {
+	if leadership == nil {
+		return errors.New("image task dispatch leadership is nil")
+	}
+	if leadership.local {
+		return nil
+	}
+	return leadership.conn.PingContext(ctx)
+}
+
+func (leadership *ImageTaskDispatchLeadership) Release() {
+	if leadership == nil {
+		return
+	}
+	leadership.release.Do(func() {
+		if leadership.local {
+			imageTaskDispatchLeaderLocalMu.Unlock()
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if leadership.dbEngine == "postgresql" {
+			var released bool
+			_ = leadership.conn.QueryRowContext(ctx, "SELECT pg_advisory_unlock($1)", imageTaskDispatchLeaderLockKey).Scan(&released)
+		} else {
+			var released int
+			_ = leadership.conn.QueryRowContext(ctx, "SELECT RELEASE_LOCK(?)", "new_api_image_task_dispatch_leader").Scan(&released)
+		}
+		_ = leadership.conn.Close()
+	})
+}
 
 type ImageTaskStatus struct {
 	Status     TaskStatus
