@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -73,6 +74,44 @@ func TestQueuedEditHTTPSReferencesPassThroughWithoutR2Upload(t *testing.T) {
 	}
 	if len(replayed.MultipartForm.File) != 0 {
 		t.Fatalf("URL references should not become files: %#v", replayed.MultipartForm.File)
+	}
+}
+
+func TestCleanupTaskRequestContextRemovesMultipartTempFiles(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("image", "reference.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write(bytes.Repeat([]byte("x"), 2<<20)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", &body)
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	if err := c.Request.ParseMultipartForm(1); err != nil {
+		t.Fatal(err)
+	}
+	file, err := c.Request.MultipartForm.File["image"][0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempFile, ok := file.(*os.File)
+	if !ok {
+		file.Close()
+		t.Fatal("expected multipart payload to spill to a temporary file")
+	}
+	tempPath := tempFile.Name()
+	file.Close()
+
+	cleanupTaskRequestContext(c)
+	if _, err := os.Stat(tempPath); !os.IsNotExist(err) {
+		t.Fatalf("multipart temporary file still exists: %s", tempPath)
 	}
 }
 

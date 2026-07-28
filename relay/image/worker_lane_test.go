@@ -14,12 +14,17 @@ func TestAdobeDirectChannelIDsAreConfigurable(t *testing.T) {
 	require.False(t, IsAdobeDirectChannel(77))
 }
 
-func TestImageDispatcherQueueKeysWorkBeforeWorkerStartup(t *testing.T) {
-	notify, dedup := imageDispatcherQueueKeys(&imageDispatcher)
-	require.Equal(t, imageTaskNotifyQueue, notify)
-	require.Equal(t, imageTaskNotifyDedup, dedup)
+func TestEffectiveImageWorkerConcurrencyFoldsLegacyAdobeLane(t *testing.T) {
+	t.Setenv("IMAGE_ASYNC_MAX_CONCURRENT", "32")
+	t.Setenv("IMAGE_ASYNC_ADOBE_MAX_CONCURRENT", "14")
+	require.Equal(t, 46, effectiveImageWorkerConcurrency())
+}
 
-	notify, dedup = imageDispatcherQueueKeys(&adobeImageDispatcher)
-	require.Equal(t, adobeTaskNotifyQueue, notify)
-	require.Equal(t, adobeTaskNotifyDedup, dedup)
+func TestImageWorkerConfigUsesUnifiedQueueDefaults(t *testing.T) {
+	t.Setenv("IMAGE_ASYNC_MAX_CONCURRENT", "16")
+	t.Setenv("IMAGE_ASYNC_ADOBE_MAX_CONCURRENT", "8")
+	cfg := loadImageWorkerConfig()
+	require.Equal(t, 24, cfg.concurrency)
+	require.Equal(t, 96, cfg.queueCapacity)
+	require.Equal(t, 48, cfg.dispatchBatch)
 }

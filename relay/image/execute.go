@@ -48,6 +48,7 @@ func executeTaskUpstream(ctx context.Context, task *model.Task) ([]dto.ImageData
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = req
+	defer cleanupTaskRequestContext(c)
 	cache.WriteContext(c)
 	c.Set("id", task.UserId)
 
@@ -103,6 +104,15 @@ func executeTaskUpstream(ctx context.Context, task *model.Task) ([]dto.ImageData
 		return nil, nil, err
 	}
 	return images, usage, nil
+}
+
+func cleanupTaskRequestContext(c *gin.Context) {
+	common.CleanupBodyStorage(c)
+	if c.Request != nil && c.Request.MultipartForm != nil {
+		_ = c.Request.MultipartForm.RemoveAll()
+		c.Request.MultipartForm = nil
+	}
+	service.CleanupFileSources(c)
 }
 
 func executeLegacyAsyncChatImageTask(c *gin.Context, task *model.Task, w *httptest.ResponseRecorder) ([]dto.ImageData, *dto.Usage, error) {

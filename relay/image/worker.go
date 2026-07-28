@@ -20,12 +20,14 @@ import (
 )
 
 const (
-	imageTaskNotifyQueue      = "new-api:image:task-notify"
-	imageTaskNotifyDedup      = "new-api:image:task-notify:"
-	adobeTaskNotifyQueue      = "new-api:image:task-notify:adobe"
-	adobeTaskNotifyDedup      = "new-api:image:task-notify:adobe:"
-	imageTaskDoneChannel      = "new-api:image:task-done:"
-	defaultAdobeChannelIDList = "75"
+	imageTaskNotifyQueue = "new-api:image:task-notify"
+	imageTaskNotifyDedup = "new-api:image:task-notify:"
+	// legacyAdobeTaskNotifyQueue drains stale notifications from the retired
+	// adobe lane during rolling upgrades.
+	legacyAdobeTaskNotifyQueue = "new-api:image:task-notify:adobe"
+	legacyAdobeTaskNotifyDedup = "new-api:image:task-notify:adobe:"
+	imageTaskDoneChannel       = "new-api:image:task-done:"
+	defaultAdobeChannelIDList  = "75"
 )
 
 type imageWorkerConfig struct {
@@ -38,22 +40,17 @@ type imageWorkerConfig struct {
 }
 
 type imageTaskDispatcher struct {
-	once            sync.Once
-	name            string
-	notifyKey       string
-	dedupKey        string
-	channelIDs      []int
-	includeChannels bool
-	queue           chan string
-	redis           *redis.Client
-	owner           string
-	config          imageWorkerConfig
-	mu              sync.Mutex
-	queued          map[string]struct{}
-	enabled         bool
-	active          atomic.Int64
-	completed       atomic.Int64
-	failed          atomic.Int64
+	once      sync.Once
+	queue     chan string
+	redis     *redis.Client
+	owner     string
+	config    imageWorkerConfig
+	mu        sync.Mutex
+	queued    map[string]struct{}
+	enabled   bool
+	active    atomic.Int64
+	completed atomic.Int64
+	failed    atomic.Int64
 }
 
 type WorkerLaneStats struct {
@@ -84,39 +81,38 @@ type WorkerStats struct {
 }
 
 func GetWorkerStats() (WorkerStats, error) {
-	adobeChannelIDs := AdobeDirectChannelIDs()
-	defaultBacklog, _, err := model.CountActiveImageTasksForChannels(0, adobeChannelIDs, false)
+	globalBacklog, _, err := model.CountActiveImageTasks(0)
 	if err != nil {
 		return WorkerStats{}, err
 	}
-	adobeBacklog, _, err := model.CountActiveImageTasksForChannels(0, adobeChannelIDs, true)
-	if err != nil {
-		return WorkerStats{}, err
-	}
-	defaultStats := workerLaneStats(&imageDispatcher, defaultBacklog)
-	adobeStats := workerLaneStats(&adobeImageDispatcher, adobeBacklog)
+	laneStats := workerPoolStats(&imageDispatcher, globalBacklog)
+	legacyPending := legacyAdobeRedisPending()
 	stats := WorkerStats{
-		Enabled:       imageDispatcher.enabled || adobeImageDispatcher.enabled,
+		Enabled:       imageDispatcher.enabled,
 		Owner:         imageDispatcher.owner,
-		Concurrency:   defaultStats.Concurrency + adobeStats.Concurrency,
-		QueueCapacity: defaultStats.QueueCapacity + adobeStats.QueueCapacity,
-		QueueBuffered: defaultStats.QueueBuffered + adobeStats.QueueBuffered,
-		Active:        defaultStats.Active + adobeStats.Active,
-		Completed:     defaultStats.Completed + adobeStats.Completed,
-		Failed:        defaultStats.Failed + adobeStats.Failed,
-		GlobalBacklog: defaultBacklog + adobeBacklog,
-		RedisPending:  defaultStats.RedisPending + adobeStats.RedisPending,
-		DBScanMS:      imageDispatcher.config.dbScanInterval.Milliseconds(),
+		Concurrency:   laneStats.Concurrency,
+		QueueCapacity: laneStats.QueueCapacity,
+		QueueBuffered: laneStats.QueueBuffered,
+		Active:        laneStats.Active,
+		Completed:     laneStats.Completed,
+		Failed:        laneStats.Failed,
+		GlobalBacklog: globalBacklog,
+		RedisPending:  laneStats.RedisPending + legacyPending,
+		DBScanMS:      laneStats.DBScanMS,
 		Lanes: map[string]WorkerLaneStats{
-			"default": defaultStats,
-			"adobe":   adobeStats,
+			"default": laneStats,
 		},
+	}
+	if legacyPending > 0 {
+		stats.Lanes["legacy_adobe"] = WorkerLaneStats{
+			RedisPending: legacyPending,
+			DBScanMS:     laneStats.DBScanMS,
+		}
 	}
 	return stats, nil
 }
 
 var imageDispatcher imageTaskDispatcher
-var adobeImageDispatcher imageTaskDispatcher
 var imageTaskURLPattern = regexp.MustCompile(`https?://[^\s"']+`)
 
 var imageTaskDoneNotifier struct {
@@ -138,37 +134,51 @@ func imageWorkerEnvInt(name string, fallback int) int {
 	return n
 }
 
-func loadImageWorkerConfig() imageWorkerConfig {
+func effectiveImageWorkerConcurrency() int {
 	concurrency := imageWorkerEnvInt("IMAGE_ASYNC_MAX_CONCURRENT", 32)
+	if extra := imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_MAX_CONCURRENT", 0); extra > 0 {
+		concurrency += extra
+	}
+	return concurrency
+}
+
+func effectiveImageWorkerQueueCapacity(concurrency int) int {
+	if capacity := imageWorkerEnvInt("IMAGE_ASYNC_QUEUE_CAPACITY", 0); capacity > 0 {
+		return capacity
+	}
+	if extra := imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_QUEUE_CAPACITY", 0); extra > 0 {
+		return imageWorkerEnvInt("IMAGE_ASYNC_QUEUE_CAPACITY", concurrency*4) + extra
+	}
+	return concurrency * 4
+}
+
+func effectiveImageWorkerDispatchBatch(concurrency int) int {
+	if batch := imageWorkerEnvInt("IMAGE_ASYNC_DISPATCH_BATCH", 0); batch > 0 {
+		return batch
+	}
+	if extra := imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_DISPATCH_BATCH", 0); extra > 0 {
+		return imageWorkerEnvInt("IMAGE_ASYNC_DISPATCH_BATCH", concurrency*2) + extra
+	}
+	return concurrency * 2
+}
+
+func loadImageWorkerConfig() imageWorkerConfig {
+	concurrency := effectiveImageWorkerConcurrency()
 	dbScanFallback := 1000
 	if common.RedisEnabled && common.RDB != nil {
 		dbScanFallback = 15000
 	}
 	return imageWorkerConfig{
 		concurrency:    concurrency,
-		queueCapacity:  imageWorkerEnvInt("IMAGE_ASYNC_QUEUE_CAPACITY", concurrency*4),
-		dispatchBatch:  imageWorkerEnvInt("IMAGE_ASYNC_DISPATCH_BATCH", concurrency*2),
+		queueCapacity:  effectiveImageWorkerQueueCapacity(concurrency),
+		dispatchBatch:  effectiveImageWorkerDispatchBatch(concurrency),
 		dbScanInterval: time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_DB_SCAN_INTERVAL_MS", dbScanFallback)) * time.Millisecond,
 		leaseDuration:  time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_LEASE_SECONDS", 180)) * time.Second,
 		maxAttempts:    imageWorkerEnvInt("IMAGE_ASYNC_MAX_ATTEMPTS", 3),
 	}
 }
 
-func loadAdobeImageWorkerConfig(base imageWorkerConfig) imageWorkerConfig {
-	concurrency := imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_MAX_CONCURRENT", 14)
-	return imageWorkerConfig{
-		concurrency:    concurrency,
-		queueCapacity:  imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_QUEUE_CAPACITY", concurrency*4),
-		dispatchBatch:  imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_DISPATCH_BATCH", concurrency*2),
-		dbScanInterval: time.Duration(imageWorkerEnvInt("IMAGE_ASYNC_ADOBE_DB_SCAN_INTERVAL_MS", int(base.dbScanInterval/time.Millisecond))) * time.Millisecond,
-		leaseDuration:  base.leaseDuration,
-		maxAttempts:    base.maxAttempts,
-	}
-}
-
-// AdobeDirectChannelIDs defines the deployment-specific channel lane without
-// baking one database id into the scheduler. Channel 75 remains the compatible
-// default for existing installations.
+// AdobeDirectChannelIDs remains for admission/env compatibility during rollout.
 func AdobeDirectChannelIDs() []int {
 	raw := strings.TrimSpace(os.Getenv("IMAGE_ASYNC_ADOBE_CHANNEL_IDS"))
 	if raw == "" {
@@ -211,7 +221,7 @@ func imageWorkerOwner() string {
 	return strings.Join(nonEmpty, "/")
 }
 
-func workerLaneStats(dispatcher *imageTaskDispatcher, backlog int64) WorkerLaneStats {
+func workerPoolStats(dispatcher *imageTaskDispatcher, backlog int64) WorkerLaneStats {
 	stats := WorkerLaneStats{
 		Concurrency:   dispatcher.config.concurrency,
 		QueueCapacity: dispatcher.config.queueCapacity,
@@ -224,10 +234,18 @@ func workerLaneStats(dispatcher *imageTaskDispatcher, backlog int64) WorkerLaneS
 	if dispatcher.queue != nil {
 		stats.QueueBuffered = len(dispatcher.queue)
 	}
-	if common.RedisEnabled && common.RDB != nil && dispatcher.notifyKey != "" {
-		stats.RedisPending, _ = common.RDB.LLen(context.Background(), dispatcher.notifyKey).Result()
+	if common.RedisEnabled && common.RDB != nil {
+		stats.RedisPending, _ = common.RDB.LLen(context.Background(), imageTaskNotifyQueue).Result()
 	}
 	return stats
+}
+
+func legacyAdobeRedisPending() int64 {
+	if !common.RedisEnabled || common.RDB == nil {
+		return 0
+	}
+	pending, _ := common.RDB.LLen(context.Background(), legacyAdobeTaskNotifyQueue).Result()
+	return pending
 }
 
 // StartWorker starts a strictly bounded local worker pool. PostgreSQL remains
@@ -238,38 +256,15 @@ func StartWorker() {
 			common.SysLog("image async worker disabled on this node")
 			return
 		}
-		defaultConfig := loadImageWorkerConfig()
-		adobeConfig := loadAdobeImageWorkerConfig(defaultConfig)
+		config := loadImageWorkerConfig()
 		owner := imageWorkerOwner()
-		adobeChannelIDs := AdobeDirectChannelIDs()
-		startImageTaskDispatcher(
-			&imageDispatcher, "default", imageTaskNotifyQueue, imageTaskNotifyDedup,
-			owner, defaultConfig, adobeChannelIDs, false,
-		)
-		startImageTaskDispatcher(
-			&adobeImageDispatcher, "adobe", adobeTaskNotifyQueue, adobeTaskNotifyDedup,
-			owner, adobeConfig, adobeChannelIDs, true,
-		)
+		startImageTaskDispatcher(&imageDispatcher, owner, config)
 	})
 }
 
-func startImageTaskDispatcher(
-	dispatcher *imageTaskDispatcher,
-	name string,
-	notifyKey string,
-	dedupKey string,
-	owner string,
-	config imageWorkerConfig,
-	channelIDs []int,
-	includeChannels bool,
-) {
-	dispatcher.name = name
-	dispatcher.notifyKey = notifyKey
-	dispatcher.dedupKey = dedupKey
+func startImageTaskDispatcher(dispatcher *imageTaskDispatcher, owner string, config imageWorkerConfig) {
 	dispatcher.owner = owner
 	dispatcher.config = config
-	dispatcher.channelIDs = append([]int(nil), channelIDs...)
-	dispatcher.includeChannels = includeChannels
 	dispatcher.queue = make(chan string, config.queueCapacity)
 	dispatcher.queued = make(map[string]struct{}, config.queueCapacity)
 	if common.RedisEnabled && common.RDB != nil {
@@ -285,77 +280,64 @@ func startImageTaskDispatcher(
 	}
 	go imageAsyncDispatchLoop(dispatcher)
 	common.SysLog(fmt.Sprintf(
-		"image async worker lane started, lane=%s owner=%s concurrency=%d queue_capacity=%d db_scan=%s lease=%s channels=%v include=%t",
-		dispatcher.name, dispatcher.owner, config.concurrency, config.queueCapacity,
-		config.dbScanInterval, config.leaseDuration, dispatcher.channelIDs, dispatcher.includeChannels,
+		"image async worker started, owner=%s concurrency=%d queue_capacity=%d db_scan=%s lease=%s",
+		dispatcher.owner, config.concurrency, config.queueCapacity,
+		config.dbScanInterval, config.leaseDuration,
 	))
 }
 
 // EnqueueTask is only a wake-up hint. If the bounded local buffer is full, the
 // task stays QUEUED in PostgreSQL and a dispatcher picks it up later.
 func EnqueueTask(taskID string) bool {
-	return enqueueImageTask(&imageDispatcher, taskID)
+	return enqueueImageTask(taskID)
 }
 
-func EnqueueTaskForChannel(taskID string, channelID int) bool {
-	if IsAdobeDirectChannel(channelID) {
-		return enqueueImageTask(&adobeImageDispatcher, taskID)
-	}
-	return enqueueImageTask(&imageDispatcher, taskID)
+// EnqueueTaskForChannel keeps the API surface but all channels share one pool.
+func EnqueueTaskForChannel(taskID string, _ int) bool {
+	return EnqueueTask(taskID)
 }
 
-func enqueueImageTask(dispatcher *imageTaskDispatcher, taskID string) bool {
+func enqueueImageTask(taskID string) bool {
 	if taskID == "" {
 		return false
 	}
 	if common.RedisEnabled && common.RDB != nil {
-		notifyKey, dedupPrefix := imageDispatcherQueueKeys(dispatcher)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		dedupKey := dedupPrefix + taskID
+		dedupKey := imageTaskNotifyDedup + taskID
 		won, err := common.RDB.SetNX(ctx, dedupKey, "1", 30*time.Second).Result()
 		if err == nil && !won {
 			return true
 		}
 		if err == nil {
-			if err = common.RDB.RPush(ctx, notifyKey, taskID).Err(); err == nil {
+			if err = common.RDB.RPush(ctx, imageTaskNotifyQueue, taskID).Err(); err == nil {
 				return true
 			}
 			_ = common.RDB.Del(ctx, dedupKey).Err()
 		}
 	}
-	return enqueueLocalImageTask(dispatcher, taskID)
+	return enqueueLocalImageTask(taskID)
 }
 
-func imageDispatcherQueueKeys(dispatcher *imageTaskDispatcher) (string, string) {
-	if dispatcher != nil && dispatcher.notifyKey != "" && dispatcher.dedupKey != "" {
-		return dispatcher.notifyKey, dispatcher.dedupKey
-	}
-	if dispatcher == &adobeImageDispatcher {
-		return adobeTaskNotifyQueue, adobeTaskNotifyDedup
-	}
-	return imageTaskNotifyQueue, imageTaskNotifyDedup
-}
-
-func enqueueLocalImageTask(dispatcher *imageTaskDispatcher, taskID string) bool {
-	if !dispatcher.enabled || dispatcher.queue == nil {
+func enqueueLocalImageTask(taskID string) bool {
+	if !imageDispatcher.enabled || imageDispatcher.queue == nil {
 		return false
 	}
-	dispatcher.mu.Lock()
-	if _, exists := dispatcher.queued[taskID]; exists {
-		dispatcher.mu.Unlock()
+	imageDispatcher.mu.Lock()
+	if _, exists := imageDispatcher.queued[taskID]; exists {
+		imageDispatcher.mu.Unlock()
 		return true
 	}
-	dispatcher.queued[taskID] = struct{}{}
-	dispatcher.mu.Unlock()
+	imageDispatcher.queued[taskID] = struct{}{}
+	imageDispatcher.mu.Unlock()
 
 	select {
-	case dispatcher.queue <- taskID:
+	case imageDispatcher.queue <- taskID:
 		return true
 	default:
-		dispatcher.mu.Lock()
-		delete(dispatcher.queued, taskID)
-		dispatcher.mu.Unlock()
+		imageDispatcher.mu.Lock()
+		delete(imageDispatcher.queued, taskID)
+		imageDispatcher.mu.Unlock()
 		return false
 	}
 }
@@ -370,12 +352,9 @@ func imageAsyncDispatchLoop(dispatcher *imageTaskDispatcher) {
 }
 
 func dispatchClaimableImageTasks(dispatcher *imageTaskDispatcher) {
-	ids := model.GetClaimableImageAsyncTaskIDsForChannels(
-		dispatcher.config.dispatchBatch, time.Now().Unix(),
-		dispatcher.channelIDs, dispatcher.includeChannels,
-	)
+	ids := model.GetClaimableImageAsyncTaskIDs(dispatcher.config.dispatchBatch, time.Now().Unix())
 	for _, taskID := range ids {
-		if !enqueueImageTask(dispatcher, taskID) {
+		if !enqueueImageTask(taskID) {
 			return
 		}
 	}
@@ -404,7 +383,10 @@ func nextImageAsyncTaskID(dispatcher *imageTaskDispatcher) (string, bool) {
 			return taskID, ok
 		default:
 		}
-		result, err := dispatcher.redis.BLPop(context.Background(), 2*time.Second, dispatcher.notifyKey).Result()
+		result, err := dispatcher.redis.BLPop(
+			context.Background(), 2*time.Second,
+			imageTaskNotifyQueue, legacyAdobeTaskNotifyQueue,
+		).Result()
 		if err == nil && len(result) == 2 && result[1] != "" {
 			return result[1], true
 		}
@@ -420,10 +402,7 @@ func nextImageAsyncTaskID(dispatcher *imageTaskDispatcher) (string, bool) {
 func processImageAsyncTask(dispatcher *imageTaskDispatcher, taskID string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	task, claimed, err := model.ClaimImageAsyncTaskForChannels(
-		taskID, dispatcher.owner, dispatcher.config.leaseDuration,
-		dispatcher.channelIDs, dispatcher.includeChannels,
-	)
+	task, claimed, err := model.ClaimImageAsyncTask(taskID, dispatcher.owner, dispatcher.config.leaseDuration)
 	if err != nil {
 		common.SysError(fmt.Sprintf("image async claim failed for %s: %v", taskID, err))
 		return
@@ -431,10 +410,7 @@ func processImageAsyncTask(dispatcher *imageTaskDispatcher, taskID string) {
 	if !claimed || task == nil {
 		return
 	}
-	if common.RedisEnabled && common.RDB != nil {
-		_, dedupPrefix := imageDispatcherQueueKeys(dispatcher)
-		_ = common.RDB.Del(context.Background(), dedupPrefix+taskID).Err()
-	}
+	clearImageTaskNotifyDedup(taskID)
 	dispatcher.active.Add(1)
 	defer dispatcher.active.Add(-1)
 	if task.Attempt > dispatcher.config.maxAttempts {
@@ -485,6 +461,15 @@ func processImageAsyncTask(dispatcher *imageTaskDispatcher, taskID string) {
 	publishImageTaskDone(task.TaskID)
 
 	service.RecalculateTaskQuota(ctx, task, task.Quota, "image async complete")
+}
+
+func clearImageTaskNotifyDedup(taskID string) {
+	if taskID == "" || !common.RedisEnabled || common.RDB == nil {
+		return
+	}
+	ctx := context.Background()
+	_ = common.RDB.Del(ctx, imageTaskNotifyDedup+taskID).Err()
+	_ = common.RDB.Del(ctx, legacyAdobeTaskNotifyDedup+taskID).Err()
 }
 
 func imageAsyncLeaseHeartbeat(dispatcher *imageTaskDispatcher, taskID string, done <-chan struct{}, cancel context.CancelFunc) {
