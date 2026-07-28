@@ -410,7 +410,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 				taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 				return
 			}
-			respBody = service.NormalizeOpenAIVideoResponse(c, openAIVideoData)
+			respBody = service.NormalizeOpenAIVideoTaskResponse(c, originTask, openAIVideoData)
 			return
 		}
 		taskResp = service.TaskErrorWrapperLocal(fmt.Errorf("not_implemented:%s", originTask.Platform), "not_implemented", http.StatusNotImplemented)
@@ -580,7 +580,7 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 // TaskModel2DtoForClient 返回任务 DTO，并将 fail_reason 映射为面向用户的友好提示。
 func TaskModel2DtoForClient(c *gin.Context, task *model.Task) *dto.TaskDto {
 	taskDto := TaskModel2Dto(task)
-	taskDto.FailReason = service.NormalizeClientErrorMessage(c, taskDto.FailReason)
+	taskDto.FailReason = service.NormalizeTaskFailure(c, task)
 	if c != nil && model.IsAdmin(c.GetInt("id")) {
 		return taskDto
 	}

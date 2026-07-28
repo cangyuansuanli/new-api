@@ -6,6 +6,8 @@ const (
 
 	UpstreamUnavailableMessageZH = "服务暂时不可用，请稍后重试。"
 	UpstreamUnavailableMessageEN = "Service temporarily unavailable, please retry later."
+	UpstreamSaturatedMessageZH   = "当前分组上游负载已饱和，请稍后再试。"
+	UpstreamSaturatedMessageEN   = "Upstream capacity for the current group is saturated. Please retry later."
 
 	TimeoutMessageZH = "生成超时，请稍后重试。"
 	TimeoutMessageEN = "Generation timed out, please retry later."

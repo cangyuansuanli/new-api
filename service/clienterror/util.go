@@ -1,7 +1,6 @@
 package clienterror
 
 import (
-	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -81,7 +80,7 @@ func unwrapUpstreamErrorText(raw string) string {
 
 func extractMessageFromJSON(raw string) string {
 	var payload map[string]any
-	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+	if err := common.Unmarshal([]byte(raw), &payload); err != nil {
 		return ""
 	}
 	if detail, ok := payload["detail"].(string); ok && strings.TrimSpace(detail) != "" {

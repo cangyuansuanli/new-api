@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Adobe2API / cy-sd5 / adobe-direct image+video. Upstream: adobe2api/
+// Adobe2API / adobe-direct image+video. Upstream: adobe2api/
 //   - core/media_limits.py
 //   - api/routes/generation.py
 //   - app.py

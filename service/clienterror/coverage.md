@@ -2,7 +2,9 @@
 
 单入口：`service/clienterror/normalize.go` → `NormalizeClientErrorMessage`
 
-新增 vendor 规则：在 `service/clienterror/<vendor>.go` 实现 `normalize<Vendor>`，并在 `normalize.go` 的 `init()` 里 `Register(...)`。
+新增 vendor 规则：在 `service/clienterror/<vendor>.go` 实现 `normalize<Vendor>`。需要 model/code/payload 时用 `Register(...)`；仅匹配 raw 文本的旧规则用 `RegisterRaw(...)`。
+
+非渠道的 HTTP/传输错误放在 `transport.go`，不得在 controller 直接改写上游错误文案。
 
 ## common.go（跨渠道）
 
@@ -40,7 +42,7 @@
 | generation_failure.go | `upstream returned no detail` | ✅ |
 | leonardo API | `DURATION_TOO_LONG` | ✅ |
 
-## adobe.go（adobe2api / cy-sd5 / adobe-direct）
+## adobe.go（adobe2api / adobe-direct）
 
 | 上游来源 | 典型 raw | 状态 |
 |---------|---------|------|
@@ -51,6 +53,26 @@
 | entity.py | `type must be one of: character, object, location` | ❌ 透传 |
 | Adobe 上游原始错误 | 各类 Firefly moderation 原文 | 部分（走 common content policy） |
 | adobe2api video poll | `451 prompt_unsafe`, `provided prompt is considered unsafe` | ✅（adobe.go + common；画布需 relay 带 `X-Cangyuan-Client` 才返回中文） |
+
+## sd5.go（渠道 86 / cy-sd5）
+
+SD5 任务错误优先读取持久化 `error_code`、`error_type`、`error_status`，仅在上游没有稳定错误码的提交阶段使用本渠道原文兜底；规则不得放入 `common.go`。
+
+| 错误码/来源 | 面向用户分类 | 状态 |
+|-------------|--------------|------|
+| `submission_overloaded` | SD5 上游过载或提交超时 | ✅ |
+| `reference_image_privacy_error` | 参考素材包含真人脸 | ✅ |
+| `video_unsafe`, `prompt_unsafe`, `policy_error` | 内容审核拒绝 | ✅ |
+| `bad_request` + `URL_REJECTED` | 参考素材链接不可访问 | ✅ |
+| `image_not_processable` | 参考视频损坏或格式不支持 | ✅ |
+| `invalid_stored_request` + private address | 参考链接指向私有地址 | ✅ |
+| `reference_fetch_error` | 参考素材下载失败/404 | ✅ |
+| `submission_unknown` | 提交结果无法确认 | ✅ |
+| `upstream_timeout` | 生成超时 | ✅ |
+| `validation_error` | WebM 不支持、提示词超长或通用参数错误 | ✅ |
+| `access_error`, `authentication_error` | 上游账号权限异常 | ✅ |
+| `quota_exhausted`, `taste_exhausted` | SD5 号池额度耗尽 | ✅ |
+| 无稳定码：缺参考图、请求体超过 64 MB | SD5 提交参数错误 | ✅（仅 sd5.go 原文兜底） |
 
 ## grok.go（cy-gv1 / geeknowgrok）
 
