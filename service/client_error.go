@@ -1,8 +1,9 @@
 package service
 
 import (
-	ce "github.com/QuantumNous/new-api/service/clienterror"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
+	ce "github.com/QuantumNous/new-api/service/clienterror"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,8 +22,8 @@ const (
 
 	ReferenceMaterialMessageZH = ce.ReferenceMaterialMessageZH
 	ReferenceMaterialMessageEN = ce.ReferenceMaterialMessageEN
-	ReferenceDurationTooLongZH   = ce.ReferenceDurationTooLongZH
-	ReferenceDurationTooLongEN   = ce.ReferenceDurationTooLongEN
+	ReferenceDurationTooLongZH = ce.ReferenceDurationTooLongZH
+	ReferenceDurationTooLongEN = ce.ReferenceDurationTooLongEN
 
 	ReferenceRealFaceMessageZH = ce.ReferenceRealFaceMessageZH
 	ReferenceRealFaceMessageEN = ce.ReferenceRealFaceMessageEN
@@ -67,3 +68,38 @@ func NormalizeOpenAIVideoResponse(c *gin.Context, data []byte) []byte {
 func IsContentPolicyViolation(text string) bool { return ce.IsContentPolicyViolation(text) }
 
 func IsRealFaceReferenceError(text string) bool { return ce.IsRealFaceReferenceError(text) }
+
+func clientErrorContextFromTask(task *model.Task) ce.ErrorContext {
+	if task == nil {
+		return ce.ErrorContext{}
+	}
+	modelName := task.Properties.OriginModelName
+	if modelName == "" && task.PrivateData.BillingContext != nil {
+		modelName = task.PrivateData.BillingContext.OriginModelName
+	}
+	if modelName == "" {
+		modelName = task.Properties.UpstreamModelName
+	}
+	if modelName == "" && task.PrivateData.BillingContext != nil {
+		modelName = task.PrivateData.BillingContext.UpstreamModelName
+	}
+	return ce.ErrorContext{
+		Model:   modelName,
+		Raw:     task.FailReason,
+		Payload: task.Data,
+	}
+}
+
+// NormalizeTaskFailure renders a stored task failure without changing the
+// persisted raw reason used by logging and billing.
+func NormalizeTaskFailure(c *gin.Context, task *model.Task) string {
+	return ce.NormalizeError(c, clientErrorContextFromTask(task))
+}
+
+func NormalizeOpenAIImageTaskJobError(c *gin.Context, task *model.Task, job *dto.OpenAIImageJob) {
+	ce.NormalizeOpenAIImageJobErrorWithContext(c, job, clientErrorContextFromTask(task))
+}
+
+func NormalizeOpenAIVideoTaskResponse(c *gin.Context, task *model.Task, data []byte) []byte {
+	return ce.NormalizeOpenAIVideoResponseWithContext(c, data, clientErrorContextFromTask(task))
+}
