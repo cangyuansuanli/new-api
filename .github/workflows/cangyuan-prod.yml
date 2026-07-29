@@ -48,8 +48,10 @@ jobs:
           unformatted="$(gofmt -l \
             controller/relay.go controller/image_async.go \
             model/model_ui_params_resolve.go scripts/seed_model_ui_params/main.go \
-            relay/image/sync.go relay/imagevendor/fixed_resolution.go \
-            relay/imagevendor/fixed_resolution_test.go \
+            relay/image/sync.go relay/imagevendor/resolution_validation.go \
+            relay/imagevendor/vendor_adobe_firefly.go \
+            relay/imagevendor/vendor_adobe_firefly_resolution_test.go \
+            relay/imagevendor/vendor_greek2api.go relay/imagevendor/vendor_greek2api_test.go \
             relay/channel/openai/adapt_adobe2api.go \
             relay/channel/openai/adapt_adobe2api_test.go)"
           test -z "$unformatted" || { echo "gofmt required:"; echo "$unformatted"; exit 1; }
