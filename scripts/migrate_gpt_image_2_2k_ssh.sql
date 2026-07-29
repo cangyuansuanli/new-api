@@ -1,14 +1,8 @@
--- gpt-image-2-2k（cy-img2-gpt-image-2-2k / Gulie 渠道 72）：绑定 Gulie 2K profile + 描述
--- contabo: docker exec -i newapi-postgres psql -U root -d new-api < migrate_gpt_image_2_2k_ssh.sql
+-- RETIRED: cy-img2-gpt-image-2-2k no longer belongs to Gulie channel 72.
+-- Use migrate_cy_img2_gpt_image_2_tiers_ssh.sql after deploying the
+-- Greek2API channel-aware image vendor adapter.
 
-UPDATE models
-SET image_profile_id = 'image-tpl-gulie-2k',
-    description = 'GPT-Image-2 2K 经济档，size 仅传画幅比例（1:1、3:2、2:3、auto）；勿传分辨率相关参数。参考图 multipart /images/edits。',
-    updated_time = extract(epoch from now())::bigint
-WHERE model_name = 'cy-img2-gpt-image-2-2k'
-  AND deleted_at IS NULL;
-
-SELECT model_name, image_profile_id, left(description, 80) AS desc_preview
-FROM models
-WHERE model_name = 'cy-img2-gpt-image-2-2k'
-  AND deleted_at IS NULL;
+DO $$
+BEGIN
+    RAISE EXCEPTION 'retired migration: use migrate_cy_img2_gpt_image_2_tiers_ssh.sql';
+END $$;

@@ -42,6 +42,7 @@ Adobe2API 只返回 Adobe 上游的短期 presigned URL，不再自行下载或�
 - 视频轮询请求携带任务保存的 internal / upstream 模型，Router 不再丢失 vendor 身份后固定走默认 `FetchTask`。
 - 视频结果转存会识别顶层对象与 `{code,data}` envelope，在正确层级回写 CDN URL 和 `usage.seconds`，不再把 `data` 对象误改成数组。
 - 画布 profile 已收口为单一视频 API mode；上游 endpoint 仅由 NewAPI vendor 决定。
+- 生图请求补丁支持渠道感知：前端 profile 只提交统一比例/尺寸参数，渠道选择后由 `imagevendor` 的 `MatchRelay` 校验档位，并在出站前转换为该上游协议；通用 OpenAI adaptor 不包含渠道前缀判断。
 
 ### 仍需重构
 

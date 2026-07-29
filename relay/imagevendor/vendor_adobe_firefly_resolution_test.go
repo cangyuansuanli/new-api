@@ -1,5 +1,7 @@
 package imagevendor
 
+// Adobe fixed-SKU contract tests; shared pixel math is exercised through it.
+
 import (
 	"encoding/json"
 	"mime/multipart"

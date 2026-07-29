@@ -126,7 +126,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		return
 	}
 	if imageRequest, ok := request.(*dto.ImageRequest); ok {
-		if err := imagevendor.ValidateFixedResolutionSKU(c, relayInfo.OriginModelName, imageRequest); err != nil {
+		relayInfo.InitChannelMeta(c)
+		if err := imagevendor.ValidateRequest(c, relayInfo, imageRequest); err != nil {
 			newAPIError = types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 			return
 		}

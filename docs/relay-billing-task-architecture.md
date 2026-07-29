@@ -22,6 +22,7 @@ web/default
 - Router 只声明路径和 middleware，不判断厂商模型名。
 - Controller 不直接拼接上游 URL，不直接增减用户额度；它只编排 relay/service 并返回 DTO。
 - `RelayInfo` 是一次请求的运行时上下文，包含原始模型名、公开模型名、映射后的上游模型名、渠道和 `BillingSession`。
+- 生图渠道差异由 `relay/imagevendor/vendor_<upstream>.go` 持有。需要渠道身份的校验在分发后、计费前执行，比例到像素等转换通过 `PatchRelayRequest` 在出站序列化前执行。
 - `TaskAdaptor` 是渠道差异的唯一入口：验证请求、构建请求、发起请求、解析响应、任务轮询和可选的终态计费调整。
 - `model.Task` 只保存跨请求所需的事实：公开/内部模型名、渠道、计费快照、标准化请求快照和结果。
 - Worker/轮询器通过 CAS 推进状态；只有状态转换成功的一方可以执行退款、差额结算和结果写入。

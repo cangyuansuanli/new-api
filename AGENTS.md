@@ -118,16 +118,19 @@ Each [`Descriptor`](relay/imagevendor/descriptor.go) defines:
 |-------|---------|
 | `Name` | Debug / documentation identifier |
 | `Match(originModel)` | Model prefix/suffix identity |
+| `MatchRelay(info)` | Channel-aware identity after distribution; required when the same internal family may exist on multiple channels |
 | `Rehost` | R2 rehost policy (`AcceptUpstreamURL`, `PreferUpstreamB64JSON`, `AsyncPreferURLResponse`) |
 | `Rehost.TrustPublicURL` | Optional strict predicate for owned HTTPS object URLs that may bypass a second R2 upload |
 | `PatchRequest` | Optional: mutate `dto.ImageRequest` before upstream (strip fields, resize, prompt hints); may no-op inside for subset of matches |
+| `ValidateRequest` / `PatchRelayRequest` | Channel-specific validation before billing and outbound conversion after channel selection |
 
 **When to use what:**
 
 | Tool | Use when |
 |------|----------|
 | Channel `param_override` | Config-only JSON/header tweaks |
-| `imagevendor` `PatchRequest` | Code: size clamp, strip fields, prompt injection, consume-log metadata |
+| `imagevendor` `PatchRequest` | Legacy model-family patch where channel identity is irrelevant |
+| `imagevendor` `PatchRelayRequest` | Channel-specific size mapping, field stripping, prompt injection, consume-log metadata |
 | `imagevendor` `Rehost` | Upstream returns url/b64; async `response_format` choice |
 | `relay/channel/openai/` | New upstream API shape (e.g. Manju Image API body) |
 
@@ -135,9 +138,10 @@ Each [`Descriptor`](relay/imagevendor/descriptor.go) defines:
 
 **Adding a new image vendor (checklist):**
 
-1. Add `relay/imagevendor/vendor_<name>.go` with `Match`, `Rehost` (if needed), `PatchRequest` (if needed).
-2. If upstream API shape differs, extend `relay/channel/openai/` (`adapt_*.go`, `ConvertImageRequest`).
-3. Do not duplicate prefix logic elsewhere; `service/image_r2_rehost.go` is generic R2 upload only.
+1. Add `relay/imagevendor/vendor_<upstream>.go` with the real upstream name; public/internal neutral naming belongs in `Match`, not the filename.
+2. Use `MatchRelay` + `PatchRelayRequest` for channel-specific behavior. Keep shared helpers free of channel model prefixes.
+3. If upstream API shape differs, extend `relay/channel/openai/` (`adapt_*.go`, `ConvertImageRequest`).
+4. Do not duplicate prefix logic elsewhere; `service/image_r2_rehost.go` is generic R2 upload only.
 
 **Lookup API:** `ApplyRequestPatch`, `ResolveRehostPolicy`, `ImageAsyncAcceptsUpstreamURL`, `ImageSyncPreferUpstreamB64JSON`, `ImageModelUsesURLRehost`.
 
