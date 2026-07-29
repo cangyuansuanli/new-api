@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/dto"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,56 +42,6 @@ func TestPatchGulieImageRequestSkipsNonGulieInternal(t *testing.T) {
 	require.Equal(t, "high", request.Quality)
 }
 
-func TestPatchGulieImageRequestCyImg2TwoK(t *testing.T) {
-	request := &dto.ImageRequest{
-		Model:   "gpt-image-2",
-		Quality: "high",
-		Size:    "1:1",
-	}
-	result, err := patchGulieImageRequest("cy-img2-gpt-image-2-2k", request)
-	require.NoError(t, err)
-	require.True(t, result.SuppressQualityLog)
-	require.Empty(t, request.Quality)
-	require.Equal(t, "1:1", request.Size)
-	require.NotNil(t, request.Stream)
-	require.False(t, *request.Stream)
-}
-
-func TestPatchGulieImageRequestCyImg2TwoKStripsResolutionParams(t *testing.T) {
-	request := &dto.ImageRequest{
-		Model:   "gpt-image-2",
-		Quality: "high",
-		Size:    "16:9-4k",
-		Extra: map[string]json.RawMessage{
-			"image_size":        json.RawMessage(`"4K"`),
-			"output_resolution": json.RawMessage(`"4K"`),
-			"resolution":        json.RawMessage(`"4K"`),
-		},
-	}
-	_, err := patchGulieImageRequest("cy-img2-gpt-image-2-2k", request)
-	require.NoError(t, err)
-	require.Empty(t, request.Quality)
-	require.Equal(t, "16:9", request.Size)
-	require.Empty(t, request.Extra)
-}
-
-func TestPatchGulieImageRequestCyImg2TwoKNormalizesPixelSize(t *testing.T) {
-	request := &dto.ImageRequest{
-		Model: "gpt-image-2",
-		Size:  "3840x2160",
-	}
-	_, err := patchGulieImageRequest("cy-img2-gpt-image-2-2k", request)
-	require.NoError(t, err)
-	require.Equal(t, "3:2", request.Size)
-}
-
-func TestPatchGulieImageRequestCyImg2TwoKStripsBareResolutionToken(t *testing.T) {
-	request := &dto.ImageRequest{Model: "gpt-image-2", Size: "4k"}
-	_, err := patchGulieImageRequest("cy-img2-gpt-image-2-2k", request)
-	require.NoError(t, err)
-	require.Empty(t, request.Size)
-}
-
 func TestPatchGulieImageRequestSkipsCyImg2FourK(t *testing.T) {
 	request := &dto.ImageRequest{Quality: "high", Size: "3840x2160"}
 	result, err := patchGulieImageRequest("cy-img2-gpt-image-2-4k", request)
@@ -112,7 +63,7 @@ func TestApplyRequestPatchKedaya(t *testing.T) {
 		Prompt: "cat",
 		Size:   "800x600",
 	}
-	result, err := ApplyRequestPatch("kedaya-gpt-image-2", request)
+	result, err := ApplyRequestPatch(&relaycommon.RelayInfo{OriginModelName: "kedaya-gpt-image-2"}, request)
 	require.NoError(t, err)
 	require.True(t, result.SuppressQualityLog)
 	require.Equal(t, "800x600", result.LogSize)

@@ -41,12 +41,12 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
-	imagePatch, err := imagevendor.ApplyRequestPatch(info.OriginModelName, request)
+	imagePatch, err := imagevendor.ApplyRequestPatch(info, request)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
-	if imagevendor.IsGulie2KImageModel(info.OriginModelName) {
-		syncGulie2KImageForm(c, request)
+	if imagePatch.SyncSizeToMultipart {
+		syncImageSizeToForm(c, request.Size)
 	}
 	applySyncImageUpstreamB64Override(c, info, request)
 	syncImageRequestStreamToForm(c, request)
@@ -59,7 +59,7 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 
 	var requestBody io.Reader
 
-	passThroughEnabled := model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled
+	passThroughEnabled := (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) && !imagePatch.OutboundBodyChanged
 	if passThroughEnabled && !openai.IsAdobe2APIImageRelay(info) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
@@ -255,26 +255,4 @@ func syncImageSizeToForm(c *gin.Context, size string) {
 		c.Request.PostForm = url.Values{}
 	}
 	c.Request.PostForm.Set("size", size)
-}
-
-func syncGulie2KImageForm(c *gin.Context, request *dto.ImageRequest) {
-	if request == nil {
-		return
-	}
-	syncImageSizeToForm(c, request.Size)
-	for _, key := range imagevendor.Gulie2KUpstreamFormStripKeys() {
-		deleteImageFormField(c, key)
-	}
-}
-
-func deleteImageFormField(c *gin.Context, key string) {
-	if c == nil || c.Request == nil {
-		return
-	}
-	if c.Request.MultipartForm != nil && c.Request.MultipartForm.Value != nil {
-		delete(c.Request.MultipartForm.Value, key)
-	}
-	if c.Request.PostForm != nil {
-		c.Request.PostForm.Del(key)
-	}
 }

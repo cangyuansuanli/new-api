@@ -1,6 +1,10 @@
 package imagevendor
 
-import "github.com/QuantumNous/new-api/dto"
+import (
+	"github.com/QuantumNous/new-api/dto"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/gin-gonic/gin"
+)
 
 // RehostPolicy 描述某模型在上游出图后如何转存 R2。
 type RehostPolicy struct {
@@ -22,16 +26,33 @@ type RequestPatchResult struct {
 	// SuppressQualityLog omits the quality field from consume logs when the patcher
 	// strips quality from the upstream request.
 	SuppressQualityLog bool
+	// OutboundBodyChanged disables raw-body pass-through and makes the relay
+	// serialize the patched request at the upstream boundary.
+	OutboundBodyChanged bool
+	// SyncSizeToMultipart copies a patched Size into an already-parsed edit form.
+	SyncSizeToMultipart bool
 }
 
 // PatchRequestFunc 在发往上游前就地修改 ImageRequest；可按 originModel 决定是否生效。
 type PatchRequestFunc func(originModel string, request *dto.ImageRequest) (RequestPatchResult, error)
 
+// MatchRelayFunc matches a concrete selected channel, not only an internal model family.
+type MatchRelayFunc func(info *relaycommon.RelayInfo) bool
+
+// ValidateRelayRequestFunc validates a request after channel selection and before billing.
+type ValidateRelayRequestFunc func(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest) error
+
+// PatchRelayRequestFunc mutates the outbound request for one selected channel.
+type PatchRelayRequestFunc func(info *relaycommon.RelayInfo, request *dto.ImageRequest) (RequestPatchResult, error)
+
 // Descriptor 描述一类 image 渠道族：模型匹配、R2 转存策略、可选请求补丁。
 // 协议级转换见 relay/channel/openai（如 Manju Image API body）。
 type Descriptor struct {
-	Name         string
-	Match        func(originModel string) bool
-	Rehost       RehostPolicy
-	PatchRequest PatchRequestFunc
+	Name              string
+	Match             func(originModel string) bool
+	MatchRelay        MatchRelayFunc
+	Rehost            RehostPolicy
+	ValidateRequest   ValidateRelayRequestFunc
+	PatchRelayRequest PatchRelayRequestFunc
+	PatchRequest      PatchRequestFunc
 }

@@ -125,7 +125,8 @@ func RelayImageTaskSubmit(c *gin.Context) {
 	}
 	relayInfo.RelayMode = relayMode
 	if imageRequest, ok := request.(*dto.ImageRequest); ok {
-		if err := imagevendor.ValidateFixedResolutionSKU(c, relayInfo.OriginModelName, imageRequest); err != nil {
+		relayInfo.InitChannelMeta(c)
+		if err := imagevendor.ValidateRequest(c, relayInfo, imageRequest); err != nil {
 			respondTaskError(c, service.TaskErrorWrapper(err, "invalid_request", http.StatusBadRequest))
 			return
 		}

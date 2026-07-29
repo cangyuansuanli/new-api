@@ -16,31 +16,8 @@ const (
 	ImageResolution4K = "4K"
 )
 
-// FixedResolutionSKU returns the resolution encoded in an Adobe sellable image
-// SKU. This is deliberately scoped to Adobe's internal namespace: an xK suffix
-// used by another vendor is not the same product contract.
-func FixedResolutionSKU(originModel string) (string, bool) {
-	name := normalizeOriginModel(originModel)
-	if !strings.HasPrefix(name, "adobe-firefly-") {
-		return "", false
-	}
-	if !strings.Contains(name, "gpt-image") && !strings.Contains(name, "nano-banana") {
-		return "", false
-	}
-	for _, candidate := range []string{ImageResolution1K, ImageResolution2K, ImageResolution4K} {
-		if strings.HasSuffix(name, "-"+strings.ToLower(candidate)) {
-			return candidate, true
-		}
-	}
-	return "", false
-}
-
-// ValidateFixedResolutionSKU rejects structured parameters that attempt to buy
-// one resolution SKU while requesting another. Prompt text is deliberately not
-// inspected: writing "4K" in a prompt cannot override Adobe2API's image_size.
-func ValidateFixedResolutionSKU(c *gin.Context, originModel string, request *dto.ImageRequest) error {
-	skuResolution, fixed := FixedResolutionSKU(originModel)
-	if !fixed || request == nil {
+func validateFixedResolutionRequest(c *gin.Context, originModel, skuResolution string, isGPTImage bool, request *dto.ImageRequest) error {
+	if request == nil {
 		return nil
 	}
 	if request.N != nil && *request.N > 1 {
@@ -48,7 +25,6 @@ func ValidateFixedResolutionSKU(c *gin.Context, originModel string, request *dto
 	}
 
 	hints := make([]resolutionHint, 0, 8)
-	isGPTImage := strings.Contains(normalizeOriginModel(originModel), "gpt-image")
 	if isGPTImage && looksLikeExactImageSize(request.Size) {
 		if err := ValidateGPTImageExactSize(request.Size, skuResolution); err != nil {
 			return fmt.Errorf("model %s is a fixed %s SKU, but size is invalid: %w", originModel, skuResolution, err)

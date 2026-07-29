@@ -193,22 +193,6 @@ GULIE_GEN_PARAMS = [
     {"name": "stream", "description": "建议 false（非 SSE JSON 响应）；edits 异步同样建议 false。"},
 ]
 
-GULIE_2K_GEN_PARAMS = [
-    {"name": "model", "description": "必填，固定传模型广场展示名。"},
-    {"name": "prompt", "description": "必填，图像描述提示词；edits 时可在 prompt 中用 @图片1 等引用参考图。"},
-    {"name": "async", "description": "异步模式必填 true。"},
-    {
-        "name": "size",
-        "description": (
-            "画幅比例：1:1、3:2、2:3 或 auto（有参考图时按参考图比例）。"
-            "本模型固定 2K 档位，请勿传 quality、image_size、output_resolution、resolution 或像素尺寸；"
-            "传入后平台会忽略，无法升档至 4K。"
-        ),
-    },
-    {"name": "n", "description": "生成张数，1–10，默认 1。"},
-    {"name": "stream", "description": "建议 false（非 SSE JSON 响应）；edits 异步同样建议 false。"},
-]
-
 BASIC_GEN_PARAMS = [
     {"name": "model", "description": "必填，固定传模型广场展示名。"},
     {"name": "prompt", "description": "必填，图像描述提示词。"},
@@ -284,53 +268,6 @@ DOCS: dict[str, dict] = {
             "JSON 传 image URL 无效，参考图须 multipart 上传。"
         ),
         gen_params=GULIE_GEN_PARAMS,
-        edits_extra=edits_params(max_images=10),
-        basic_async={
-            "model": "{{model}}",
-            "prompt": "一只橘猫坐在窗台上，午后阳光",
-            "size": "1:1",
-            "n": 1,
-            "async": True,
-            "stream": False,
-        },
-        request_async={
-            "model": "{{model}}",
-            "prompt": "一只橘猫坐在窗台上，午后阳光",
-            "size": "1:1",
-            "n": 1,
-            "async": True,
-            "stream": False,
-        },
-        basic_sync={
-            "model": "{{model}}",
-            "prompt": "一只橘猫坐在窗台上，午后阳光",
-            "size": "1:1",
-            "n": 1,
-            "response_format": "url",
-            "stream": False,
-        },
-        request_sync={
-            "model": "{{model}}",
-            "prompt": "一只橘猫坐在窗台上，午后阳光",
-            "size": "1:1",
-            "n": 1,
-            "response_format": "url",
-            "stream": False,
-        },
-        gulie=True,
-    ),
-    "cy-img2-gpt-image-2-2k": dual_mode_doc(
-        async_intro=(
-            "GPT-Image-2 2K 经济档：size 仅传画幅比例（如 1:1、3:2、2:3、auto），固定 2K 出图。"
-            "文生图 JSON POST /images/generations（async: true，stream: false）；"
-            "带参考图/多图叠图/蒙版须 multipart POST /images/edits（image / image[]），"
-            "JSON generations 传 image URL 无效；GET 轮询取 data.url。"
-        ),
-        sync_intro=(
-            "2K 同步出图：文生 JSON generations 或参考图 multipart edits。"
-            "JSON 传 image URL 无效，参考图须 multipart 上传。"
-        ),
-        gen_params=GULIE_2K_GEN_PARAMS,
         edits_extra=edits_params(max_images=10),
         basic_async={
             "model": "{{model}}",

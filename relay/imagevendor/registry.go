@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/dto"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/gin-gonic/gin"
 )
 
 var descriptors []Descriptor
@@ -37,8 +39,29 @@ func ImageAsyncAcceptsUpstreamURL(originModel string) bool {
 	return ResolveRehostPolicy(originModel).AcceptUpstreamURL
 }
 
-// ApplyRequestPatch 按注册顺序对首个命中的 Descriptor 执行请求补丁；无 Patch 或未命中时 no-op。
-func ApplyRequestPatch(originModel string, request *dto.ImageRequest) (RequestPatchResult, error) {
+// ValidateRequest runs channel-aware validation after distribution and before billing.
+func ValidateRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest) error {
+	for _, d := range descriptors {
+		if d.ValidateRequest == nil || !descriptorMatchesRelay(d, info) {
+			continue
+		}
+		return d.ValidateRequest(c, info, request)
+	}
+	return nil
+}
+
+// ApplyRequestPatch prefers a concrete channel patch, then falls back to legacy model-family patches.
+func ApplyRequestPatch(info *relaycommon.RelayInfo, request *dto.ImageRequest) (RequestPatchResult, error) {
+	for _, d := range descriptors {
+		if d.PatchRelayRequest == nil || !descriptorMatchesRelay(d, info) {
+			continue
+		}
+		return d.PatchRelayRequest(info, request)
+	}
+	originModel := ""
+	if info != nil {
+		originModel = info.OriginModelName
+	}
 	for _, d := range descriptors {
 		if d.PatchRequest == nil || !d.Match(originModel) {
 			continue
@@ -46,6 +69,16 @@ func ApplyRequestPatch(originModel string, request *dto.ImageRequest) (RequestPa
 		return d.PatchRequest(originModel, request)
 	}
 	return RequestPatchResult{}, nil
+}
+
+func descriptorMatchesRelay(d Descriptor, info *relaycommon.RelayInfo) bool {
+	if info == nil {
+		return false
+	}
+	if d.MatchRelay != nil {
+		return d.MatchRelay(info)
+	}
+	return d.Match != nil && d.Match(info.OriginModelName)
 }
 
 func normalizeOriginModel(originModel string) string {
