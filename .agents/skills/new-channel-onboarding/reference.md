@@ -136,6 +136,26 @@ if __name__ == "__main__":
 | `image-tpl-banana-chat` | Manju/Gemini Banana sync+async |
 | `image-tpl-banana-chat-flash-lite` | Flash Lite 仅 1K |
 
+### 生图 profile 与路由隔离
+
+```json
+{
+  "id": "image-tpl-<neutral-family>-tiered",
+  "api_mode": "images-json-async",
+  "match_mode": "exact",
+  "match": [
+    "<neutral-prefix>-<model>-1k",
+    "<neutral-prefix>-<model>-2k",
+    "<neutral-prefix>-<model>-4k"
+  ]
+}
+```
+
+- `match` 只列当前渠道的完整 internal 名；不要加入无后缀 `<model>` 或其他渠道的近似模型名。
+- 前端保留统一比例等客户端参数；比例到像素、字段删除和上游模型名转换放在 `vendor_<真实上游名>.go` / adaptor 出站层。
+- `main.go -force` 会重建 profiles 时，变更前后必须比较 profile ID 集合，并保留仍被 `models.image_profile_id` 引用的全部旧 profile。
+- 配置复用只依据客户端参数契约，不依据模型词干；无后缀与带 K 后缀默认视为不同产品，除非源站配置和上游文档明确证明相同。
+
 ---
 
 ## api_doc 最小字段
@@ -163,10 +183,14 @@ if __name__ == "__main__":
 ### 生图
 
 - [ ] `imagevendor.Is*OriginModel` 仅匹配 internal 前缀
+- [ ] 渠道专属 vendor 同时使用 `MatchRelay` 限定 channel ID，其他渠道 no-op
+- [ ] vendor/adaptor 文件使用真实上游名；internal/public 模型名使用平台中性前缀
+- [ ] 无后缀模型与 `-1k` / `-2k` / `-4k` 模型分别验证，不按共同词干合并
 - [ ] 文生图 / 图生图路由分离（generations vs chat+image_url）
 - [ ] async poll_url / task_id 轮询
 - [ ] R2 rehost 策略（`ResolveRehostPolicy`）
 - [ ] 响应 `model` 字段 outbound patch
+- [ ] 全量 profile seed 前后，既有 profile ID 与模型绑定无意外删除或改绑
 
 ### 视频
 

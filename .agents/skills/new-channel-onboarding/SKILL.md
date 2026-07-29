@@ -22,11 +22,11 @@ UI profile 真值：`scripts/seed_data/model_ui_params_{video,image}.json`。
 ```
 - [ ] 1. 源站调研（渠道 ID、group、mapping、上游实测）
 - [ ] 2. 读上游 Apifox/文档，确定官方路由与请求体
-- [ ] 3. 路由分类（生图/视频/文本 + api_mode）
+- [ ] 3. 路由分类（生图/视频/文本 + api_mode；逐个模型确认，禁止按共同词干合并）
 - [ ] 4. 编写 migrate_<vendor>_<model>_ssh.sql
 - [ ] 5. 编写 seed_<vendor>_<model>_api_doc.py（api_doc + ModelPrice）
 - [ ] 6. relay 适配代码 + 单测
-- [ ] 7. （可选）UI profile / infinite-canvas 映射
+- [ ] 7. （可选）UI profile / infinite-canvas 映射；全量 seed 前验证既有 profile 未丢失
 - [ ] 8. 源站执行 SQL + seed（**勿重启**；等待渠道缓存自动同步）
 - [ ] 9. 端到端验收（提交 + 轮询 + 取片/计费）
 - [ ] 10. git-close-loop 提交合并
@@ -98,9 +98,18 @@ Manju 文档入口示例：https://ssnsuyettr.apifox.cn/
 
 **命名约定：**
 
-- internal 名：`<prefix>-<slug>`（如 `manju-openai-sora2`）
-- 在 `model_channel_prefixes` 注册 prefix（如 `manju-`）
+- 客户可见/internal 名使用平台中性前缀，不得暴露真实上游品牌；同一上游也不要复用历史渠道前缀。
+- internal 名：`<neutral-prefix>-<slug>`；分辨率档位可使用明确后缀（如 `-1k` / `-2k` / `-4k`）。
+- 在 `model_channel_prefixes` 注册中性 prefix；note 可以记录真实上游，便于运维追踪。
+- `relay/imagevendor/vendor_<upstream>.go`、视频 vendor 目录和 adaptor 文件使用真实上游名，便于后期维护；文件名不使用公开中性前缀。
 - 公开名由 `middleware.PublicModelName` + prefix 规则转换，vendor 代码只匹配 **internal**（`OriginModelName`）
+
+**模型身份隔离（强制）：**
+
+- 模型名共同包含 `gpt-image-2`、`sora2` 等词干，不代表同一产品或同一出站路径。
+- 无档位后缀模型（如 `gpt-image-2`）与 `-1k` / `-2k` / `-4k` 模型必须逐条核对渠道、mapping、价格和 profile；不得用 `HasPrefix` 或非 exact profile 自动合并。
+- 新渠道的 `MatchRelay` 必须同时约束 internal 模型族和渠道身份（优先稳定的渠道 ID）；其他渠道即使出现同名/近似名也必须 no-op。
+- 修改前后分别保存目标渠道和同词干既有渠道的 `channels`、`abilities`、`models` 快照；迁移 SQL 只能更新明确的 channel ID 和 internal 模型集合。
 
 ---
 
@@ -118,6 +127,8 @@ Manju 文档入口示例：https://ssnsuyettr.apifox.cn/
 
 `api_doc` 与 `ModelPrice` **不要**写进 SQL，交给 seed 脚本。
 
+迁移不得通过宽泛的 `LIKE '%<model-stem>%'`、共享前缀或全局 DELETE 改动同词干旧渠道。若要停用旧 ability，必须列出明确 channel ID + 完整 internal 模型名，并在 SQL 注释中说明范围。
+
 ---
 
 ## 5. Seed 脚本
@@ -129,6 +140,13 @@ Manju 文档入口示例：https://ssnsuyettr.apifox.cn/
 - 写入 `models.api_doc`（endpoints、params、request/response 示例、`dispatch_mode`）
 - 更新 `options.ModelPrice`（USD；按次或按秒）
 - 同步 `video_profile_id` / `image_profile_id`
+
+若运行 `scripts/seed_model_ui_params/main.go -force` 或其他“先删后导入”的全量 profile seed：
+
+- 先确认 seed JSON 包含所有仍在使用的既有 profile；不得只保留本次新增 profile。
+- 新 profile 应使用 `match_mode: "exact"` 和完整 internal 模型名列表，禁止因共同词干吸收无后缀或其他渠道模型。
+- profile 可按相同的**客户端参数契约**复用，但上游转换必须留在渠道专属出站适配层；profile 复用不等于路由复用。
+- seed 后复查既有模型的 `image_profile_id` / `video_profile_id`，并确认无后缀模型、其他上游档位模型未变化。
 
 源站执行：
 
@@ -143,7 +161,7 @@ ssh contabo "python3 /tmp/seed_xxx_api_doc.py"
 
 ### 生图（Manju Banana 模式）
 
-1. `relay/imagevendor/vendor_<name>.go` — `Match` + `Rehost`
+1. `relay/imagevendor/vendor_<真实上游名>.go` — `Match` + `MatchRelay` + `Rehost`；渠道专属参数转换用 `PatchRelayRequest`
 2. `relay/channel/openai/adapt_<name>.go` — 请求体/响应/poll
 3. `adaptor.go` — `ConvertImageRequest` / `GetRequestURL` 分支
 4. `adapt_*_test.go` — 请求转换 + 响应解析
@@ -204,6 +222,13 @@ docker run --rm --network cangyuan-network curlimages/curl:8.5.0 \
 ```
 
 验收：提交 200 → 轮询 status 终态 → 成片 URL 可访问 → 额度扣费合理。
+
+**隔离回归（必须）：**
+
+- 新 internal 模型在目标渠道命中，发送给上游的模型名、尺寸和字段准确。
+- 同词干的无后缀模型保持原渠道、原 profile、原出站 payload。
+- 其他 `-1k` / `-2k` / `-4k` 渠道保持原映射；用非目标 channel ID 调用新 vendor patch 必须 no-op。
+- 全量 UI profile seed 后，新增与既有 profile 均存在且 exact match 无交叉。
 
 **Go 代码变更**须 `push main` 触发 CI（`.github/workflows/cangyuan-prod.yml`）后线上才生效；DB/seed 可先于代码上线。
 
