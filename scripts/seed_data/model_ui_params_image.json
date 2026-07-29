@@ -1413,7 +1413,7 @@
                 "customDimensions": {"enabled": true}, "count": {"enabled": true, "min": 1, "max": 1, "quickCount": 1},
                 "background": {"enabled": false}, "outputFormat": {"enabled": false}, "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "GPT Image 2 1K 固定计费档位；比例输入按 1K 预算计算。"}]
+            "hints": [{"text": "GPT Image 2 1K 固定计费档位；quality 默认 medium，可选 low / medium / high 且不改变计费。精确 size 原样发送：16px 对齐、最长边不超过 3840px、比例不超过 3:1、总像素 655360–1048576；比例输入按 1K 预算计算。"}]
         },
         {
             "id": "image-tpl-gpt-image-2-2k",
@@ -1433,7 +1433,7 @@
                 "customDimensions": {"enabled": true}, "count": {"enabled": true, "min": 1, "max": 1, "quickCount": 1},
                 "background": {"enabled": false}, "outputFormat": {"enabled": false}, "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "GPT Image 2 2K 固定计费档位；比例输入按 2K 预算计算。"}]
+            "hints": [{"text": "GPT Image 2 2K 固定计费档位；quality 默认 medium，可选 low / medium / high 且不改变计费。精确 size 原样发送：16px 对齐、最长边不超过 3840px、比例不超过 3:1、总像素 655360–4194304；比例输入按 2K 预算计算。"}]
         },
         {
             "id": "image-tpl-gpt-image-2-4k",
@@ -1453,7 +1453,7 @@
                 "customDimensions": {"enabled": true}, "count": {"enabled": true, "min": 1, "max": 1, "quickCount": 1},
                 "background": {"enabled": false}, "outputFormat": {"enabled": false}, "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "GPT Image 2 4K 固定计费档位；比例输入按 4K 预算计算。"}]
+            "hints": [{"text": "GPT Image 2 4K 固定计费档位；quality 默认 medium，可选 low / medium / high 且不改变计费。精确 size 原样发送：16px 对齐、最长边不超过 3840px、比例不超过 3:1、总像素 655360–8294400；比例输入按 4K 预算计算。"}]
         },
         {
             "id": "image-tpl-gpt-image-2-tiered",
