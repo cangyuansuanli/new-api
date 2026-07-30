@@ -794,8 +794,6 @@ function mergeBananaImageParamNotes(
     const idx = merged.findIndex((p) => p.name === row.name)
     if (idx === -1) {
       merged.push(row)
-    } else {
-      merged[idx] = { ...merged[idx], description: row.description }
     }
   }
   return merged
