@@ -786,17 +786,8 @@ function mergeBananaImageParamNotes(
       description: sanitizeCustomerFacingText(p.description),
     }))
   }
-  const merged = params.map((p) => ({
-    ...p,
-    description: sanitizeCustomerFacingText(p.description),
-  }))
-  for (const row of buildBananaStyleImageParams(ui?.params ?? {})) {
-    const idx = merged.findIndex((p) => p.name === row.name)
-    if (idx === -1) {
-      merged.push(row)
-    }
-  }
-  return merged
+  if (params.length > 0) return params
+  return buildBananaStyleImageParams(ui?.params ?? {})
 }
 
 function buildBananaStyleImageParams(
