@@ -359,6 +359,19 @@ func TestConvertAdobe2APIGPTRatioRejectsProviderLimit(t *testing.T) {
 	}
 }
 
+func TestValidateAdobe2APIBananaRejectsUnsupportedProviderRatio(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "adobe-firefly-nano-banana2-2k",
+		ChannelMeta:     &relaycommon.ChannelMeta{ChannelId: 75},
+	}
+	request := dto.ImageRequest{Model: "adobe-firefly-nano-banana2-2k", Prompt: "test", Extra: map[string]json.RawMessage{
+		"aspect_ratio": json.RawMessage(`"37:80"`),
+	}}
+	if err := ValidateAdobe2APIImageInputs(nil, info, request); err == nil || !strings.Contains(err.Error(), "is not supported") {
+		t.Fatalf("expected Adobe provider ratio rejection, got %v", err)
+	}
+}
+
 func TestConvertAdobe2APIExactSizeRequiresBilledTier(t *testing.T) {
 	_, err := ConvertAdobe2APIImageRequest(nil, &relaycommon.RelayInfo{
 		OriginModelName: "adobe-firefly-gpt-image-2",

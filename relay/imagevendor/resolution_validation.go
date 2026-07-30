@@ -16,6 +16,26 @@ const (
 	ImageResolution4K = "4K"
 )
 
+func ValidateAdobeBananaAspectRatio(originModel, ratio string) error {
+	normalized := strings.TrimSpace(ratio)
+	if normalized == "" || strings.EqualFold(normalized, "auto") {
+		return nil
+	}
+	name := normalizeOriginModel(originModel)
+	allowed := []string{"1:1", "16:9", "9:16", "4:3", "3:4"}
+	if strings.Contains(name, "nano-banana2") {
+		allowed = append(allowed, "1:4", "4:1", "1:8", "8:1")
+	} else if strings.Contains(name, "nano-banana-pro") {
+		allowed = append(allowed, "3:2", "2:3", "5:4", "4:5", "21:9")
+	}
+	for _, candidate := range allowed {
+		if normalized == candidate {
+			return nil
+		}
+	}
+	return fmt.Errorf("Adobe Banana aspect_ratio %q is not supported by model %s", normalized, originModel)
+}
+
 func validateFixedResolutionRequest(c *gin.Context, originModel, skuResolution string, isGPTImage bool, request *dto.ImageRequest) error {
 	if request == nil {
 		return nil
