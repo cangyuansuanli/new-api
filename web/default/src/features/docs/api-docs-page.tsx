@@ -236,7 +236,7 @@ export function ApiDocsPage() {
             ],
             [
               '比例输入',
-              'GPT Image 2 未传精确 size 时，可传 aspect_ratio 或比例形式的 size（如 7:6），平台会在所选模型档位的像素预算内计算尺寸。Adobe Banana 系列仅接受各型号文档列出的枚举比例，非枚举比例会在扣费前返回 400。',
+              '未传精确 size 时，可传 aspect_ratio 或比例形式的 size（如 7:6），平台会在所选模型档位的像素预算内计算尺寸。Adobe Banana 系列的常见与自定义正整数 W:H 比例也使用 aspect_ratio。',
             ],
             [
               'resolution 字段',
