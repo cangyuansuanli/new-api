@@ -469,7 +469,8 @@ function normalizeSingleVariant(
     params: filterGulie2KImageParams(
       mergeBananaImageParamNotes(
         normalizeParams(paramsSource),
-        model.image_ui_params as ImageUiParamsDoc | undefined
+        model.image_ui_params as ImageUiParamsDoc | undefined,
+        modelName
       ),
       model.image_ui_params as ImageUiParamsDoc | undefined
     ),
@@ -767,6 +768,9 @@ const BANANA_IMAGE_PARAM_NOTES = {
     'multipart 图生图：POST /v1/images/edits；多图参考请重复字段名 image（勿用 image[]）；image 只传文件，不要填 URL。',
 } as const
 
+const ADOBE_BANANA_ASPECT_RATIO_NOTE =
+  '仅支持该 Adobe Banana 型号文档列出的枚举比例；非枚举比例会在扣费前返回 400。请显式传 aspect_ratio；勿把 16:9-4k 等 UI 标签写进 size。'
+
 function sanitizeCustomerFacingText(text: string): string {
   return text
     .replace(/Adobe2API\s*\/?\s*Manju\s*均会读取该字段/g, '平台会读取该字段')
@@ -778,7 +782,8 @@ function sanitizeCustomerFacingText(text: string): string {
 
 function mergeBananaImageParamNotes(
   params: ModelDocParam[],
-  ui?: ImageUiParamsDoc
+  ui: ImageUiParamsDoc | undefined,
+  modelName: string
 ): ModelDocParam[] {
   if (!usesBananaStyleImageParams(ui)) {
     return params.map((p) => ({
@@ -790,7 +795,7 @@ function mergeBananaImageParamNotes(
     ...p,
     description: sanitizeCustomerFacingText(p.description),
   }))
-  for (const row of buildBananaStyleImageParams(ui?.params ?? {})) {
+  for (const row of buildBananaStyleImageParams(ui?.params ?? {}, modelName)) {
     const idx = merged.findIndex((p) => p.name === row.name)
     if (idx === -1) {
       merged.push(row)
@@ -802,14 +807,18 @@ function mergeBananaImageParamNotes(
 }
 
 function buildBananaStyleImageParams(
-  paramsConfig: ImageUiParamsDoc['params']
+  paramsConfig: ImageUiParamsDoc['params'],
+  modelName: string
 ): ModelDocParam[] {
   const aspectPresets = (paramsConfig?.aspectRatio?.options ?? [])
     .map((option) => option.value)
     .filter(Boolean)
     .join('、')
+  const isAdobeBanana = modelName.trim().toLowerCase().startsWith('nano-banana')
   const aspectDescription = [
-    BANANA_IMAGE_PARAM_NOTES.aspectRatio,
+    isAdobeBanana
+      ? ADOBE_BANANA_ASPECT_RATIO_NOTE
+      : BANANA_IMAGE_PARAM_NOTES.aspectRatio,
     aspectPresets ? `常用预设：${aspectPresets}。` : '',
   ]
     .filter(Boolean)
@@ -877,7 +886,7 @@ function buildAsyncImageVariant(
     { name: 'prompt', description: '必填，图像描述提示词。' },
     { name: 'async', description: '必填 true，启用异步任务模式。' },
     ...(useBananaParams
-      ? buildBananaStyleImageParams(paramsConfig)
+      ? buildBananaStyleImageParams(paramsConfig, modelName)
       : useGulie2KParams
         ? buildGulie2KImageParams(paramsConfig)
         : [
@@ -959,7 +968,7 @@ function buildSyncImageVariant(
     { name: 'model', description: `必填，固定传 ${modelName}。` },
     { name: 'prompt', description: '必填，图像描述提示词。' },
     ...(useBananaParams
-      ? buildBananaStyleImageParams(paramsConfig)
+      ? buildBananaStyleImageParams(paramsConfig, modelName)
       : useGulie2KParams
         ? buildGulie2KImageParams(paramsConfig)
         : [

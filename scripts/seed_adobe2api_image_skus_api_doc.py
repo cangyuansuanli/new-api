@@ -256,6 +256,14 @@ def validate_generated_docs(all_specs: list[dict]) -> None:
 def validate_gpt_image_profiles() -> None:
     profile_doc = json.loads(PROFILE_JSON_PATH.read_text(encoding="utf-8"))
     profiles = {profile.get("id"): profile for profile in profile_doc.get("profiles", [])}
+    for family in ("nano-banana-pro", "nano-banana2"):
+        for tier in TIERS:
+            profile_id = f"image-tpl-{family}-{tier}"
+            profile_text = json.dumps(profiles.get(profile_id), ensure_ascii=False)
+            if "任意正整数 W:H" in profile_text or "列出的画幅仅为常用预设" in profile_text:
+                raise ValueError(f"{profile_id} contains an unsupported arbitrary-ratio claim")
+            if "非枚举比例会在扣费前返回 400" not in profile_text:
+                raise ValueError(f"{profile_id} must document catalog-only aspect ratios")
     for tier in TIERS:
         profile_id = f"image-tpl-gpt-image-2-{tier}"
         profile = profiles.get(profile_id)

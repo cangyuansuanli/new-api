@@ -1285,7 +1285,7 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Nano Banana Pro 1K 固定档位；API 支持任意正整数 W:H，画幅比例不会改变 1K 计费和分辨率档位。"}]
+            "hints": [{"text": "Nano Banana Pro 1K 固定档位；仅支持面板列出的 Adobe 枚举比例，非枚举比例会在扣费前返回 400。"}]
         },
         {
             "id": "image-tpl-nano-banana-pro-2k",
@@ -1310,7 +1310,7 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Nano Banana Pro 2K 固定档位；API 支持任意正整数 W:H，画幅比例不会改变 2K 计费和分辨率档位。"}]
+            "hints": [{"text": "Nano Banana Pro 2K 固定档位；仅支持面板列出的 Adobe 枚举比例，非枚举比例会在扣费前返回 400。"}]
         },
         {
             "id": "image-tpl-nano-banana-pro-4k",
@@ -1335,7 +1335,7 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Nano Banana Pro 4K 固定档位；API 支持任意正整数 W:H，画幅比例不会改变 4K 计费和分辨率档位。"}]
+            "hints": [{"text": "Nano Banana Pro 4K 固定档位；仅支持面板列出的 Adobe 枚举比例，非枚举比例会在扣费前返回 400。"}]
         },
         {
             "id": "image-tpl-nano-banana2-1k",
@@ -1355,7 +1355,7 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Nano Banana 2 1K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
+            "hints": [{"text": "Nano Banana 2 1K 固定档位；仅支持面板列出的 Adobe 枚举比例，非枚举比例会在扣费前返回 400。"}]
         },
         {
             "id": "image-tpl-nano-banana2-2k",
@@ -1374,7 +1374,7 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Nano Banana 2 2K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
+            "hints": [{"text": "Nano Banana 2 2K 固定档位；仅支持面板列出的 Adobe 枚举比例，非枚举比例会在扣费前返回 400。"}]
         },
         {
             "id": "image-tpl-nano-banana2-4k",
@@ -1393,7 +1393,7 @@
                 "background": {"enabled": false}, "outputFormat": {"enabled": false},
                 "outputCompression": {"enabled": false}, "moderation": {"enabled": false}
             },
-            "hints": [{"text": "Nano Banana 2 4K 固定档位；API 支持任意正整数 W:H，列出的画幅仅为常用预设。"}]
+            "hints": [{"text": "Nano Banana 2 4K 固定档位；仅支持面板列出的 Adobe 枚举比例，非枚举比例会在扣费前返回 400。"}]
         },
         {
             "id": "image-tpl-gpt-image-2-1k",
