@@ -133,6 +133,11 @@ func ValidateAdobe2APIImageInputs(c *gin.Context, info *relaycommon.RelayInfo, r
 			}
 		}
 	}
+	if !isAdobe2APIGPTImageModelName(modelName) {
+		if err := imagevendor.ValidateAdobeBananaAspectRatio(info.OriginModelName, adobe2APIAspectRatio(request)); err != nil {
+			return err
+		}
+	}
 	files, err := collectAdobe2APIMultipartImageFiles(c)
 	if err != nil {
 		return err

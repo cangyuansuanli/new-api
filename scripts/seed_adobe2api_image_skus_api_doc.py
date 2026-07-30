@@ -137,7 +137,7 @@ def build_doc(spec: dict) -> dict:
     else:
         common_params.extend(
             [
-                {"name": "aspect_ratio", "description": "支持任意正整数 W:H（如 7:6、110:73）；常用预设：" + "、".join(spec["ratios"]) + f"；默认 16:9。只改变画幅，不改变 {tier} 分辨率和计费档位。"},
+                {"name": "aspect_ratio", "description": "Adobe 上游仅支持以下枚举比例：" + "、".join(spec["ratios"]) + f"；默认 16:9。非枚举比例会在扣费前返回 400；画幅不改变 {tier} 计费档位。"},
                 {"name": "image_size / output_resolution", "description": f"可省略；如传必须为 {tier}，服务端始终按 SKU 固定为 {tier}，不会被 aspect_ratio 覆盖。"},
                 {"name": "size", "description": f"OpenAI 兼容字段；只能表达画幅或与 {tier} 一致的尺寸，错档返回 400。"},
                 {"name": "quality", "description": f"OpenAI 兼容档位别名；如传必须对应 {tier}，错档返回 400。"},
