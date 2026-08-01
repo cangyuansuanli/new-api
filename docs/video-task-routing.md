@@ -84,9 +84,7 @@ JSON 示例：
 
 提交与轮询响应都使用统一视频对象：`id`、`object: "video"`、`model`、`status`、`progress`、`created_at`；成功时可通过响应结果 URL 或 `/content` 取片，失败时读取 `error.message`。`status` 只向客户暴露 `queued`、`in_progress`、`completed`、`failed`。
 
-Leonardo `cy-sd4-*` 的失败消息按可操作原因归一化：号池并发占满、冷却中或模型过载显示服务暂时不可用；上传媒体返回 `DURATION_TOO_LONG` 时提示缩短参考音视频；上游只返回 `FAILED` 且没有失败字段/输出时，明确说明上游未提供具体原因，并建议简化提示词、减少或更换参考素材。如请求包含参考素材，静默失败表示素材已完成上传和基础格式校验，不代表生成阶段内容审核、提示词与素材组合或模型稳定性一定通过。Cookie、账号及内部上游错误不得透传给客户。
-
-Leonardo `cy-sd4-*` vendor 在出站前严格校验参考素材数量：最多 4 张参考图、3 段参考视频、1 段参考音频。图片公开别名归一化、去空和去重后统一计数；超限直接返回 HTTP 400 与对应 `*_limit_exceeded` code，不创建任务、不预扣费，也不把请求发送到 Leonardo 插件。
+Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonardo-web2api**（`referencemedia` + `clienterror`）；NewAPI **不重写** 任务 `fail_reason` 与轮询 JSON 中的 `error.message`（见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)、[`leonardo-web2api/docs/models/seedance-2.0.md`](../../leonardo-web2api/docs/models/seedance-2.0.md)）。其他渠道或非 cy-sd4 路径仍走 `service/clienterror` 单点翻译。
 
 时间字段对外统一为整数 Unix 秒。上游若返回带小数的 Unix 秒，`oaivideo/shared` 会在协议边界截断为整数，不能因供应商时间精度差异导致任务提交或轮询失败。
 
@@ -112,7 +110,7 @@ JSON 的其他字段和 multipart 文件必须保留；仅模型名与时长别�
 SD5 Seedance vendor 还会将可选整数 `seed` 原样传给 Adobe2API，包括显式零值；其他
 Adobe Sora/Veo 模型继续过滤不支持的 seed。
 
-Seedance 2.0 的参考图统一使用 `reference_image_urls`（含单图）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。参考视频和参考音频均为可选且可独立使用；仅传 `prompt` 即为文生视频。Relay 在 registry 层按线路拆为独立 vendor：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`sd5-seedance`（cy-sd5）。Seedance vendor 不得因 `reference_videos` / `reference_audios` 存在而强制要求参考图，仍需保留各 profile 的数量、大小、时长与首尾帧互斥校验。
+Seedance 2.0 的参考图统一使用 `reference_image_urls`（含单图）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。参考视频和参考音频均为可选且可独立使用；仅传 `prompt` 即为文生视频。Relay 在 registry 层按线路拆为独立 vendor：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`sd5-seedance`（cy-sd5）。各 vendor 不得因 `reference_videos` / `reference_audios` 存在而强制要求参考图。**cy-sd1 / cy-sd2 / cy-sd5** 仍在 NewAPI profile 或 adaptor 侧做数量/大小/互斥等出站校验；**cy-sd4** 业务规则在 leonardo-web2api，见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)。
 
 公共图片别名必须在 `relay/common.TaskSubmitReq` 入口合并、去空并去重到 `Images`，vendor 只能消费该标准字段并渲染上游协议，不得再次从原始 JSON body 解析 `image` / `image_url` / `images` / `image_urls` / `reference_images` / `reference_image_urls`。`first_image_url` / `last_image_url` 是独立的首尾帧控制字段，不进入通用参考图归一化。
 
@@ -133,7 +131,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
 | `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
-| `cy-sd4-seedance*` | seedance-leonardo | cy-sd4 白名单 flat JSON → Leonardo `/v1/videos` | OpenAI Video 形 |
+| `cy-sd4-seedance*` | seedance-leonardo | flat JSON → Leonardo `/v1/videos` | OpenAI Video 形（校验/错误见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
 | `cy-sd5-seedance*` | SD5 Seedance | 按模型名前缀独立路由，不依赖 Adobe 渠道 ID 或模型映射；seed、9 图 / 3 视频 / 3 音频（合计最多 12）严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | seedance-tengda | Tengda flat → `content[]` JSON | OpenAI Video 形 |
 | `adobe-*sora*` / `adobe-*veo*` | Adobe | 严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |

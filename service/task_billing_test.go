@@ -233,6 +233,12 @@ func TestRefundTaskQuota_RefundableSkipsDashboardQuota(t *testing.T) {
 }
 
 func TestRefundTaskQuota_NonRefundableRecordsDashboardQuota(t *testing.T) {
+	prev := setting.SensitiveReviewWhitelistUserIds
+	t.Cleanup(func() {
+		setting.SensitiveReviewWhitelistUserIds = prev
+	})
+	setting.SensitiveReviewWhitelistUserIds = map[int]struct{}{21: {}}
+
 	truncate(t)
 	ctx := context.Background()
 
@@ -241,8 +247,11 @@ func TestRefundTaskQuota_NonRefundableRecordsDashboardQuota(t *testing.T) {
 
 	seedUser(t, userID, 10000)
 	task := makeTask(userID, 0, preConsumed, 0, BillingSourceWallet, 0)
+	task.Action = constant.TaskActionImageGenerate
 
 	RefundTaskQuota(ctx, task, "The generated images appear to be unsafe. Try modifying the prompts or the seeds.")
+
+	require.Equal(t, 10000, getUserQuota(t, userID))
 
 	require.Eventually(t, func() bool {
 		qd := getCachedQuotaData(userID, "test-model")
