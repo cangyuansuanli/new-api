@@ -90,6 +90,7 @@ func TestBillableMediaTargetsAreNeverActivelyProbed(t *testing.T) {
 		"stable-diffusion-3.5-large",
 		"sdxl-1.0",
 		"gemini-banana-pro-4k",
+		"cy-sd1-omni-fast-no-water",
 	}
 	for _, modelName := range modelCases {
 		t.Run(modelName, func(t *testing.T) {
@@ -129,6 +130,11 @@ func TestBillableMediaTargetsAreNeverActivelyProbed(t *testing.T) {
 			assert.Equal(t, model.ChannelMonitorProbeMediaPassive, ResolveChannelMonitorProbeKind(channelType, "text-looking-model", nil))
 		})
 	}
+}
+
+func TestOmniMediaModelsUseVideoFreshness(t *testing.T) {
+	assert.True(t, IsBillableMediaMonitorTarget(constant.ChannelTypeOpenAI, "cy-sd1-omni-fast"))
+	assert.True(t, isVideoChannelMonitorTarget(constant.ChannelTypeOpenAI, "cy-sd1-omni-v2v-no-water"))
 }
 
 func TestMediaMonitorViewIsUnknownBeforeFirstObservation(t *testing.T) {
