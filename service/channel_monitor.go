@@ -197,7 +197,7 @@ func IsBillableMediaMonitorTarget(channelType int, modelName string) bool {
 		"firefly", "banana", "stable-diffusion", "sdxl", "recraft", "ideogram",
 		"seedance", "video", "veo", "sora", "kling", "vidu", "hailuo", "minimax-hailuo",
 		"wan2", "wan-", "luma", "runway", "grok-video", "cogvideo", "hunyuan-video", "pixverse",
-		"cy-sd1-omni",
+		"cy-sd1-omni", "cy-sd4-minimax",
 	}
 	for _, marker := range mediaMarkers {
 		if strings.Contains(name, marker) {
@@ -306,7 +306,7 @@ func isVideoChannelMonitorTarget(channelType int, modelName string) bool {
 	return containsChannelMonitorMarker(name, []string{
 		"seedance", "video", "veo", "sora", "kling", "vidu", "hailuo", "minimax-hailuo",
 		"wan2", "wan-", "luma", "runway", "grok-video", "cogvideo", "hunyuan-video", "pixverse",
-		"cy-sd1-omni",
+		"cy-sd1-omni", "cy-sd4-minimax",
 	})
 }
 
