@@ -28,7 +28,7 @@ When no effective observation exists inside the freshness window, the state is u
 
 ## Public response contract
 
-The authenticated user endpoint returns only the public display name, category (`text`, `image`, or `video`), latest state, availability, average latency, and last update time. It does not expose monitor or channel identifiers, channel/provider names, internal model names, raw errors, sample counts, or probe timelines. The administrator endpoints retain the diagnostic view.
+The authenticated user endpoint returns only the public display name, category (`text`, `image`, or `video`), latest state, availability, average latency, and up to 48 anonymous recent status points. Anonymous points contain only status and expose neither timestamps nor per-observation latency. It does not expose monitor or channel identifiers, channel/provider names, internal model names, raw errors, sample counts, or last update time. The administrator endpoints retain the diagnostic view.
 
 Text items are keyed by channel group. Image and video items are keyed by category plus public model name; when several monitored channels provide the same public model, an operational fallback makes the public model operational, followed by degraded, unavailable, and unknown precedence.
 

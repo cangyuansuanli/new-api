@@ -14,6 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getChannelMonitors } from './api'
+import { statusBarClass } from './constants'
 import { StatusBadge } from './status'
 import type { PublicChannelMonitorItem, PublicMonitorCategory } from './types'
 
@@ -27,15 +28,34 @@ function formatLatency(value: number | null): string {
   return value == null ? '-' : `${value} ms`
 }
 
-function formatCheckedAt(value: number | null): string {
-  return value == null ? '-' : new Date(value * 1000).toLocaleString()
-}
-
 function Metric(props: { label: string; value: React.ReactNode }) {
   return (
     <div className='min-w-0 px-3 first:pl-0 last:pr-0 [&+&]:border-l'>
       <div className='text-muted-foreground mb-1 text-xs'>{props.label}</div>
       <div className='truncate text-sm font-semibold'>{props.value}</div>
+    </div>
+  )
+}
+
+function StatusTimeline(props: { item: PublicChannelMonitorItem }) {
+  const { t } = useTranslation()
+  if (props.item.timeline.length === 0) return null
+
+  return (
+    <div
+      className='mt-4 flex h-8 items-stretch gap-0.5 border-t pt-3'
+      aria-label={t('Recent probe timeline')}
+    >
+      {props.item.timeline.map((point, index) => (
+        <span
+          key={index}
+          className={cn(
+            'min-w-0 flex-1 rounded-[1px]',
+            statusBarClass[point.status]
+          )}
+          aria-hidden='true'
+        />
+      ))}
     </div>
   )
 }
@@ -71,9 +91,7 @@ function AvailabilityCards(props: { items: PublicChannelMonitorItem[] }) {
                 value={formatLatency(item.average_latency_ms)}
               />
             </div>
-            <div className='text-muted-foreground mt-4 border-t pt-3 text-xs'>
-              {t('Last updated')}: {formatCheckedAt(item.latest_checked_at)}
-            </div>
+            <StatusTimeline item={item} />
           </CardContent>
         </Card>
       ))}
