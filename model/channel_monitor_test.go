@@ -101,16 +101,37 @@ func TestListRecentChannelsMediaTasksMatchesConfiguredModels(t *testing.T) {
 		require.NoError(t, DB.Create(task).Error)
 	}
 
-	tasks, err := ListRecentChannelsMediaTasks(map[int][]string{
+	tasks, cursor, err := ListRecentChannelsMediaTasks(map[int][]string{
 		channelID:     {"image-model", "video-model"},
 		channelID + 1: {"unused-model"},
 	}, now-60, 100)
 
 	require.NoError(t, err)
+	assert.Equal(t, now, cursor)
 	require.Len(t, tasks, 2)
 	assert.Equal(t, []string{"client-image", "origin-video"}, []string{tasks[0].TaskID, tasks[1].TaskID})
 	for _, task := range tasks {
 		assert.Empty(t, task.PrivateData)
 		assert.Empty(t, task.Data)
+		assert.Empty(t, task.Properties.Input)
 	}
+}
+
+func TestListRecentChannelsMediaTasksSafelyReadsEscapedUnicode(t *testing.T) {
+	truncateTables(t)
+	now := time.Now().Unix()
+	task := &Task{
+		CreatedAt: now, UpdatedAt: now, TaskID: "escaped-unicode",
+		ChannelId: 31, Status: TaskStatusSuccess,
+		Properties: Properties{Input: "prompt\x00suffix", ClientModelName: "image-model"},
+	}
+	require.NoError(t, DB.Create(task).Error)
+
+	tasks, cursor, err := ListRecentChannelsMediaTasks(map[int][]string{31: {"image-model"}}, now-1, 100)
+
+	require.NoError(t, err)
+	assert.Equal(t, now, cursor)
+	require.Len(t, tasks, 1)
+	assert.Equal(t, "escaped-unicode", tasks[0].TaskID)
+	assert.Empty(t, tasks[0].Properties.Input)
 }

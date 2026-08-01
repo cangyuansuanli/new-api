@@ -658,6 +658,24 @@ func TestBuildPassiveMediaTimelineUsesPreWindowBaseline(t *testing.T) {
 	assert.Nil(t, stat.Availability)
 }
 
+func TestMergeChannelMonitorMediaTasksDeduplicatesAndPrunes(t *testing.T) {
+	existing := []*model.Task{
+		{ID: 1, UpdatedAt: 100, FailReason: "old"},
+		{ID: 2, UpdatedAt: 200},
+	}
+	fresh := []*model.Task{
+		{ID: 2, UpdatedAt: 200, FailReason: "refreshed"},
+		{ID: 3, UpdatedAt: 300},
+	}
+
+	merged := mergeChannelMonitorMediaTasks(existing, fresh, 150)
+
+	require.Len(t, merged, 2)
+	assert.Equal(t, int64(3), merged[0].ID)
+	assert.Equal(t, int64(2), merged[1].ID)
+	assert.Equal(t, "refreshed", merged[1].FailReason)
+}
+
 func TestChannelMonitorLeasePreventsDuplicateClaimsAndExpires(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gpt-4o-mini")
