@@ -521,6 +521,34 @@ func TestPublicChannelMonitorViewsPreferOperationalFallback(t *testing.T) {
 	assert.Equal(t, checkedLate, *aggregate.item.LatestCheckedAt)
 }
 
+func TestBuildPassiveMediaStatFromTasksPreservesFreshnessAndModelBoundaries(t *testing.T) {
+	now := time.Now()
+	channel := &model.Channel{Id: 1, Type: constant.ChannelTypeOpenAI}
+	tasks := []*model.Task{
+		{
+			UpdatedAt: now.Unix(), Status: model.TaskStatusSuccess,
+			Properties: model.Properties{OriginModelName: "gpt-image-2"},
+		},
+		{
+			UpdatedAt: now.Add(-time.Hour).Unix(), Status: model.TaskStatusFailure,
+			FailReason: "bad response status 502",
+			Properties: model.Properties{OriginModelName: "gpt-image-2"},
+		},
+		{
+			UpdatedAt: now.Unix(), Status: model.TaskStatusFailure,
+			FailReason: "bad response status 502",
+			Properties: model.Properties{OriginModelName: "other-image"},
+		},
+	}
+
+	stat := buildPassiveMediaStatFromTasks(channel, "gpt-image-2", tasks, true)
+
+	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
+	assert.Equal(t, 1, stat.Observed)
+	assert.Equal(t, 1, stat.Operational)
+	require.Len(t, stat.Timeline, 1)
+}
+
 func TestChannelMonitorLeasePreventsDuplicateClaimsAndExpires(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gpt-4o-mini")

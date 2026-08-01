@@ -75,3 +75,42 @@ func TestListRecentMediaTasksRejectsInvalidScope(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, tasks)
 }
+
+func TestListRecentChannelsMediaTasksMatchesConfiguredModels(t *testing.T) {
+	truncateTables(t)
+	now := time.Now().Unix()
+	channelID := 29
+	fixtures := []*Task{
+		{
+			CreatedAt: now, UpdatedAt: now, TaskID: "client-image",
+			ChannelId: channelID, Status: TaskStatusSuccess,
+			Properties: Properties{ClientModelName: "image-model"},
+		},
+		{
+			CreatedAt: now, UpdatedAt: now - 1, TaskID: "origin-video",
+			ChannelId: channelID, Status: TaskStatusFailure,
+			Properties: Properties{OriginModelName: "video-model"},
+		},
+		{
+			CreatedAt: now, UpdatedAt: now - 2, TaskID: "unconfigured",
+			ChannelId: channelID, Status: TaskStatusSuccess,
+			Properties: Properties{UpstreamModelName: "other-model"},
+		},
+	}
+	for _, task := range fixtures {
+		require.NoError(t, DB.Create(task).Error)
+	}
+
+	tasks, err := ListRecentChannelsMediaTasks(map[int][]string{
+		channelID:     {"image-model", "video-model"},
+		channelID + 1: {"unused-model"},
+	}, now-60, 100)
+
+	require.NoError(t, err)
+	require.Len(t, tasks, 2)
+	assert.Equal(t, []string{"client-image", "origin-video"}, []string{tasks[0].TaskID, tasks[1].TaskID})
+	for _, task := range tasks {
+		assert.Empty(t, task.PrivateData)
+		assert.Empty(t, task.Data)
+	}
+}

@@ -220,3 +220,56 @@ func ListRecentMediaTasks(channelID int, modelName string, since int64, limit in
 		Find(&tasks).Error
 	return tasks, err
 }
+
+// ListRecentChannelsMediaTasks returns terminal task metadata for monitored
+// channel/model pairs in one scan. Public availability evaluates the results
+// in memory instead of repeating the same JSON model scan for every model.
+func ListRecentChannelsMediaTasks(targets map[int][]string, since int64, limit int) ([]*Task, error) {
+	channelIDs := make([]int, 0, len(targets))
+	seen := make(map[string]struct{})
+	normalizedModels := make([]string, 0)
+	for channelID, modelNames := range targets {
+		if channelID <= 0 {
+			continue
+		}
+		channelIDs = append(channelIDs, channelID)
+		for _, modelName := range modelNames {
+			modelName = strings.TrimSpace(modelName)
+			if modelName == "" {
+				continue
+			}
+			if _, exists := seen[modelName]; exists {
+				continue
+			}
+			seen[modelName] = struct{}{}
+			normalizedModels = append(normalizedModels, modelName)
+		}
+	}
+	if len(channelIDs) == 0 || len(normalizedModels) == 0 {
+		return []*Task{}, nil
+	}
+	if limit <= 0 || limit > 50000 {
+		limit = 10000
+	}
+	var modelPredicate string
+	switch {
+	case common.UsingPostgreSQL:
+		modelPredicate = `(COALESCE(properties->>'client_model_name', '') IN ? OR COALESCE(properties->>'origin_model_name', '') IN ? OR COALESCE(properties->>'upstream_model_name', '') IN ?)`
+	case common.UsingMySQL:
+		modelPredicate = `(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.client_model_name')), '') IN ? OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.origin_model_name')), '') IN ? OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.upstream_model_name')), '') IN ?)`
+	default:
+		modelPredicate = `(COALESCE(json_extract(properties, '$.client_model_name'), '') IN ? OR COALESCE(json_extract(properties, '$.origin_model_name'), '') IN ? OR COALESCE(json_extract(properties, '$.upstream_model_name'), '') IN ?)`
+	}
+
+	var tasks []*Task
+	err := DB.Model(&Task{}).
+		Select("id", "updated_at", "channel_id", "platform", "action", "status", "fail_reason", "properties").
+		Where("channel_id IN ?", channelIDs).
+		Where("status IN ?", []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).
+		Where("updated_at >= ?", since).
+		Where(modelPredicate, normalizedModels, normalizedModels, normalizedModels).
+		Order("updated_at DESC, id DESC").
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
