@@ -1,0 +1,132 @@
+package controller
+
+import (
+	"bytes"
+	"fmt"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+)
+
+func setupChannelMonitorControllerTest(t *testing.T) {
+	t.Helper()
+	originalDB := model.DB
+	originalLogDB := model.LOG_DB
+	gin.SetMode(gin.TestMode)
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB = db
+	model.LOG_DB = db
+	require.NoError(t, db.AutoMigrate(
+		&model.Channel{},
+		&model.ChannelMonitor{},
+		&model.ChannelMonitorResult{},
+		&model.Option{},
+	))
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = make(map[string]string)
+	}
+	originalEnabled, hadOriginalEnabled := common.OptionMap["ChannelMonitorEnabled"]
+	common.OptionMap["ChannelMonitorEnabled"] = "false"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		if hadOriginalEnabled {
+			common.OptionMap["ChannelMonitorEnabled"] = originalEnabled
+		} else {
+			delete(common.OptionMap, "ChannelMonitorEnabled")
+		}
+		common.OptionMapRWMutex.Unlock()
+		model.DB = originalDB
+		model.LOG_DB = originalLogDB
+		sqlDB, err := db.DB()
+		if err == nil {
+			_ = sqlDB.Close()
+		}
+	})
+}
+
+func TestListChannelMonitorStatusReturnsEmptyWhenDisabled(t *testing.T) {
+	setupChannelMonitorControllerTest(t)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest("GET", "/api/channel-monitors", nil)
+
+	ListChannelMonitorStatus(ctx)
+
+	assert.Equal(t, 200, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"enabled":false`)
+	assert.Contains(t, recorder.Body.String(), `"items":[]`)
+}
+
+func TestAdminCreateMediaMonitorUsesPassiveProbe(t *testing.T) {
+	setupChannelMonitorControllerTest(t)
+	channel := &model.Channel{
+		Name: "media-channel", Type: constant.ChannelTypeOpenAI,
+		Key: "sensitive-key", Status: common.ChannelStatusEnabled,
+		Models: "gpt-image-1", Group: "default",
+	}
+	require.NoError(t, model.DB.Create(channel).Error)
+	body := fmt.Sprintf(`{
+		"channel_id": %d,
+		"name": "Images",
+		"primary_model": "gpt-image-1",
+		"extra_models": [],
+		"interval_seconds": 300,
+		"jitter_seconds": 30,
+		"enabled": true,
+		"visible": true
+	}`, channel.Id)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest("POST", "/api/channel-monitors/admin", bytes.NewBufferString(body))
+
+	AdminCreateChannelMonitor(ctx)
+
+	assert.Equal(t, 200, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"success":true`)
+	monitor, err := model.GetChannelMonitorByChannelID(channel.Id)
+	require.NoError(t, err)
+	assert.Equal(t, model.ChannelMonitorProbeMediaPassive, monitor.ProbeKind)
+	assert.NotContains(t, recorder.Body.String(), "sensitive-key")
+}
+
+func TestGetChannelMonitorStatusHidesDisabledMonitor(t *testing.T) {
+	setupChannelMonitorControllerTest(t)
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap["ChannelMonitorEnabled"] = "true"
+	common.OptionMapRWMutex.Unlock()
+	channel := &model.Channel{
+		Name: "text-channel", Type: constant.ChannelTypeOpenAI,
+		Key: "sensitive-key", Status: common.ChannelStatusEnabled,
+		Models: "gpt-4o-mini", Group: "default",
+	}
+	require.NoError(t, model.DB.Create(channel).Error)
+	monitor := &model.ChannelMonitor{
+		ChannelID: channel.Id, Name: "Paused monitor", PrimaryModel: "gpt-4o-mini",
+		ExtraModelsJSON: "[]", ProbeKind: model.ChannelMonitorProbeTextActive,
+		IntervalSeconds: 300, Enabled: false, Visible: true,
+	}
+	require.NoError(t, model.CreateChannelMonitor(monitor))
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Params = gin.Params{{Key: "id", Value: fmt.Sprint(monitor.ID)}}
+	ctx.Request = httptest.NewRequest("GET", fmt.Sprintf("/api/channel-monitors/%d/status", monitor.ID), nil)
+
+	GetChannelMonitorStatus(ctx)
+
+	assert.Equal(t, 200, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"success":false`)
+	assert.NotContains(t, recorder.Body.String(), `"Paused monitor"`)
+}
