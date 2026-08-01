@@ -32,7 +32,7 @@ const (
 	channelMonitorPublicBucketSize    = 30 * time.Minute
 	channelMonitorCarryLookback       = 24 * time.Hour
 	channelMonitorPublicCacheTTL      = 5 * time.Minute
-	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v2"
+	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v3"
 	channelMonitorMediaCacheTTL       = 49 * time.Hour
 	channelMonitorMediaCacheNS        = "new-api:channel_monitor_media:v1"
 )
@@ -453,9 +453,35 @@ func taskMatchesChannelMonitorModel(task *model.Task, modelName string) bool {
 		return false
 	}
 	modelName = strings.TrimSpace(modelName)
-	return modelName != "" && (task.Properties.ClientModelName == modelName ||
-		task.Properties.OriginModelName == modelName ||
-		task.Properties.UpstreamModelName == modelName)
+	publicName := ToPublicModelName(modelName)
+	for _, taskModelName := range []string{
+		task.Properties.ClientModelName,
+		task.Properties.OriginModelName,
+		task.Properties.UpstreamModelName,
+	} {
+		taskModelName = strings.TrimSpace(taskModelName)
+		if taskModelName != "" && (taskModelName == modelName || ToPublicModelName(taskModelName) == publicName) {
+			return true
+		}
+	}
+	return false
+}
+
+func channelMonitorModelAliases(modelName string) []string {
+	aliases := []string{strings.TrimSpace(modelName), ToPublicModelName(modelName)}
+	seen := make(map[string]struct{}, len(aliases))
+	result := make([]string, 0, len(aliases))
+	for _, alias := range aliases {
+		if alias == "" {
+			continue
+		}
+		if _, exists := seen[alias]; exists {
+			continue
+		}
+		seen[alias] = struct{}{}
+		result = append(result, alias)
+	}
+	return result
 }
 
 func buildPassiveMediaStatFromTasks(channel *model.Channel, modelName string, tasks []*model.Task, includeTimeline bool) *ChannelMonitorModelStat {
@@ -567,6 +593,10 @@ func RunChannelMonitor(ctx context.Context, monitorID int64, probe ChannelMonito
 	if err != nil {
 		return nil, err
 	}
+	channel, err = resolveActiveTextMonitorChannel(monitor, channel)
+	if err != nil {
+		return nil, err
+	}
 	models := ChannelMonitorModels(monitor)
 	results := make([]*model.ChannelMonitorResult, 0, len(models))
 	for _, modelName := range models {
@@ -612,6 +642,41 @@ func RunChannelMonitor(ctx context.Context, monitorID int64, probe ChannelMonito
 		results = append(results, result)
 	}
 	return results, nil
+}
+
+func resolveActiveTextMonitorChannel(monitor *model.ChannelMonitor, configured *model.Channel) (*model.Channel, error) {
+	if monitor == nil || configured == nil || monitor.ProbeKind != model.ChannelMonitorProbeTextActive || configured.Status == common.ChannelStatusEnabled {
+		return configured, nil
+	}
+	configuredGroups := make(map[string]struct{})
+	for _, group := range configured.GetGroups() {
+		configuredGroups[group] = struct{}{}
+	}
+	channels, err := model.GetEnabledChannels(true)
+	if err != nil {
+		return nil, err
+	}
+	for _, channel := range channels {
+		if !channelSupportsMonitorModel(channel, monitor.PrimaryModel) {
+			continue
+		}
+		for _, group := range channel.GetGroups() {
+			if _, matches := configuredGroups[group]; matches {
+				return channel, nil
+			}
+		}
+	}
+	return configured, nil
+}
+
+func channelSupportsMonitorModel(channel *model.Channel, modelName string) bool {
+	wanted := ToPublicModelName(modelName)
+	for _, candidate := range channel.GetModels() {
+		if candidate == modelName || ToPublicModelName(candidate) == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func ClaimAndRunChannelMonitor(ctx context.Context, monitorID int64, probe ChannelMonitorProbeFunc) ([]*model.ChannelMonitorResult, error) {
@@ -947,10 +1012,35 @@ type publicChannelMonitorSource struct {
 	mediaModels []string
 }
 
-func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays int) ([]*PublicChannelMonitorItem, error) {
+func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays int, discoverTextGroups bool) ([]*PublicChannelMonitorItem, error) {
 	aggregates := make(map[string]*publicChannelMonitorAggregate)
 	sources := make([]*publicChannelMonitorSource, 0, len(monitors))
 	mediaTargets := make(map[int][]string)
+	textGroups := make(map[string]struct{})
+	if discoverTextGroups {
+		enabledChannels, err := model.GetEnabledChannels(false)
+		if err != nil {
+			return nil, err
+		}
+		for _, channel := range enabledChannels {
+			hasTextModel := false
+			for _, modelName := range channel.GetModels() {
+				if !IsBillableMediaMonitorTarget(channel.Type, modelName) {
+					hasTextModel = true
+					break
+				}
+			}
+			if !hasTextModel {
+				continue
+			}
+			for _, group := range channel.GetGroups() {
+				textGroups[group] = struct{}{}
+				mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, &ChannelMonitorModelStat{
+					LatestStatus: model.ChannelMonitorStatusUnknown,
+				})
+			}
+		}
+	}
 	for _, monitor := range monitors {
 		channel, err := model.GetChannelById(monitor.ChannelID, false)
 		if err != nil {
@@ -958,6 +1048,18 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 				continue
 			}
 			return nil, err
+		}
+		if monitor.ProbeKind == model.ChannelMonitorProbeTextActive && !IsBillableMediaMonitorTarget(channel.Type, monitor.PrimaryModel) {
+			view, viewErr := BuildChannelMonitorView(monitor, windowDays, true)
+			if viewErr != nil {
+				return nil, viewErr
+			}
+			for _, group := range channel.GetGroups() {
+				_, enabled := textGroups[group]
+				if !discoverTextGroups || enabled {
+					mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, view.Primary)
+				}
+			}
 		}
 		if channel.Status != common.ChannelStatusEnabled {
 			continue
@@ -975,7 +1077,9 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 		}
 		sources = append(sources, &publicChannelMonitorSource{monitor: monitor, channel: channel, mediaModels: mediaModels})
 		if len(mediaModels) > 0 {
-			mediaTargets[channel.Id] = mediaModels
+			for _, modelName := range mediaModels {
+				mediaTargets[channel.Id] = append(mediaTargets[channel.Id], channelMonitorModelAliases(modelName)...)
+			}
 		}
 	}
 
@@ -992,15 +1096,6 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 	}
 
 	for _, source := range sources {
-		if source.monitor.ProbeKind == model.ChannelMonitorProbeTextActive && !IsBillableMediaMonitorTarget(source.channel.Type, source.monitor.PrimaryModel) {
-			view, err := BuildChannelMonitorView(source.monitor, windowDays, true)
-			if err != nil {
-				return nil, err
-			}
-			for _, group := range source.channel.GetGroups() {
-				mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, view.Primary)
-			}
-		}
 		for _, modelName := range source.mediaModels {
 			category := publicChannelMonitorCategory(source.channel.Type, modelName)
 			stat := buildPassiveMediaStatFromTasks(source.channel, modelName, mediaTasksByChannel[source.channel.Id], true)
@@ -1092,7 +1187,7 @@ func listPublicChannelMonitorViewsUncached(windowDays int) ([]*PublicChannelMoni
 	if err != nil {
 		return nil, nil, err
 	}
-	items, err := buildPublicChannelMonitorItems(monitors, windowDays)
+	items, err := buildPublicChannelMonitorItems(monitors, windowDays, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1103,7 +1198,7 @@ func BuildPublicChannelMonitorViews(monitor *model.ChannelMonitor, windowDays in
 	if monitor == nil {
 		return nil, errors.New("channel monitor is required")
 	}
-	return buildPublicChannelMonitorItems([]*model.ChannelMonitor{monitor}, windowDays)
+	return buildPublicChannelMonitorItems([]*model.ChannelMonitor{monitor}, windowDays, false)
 }
 
 func ListAdminChannelMonitorViews(windowDays int) ([]*AdminChannelMonitorView, *ChannelMonitorRuntimeSummary, error) {

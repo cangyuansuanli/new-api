@@ -15,6 +15,7 @@ import (
 func setupChannelMonitorTest(t *testing.T) {
 	t.Helper()
 	InvalidatePublicChannelMonitorCache()
+	require.NoError(t, getChannelMonitorMediaCache().Purge())
 	require.NoError(t, model.DB.AutoMigrate(
 		&model.ChannelMonitor{},
 		&model.ChannelMonitorResult{},
@@ -190,6 +191,36 @@ func TestRunChannelMonitorPersistsTextProbeResult(t *testing.T) {
 	assert.Equal(t, 200, stored[0].HTTPStatus)
 }
 
+func TestRunChannelMonitorUsesEnabledReplacementInSameGroup(t *testing.T) {
+	setupChannelMonitorTest(t)
+	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gpt-5.6-sol")
+	configured, err := model.GetChannelById(monitor.ChannelID, false)
+	require.NoError(t, err)
+	configured.Group = "LLM-GPT-pro"
+	configured.Status = common.ChannelStatusManuallyDisabled
+	require.NoError(t, model.DB.Save(configured).Error)
+	replacement := &model.Channel{
+		Name: "replacement", Type: constant.ChannelTypeOpenAI, Key: "replacement-key",
+		Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro",
+	}
+	require.NoError(t, model.DB.Create(replacement).Error)
+
+	results, err := RunChannelMonitor(context.Background(), monitor.ID, func(
+		_ context.Context,
+		_ *model.ChannelMonitor,
+		channel *model.Channel,
+		_ string,
+	) ChannelMonitorProbeOutcome {
+		assert.Equal(t, replacement.Id, channel.Id)
+		assert.Equal(t, "replacement-key", channel.Key)
+		return ChannelMonitorProbeOutcome{Status: model.ChannelMonitorStatusOperational}
+	})
+
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, results[0].Status)
+}
+
 func TestRunChannelMonitorProbesTextAndSkipsMediaInMixedMonitor(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gpt-4o-mini")
@@ -268,10 +299,11 @@ func TestRecentMediaTasksMatchAllPersistedModelNames(t *testing.T) {
 func TestPassiveVideoAggregatesCurrentBucketObservations(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "seedance-2.0")
-	now := time.Now()
-	createMediaTaskFixture(t, monitor, model.TaskStatusSuccess, "", now.Add(-time.Minute).Unix())
-	createMediaTaskFixture(t, monitor, model.TaskStatusFailure, "upstream returned failed with no output and no failure detail", now.Add(-2*time.Minute).Unix())
-	createMediaTaskFixture(t, monitor, model.TaskStatusFailure, "bad response status 504", now.Add(-3*time.Minute).Unix())
+	bucketStart := time.Now().Truncate(channelMonitorPublicBucketSize)
+	observationTime := bucketStart.Add(-5 * time.Minute)
+	createMediaTaskFixture(t, monitor, model.TaskStatusSuccess, "", observationTime.Unix())
+	createMediaTaskFixture(t, monitor, model.TaskStatusFailure, "upstream returned failed with no output and no failure detail", observationTime.Add(-time.Minute).Unix())
+	createMediaTaskFixture(t, monitor, model.TaskStatusFailure, "bad response status 504", observationTime.Add(-2*time.Minute).Unix())
 
 	view, err := BuildChannelMonitorView(monitor, 7, true)
 
@@ -304,7 +336,8 @@ func TestPassiveVideoThreeRecentChannelFailuresAreUnavailable(t *testing.T) {
 func TestPassiveImageUsesRecentFiveEffectiveObservations(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gpt-image-2")
-	now := time.Now()
+	bucketStart := time.Now().Truncate(channelMonitorPublicBucketSize)
+	observationTime := bucketStart.Add(-5 * time.Minute)
 	statuses := []model.TaskStatus{
 		model.TaskStatusSuccess,
 		model.TaskStatusSuccess,
@@ -317,7 +350,7 @@ func TestPassiveImageUsesRecentFiveEffectiveObservations(t *testing.T) {
 		if status == model.TaskStatusFailure {
 			reason = "bad response status code 502"
 		}
-		createMediaTaskFixture(t, monitor, status, reason, now.Add(-time.Duration(index)*time.Minute).Unix())
+		createMediaTaskFixture(t, monitor, status, reason, observationTime.Add(-time.Duration(index)*time.Minute).Unix())
 	}
 
 	view, err := BuildChannelMonitorView(monitor, 7, false)
@@ -459,6 +492,52 @@ func TestPublicChannelMonitorViewsExcludeDisabledChannels(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, items)
 	assert.Zero(t, summary.Total)
+}
+
+func TestPublicChannelMonitorViewsIncludeEnabledTextGroupsWithoutMonitor(t *testing.T) {
+	setupChannelMonitorTest(t)
+	channel := &model.Channel{
+		Name: "dynamic-text", Type: constant.ChannelTypeOpenAI, Key: "sensitive-test-key",
+		Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-快速,LLM-GPT-plus",
+	}
+	require.NoError(t, model.DB.Create(channel).Error)
+
+	items, summary, err := ListPublicChannelMonitorViews(7)
+
+	require.NoError(t, err)
+	require.Len(t, items, 2)
+	assert.Equal(t, 2, summary.Total)
+	assert.Equal(t, 2, summary.Unknown)
+	assert.Equal(t, "LLM-GPT-plus", items[0].Name)
+	assert.Equal(t, ChannelMonitorCategoryText, items[0].Category)
+	assert.Equal(t, model.ChannelMonitorStatusUnknown, items[0].LatestStatus)
+	require.Len(t, items[0].Timeline, channelMonitorPublicTimelineLimit)
+}
+
+func TestPassiveMediaMatchesPublicAliasOfInternalModel(t *testing.T) {
+	now := time.Date(2026, 8, 1, 22, 17, 0, 0, time.UTC)
+	channel := &model.Channel{Id: 75, Type: constant.ChannelTypeOpenAI}
+	modelPublicRegistryMu.Lock()
+	previousRegistry := modelPublicRegistryData
+	modelPublicRegistryData.internalToPublic = map[string]string{
+		"adobe-firefly-nano-banana-1k": "nano-banana-1k",
+	}
+	modelPublicRegistryMu.Unlock()
+	t.Cleanup(func() {
+		modelPublicRegistryMu.Lock()
+		modelPublicRegistryData = previousRegistry
+		modelPublicRegistryMu.Unlock()
+	})
+	tasks := []*model.Task{{
+		ID: 1, UpdatedAt: now.Add(-5 * time.Minute).Unix(), Status: model.TaskStatusSuccess,
+		Properties: model.Properties{ClientModelName: "nano-banana-1k"},
+	}}
+
+	stat := buildPassiveMediaStatFromTasksAt(channel, "adobe-firefly-nano-banana-1k", tasks, true, now)
+
+	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
+	assert.Equal(t, 1, stat.Observed)
+	assert.Equal(t, 1, stat.Operational)
 }
 
 func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing.T) {
