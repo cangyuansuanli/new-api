@@ -10,7 +10,7 @@
 | [`service/clienterror/common.go`](../service/clienterror/common.go) | 跨渠道：内容审查、超时、体积/提示词、参考素材 |
 | [`service/clienterror/transport.go`](../service/clienterror/transport.go) | 非渠道的 HTTP/传输状态（如重试耗尽后的 429） |
 | [`service/clienterror/omni.go`](../service/clienterror/omni.go) | oairegbox Omni / Veo（cy-sd1-omni-*）内容审查拒绝 |
-| [`service/clienterror/leonardo.go`](../service/clienterror/leonardo.go) | Leonardo 池 / cy-sd4 多模态（含号池 humanize） |
+| [`service/clienterror/leonardo.go`](../service/clienterror/leonardo.go) | Leonardo **非 cy-sd4** 或历史 raw 兜底；**`cy-sd4-seedance*` 透传** leonardo-web2api 文案（见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
 | [`service/clienterror/upstream_humanize.go`](../service/clienterror/upstream_humanize.go) | **跨渠道** HTTP/503/容量不可用（不含 vendor 名） |
 | [`service/clienterror/adobe.go`](../service/clienterror/adobe.go) | Adobe2API / Adobe Direct |
 | [`service/clienterror/sd5.go`](../service/clienterror/sd5.go) | SD5 / `cy-sd5-seedance-2.0*`，在渠道文件内解析 payload 的 `error_code` / `error_type` |
@@ -34,6 +34,7 @@
 
 - vendor adaptor 负责上游协议解析，保留 raw reason / payload，不生成面向用户的多语言文案。
 - `service/clienterror` 只在客户端输出边界翻译，不写回 Task，不参与扣费或退款判断。
+- **`cy-sd4-seedance*`**：`NormalizeTaskFailure` / `NormalizeOpenAIVideoResponseWithContext` 在 `IsLeonardoWeb2APIRelayModel` 为真时 **不调用** `NormalizeError`；上游人话由 leonardo-web2api `internal/clienterror` 生成。
 - `service/task_billing.go` 的错误分类用于计费决策，与客户翻译独立；日志继续保留脱敏后原文。
 
 ## 新增 vendor 错误

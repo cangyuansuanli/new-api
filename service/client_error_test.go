@@ -82,3 +82,36 @@ func TestNormalizeOpenAIImageTaskJobErrorUsesTaskContext(t *testing.T) {
 		t.Fatalf("NormalizeOpenAIImageTaskJobError() = %q, want %q", got, want)
 	}
 }
+
+func TestNormalizeTaskFailurePassthroughCySd4Leonardo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/v1/videos/task_1", nil)
+	c.Request.Header.Set("Accept-Language", "zh-CN")
+
+	upstream := "参考视频最多 3 段，当前 4 段，请减少后重试（MP4/MOV，单条 4–15 秒，最多 3 段总时长 ≤15 秒，宽高各 720–2160px，24–60 FPS）。"
+	task := &model.Task{
+		FailReason: upstream,
+		Properties: model.Properties{OriginModelName: "cy-sd4-seedance-2.0"},
+	}
+	if got := NormalizeTaskFailure(c, task); got != upstream {
+		t.Fatalf("NormalizeTaskFailure() = %q, want passthrough %q", got, upstream)
+	}
+}
+
+func TestNormalizeOpenAIVideoTaskResponsePassthroughCySd4Leonardo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/v1/videos/task_1", nil)
+	c.Request.Header.Set("Accept-Language", "zh-CN")
+
+	upstream := "参考视频最多 3 段，当前 4 段，请减少后重试（MP4/MOV，单条 4–15 秒，最多 3 段总时长 ≤15 秒，宽高各 720–2160px，24–60 FPS）。"
+	task := &model.Task{
+		Properties: model.Properties{OriginModelName: "cy-sd4-seedance-2.0-mini"},
+	}
+	in := []byte(`{"status":"failed","error":{"message":"` + upstream + `"}}`)
+	out := NormalizeOpenAIVideoTaskResponse(c, task, in)
+	if string(out) != string(in) {
+		t.Fatalf("expected passthrough body, got %s", out)
+	}
+}

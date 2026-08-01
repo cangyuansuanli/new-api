@@ -28,19 +28,21 @@
 | oairegbox Veo 轮询 | `didn't pass content review`（含 identifiable real person 等） | ✅ → 内容审查文案，非参考图真人脸 |
 | oairegbox 产品文档 | `oairegbox-omni-video.md` §七 确定性拒绝 | ✅ |
 
-## leonardo.go（cy-sd4 / leonardo-web2api）
+## leonardo.go（leonardo-web2api / 非 cy-sd4）
+
+**`cy-sd4-seedance*`**：NewAPI **透传** upstream 文案，下表规则 **不** 在任务失败/轮询路径执行（见 `IsLeonardoWeb2APIRelayModel`）。规格类错误由 leonardo-web2api `internal/clienterror` + `referencemedia` 产出。
 
 | 上游来源 | 典型 raw | 状态 |
 |---------|---------|------|
-| video_multimodal.go | `reference images exceed Leonardo limit (5/4)` | ✅ |
-| video_multimodal.go | `multimodal references cannot be combined...` | ✅ |
-| public_message.go | `All cookies failed. cookie#N: ...` | ✅ → 按失败类型汇总（不暴露 vendor / 账号编号） |
-| public_message.go | `depleted`, `no active cookie` | ✅ → 号池耗尽 + 缩短秒数/经济模型引导 |
-| public_message.go | `insufficient credits (need/have)` | ✅ → 本次积分不足 + 换短时长/经济模型 |
-| public_message.go | `busy`, `cooldown`, `proxy`, `auth_expired` | ✅ → 各自具体文案 |
-| generation_failure.go | `leonardo: video generation failed (FAILED): ...` | ✅ |
-| generation_failure.go | `upstream returned no detail` | ✅ |
-| leonardo API | `DURATION_TOO_LONG` | ✅ |
+| 历史 / 非 cy-sd4 relay | `reference images exceed Leonardo limit (5/4)` | ✅ |
+| 历史 / 非 cy-sd4 relay | `multimodal references cannot be combined...` | ✅ |
+| leonardo-web2api 号池 | `All cookies failed. cookie#N: ...` | ✅（非 cy-sd4 路径） |
+| leonardo-web2api 号池 | `depleted`, `no active cookie` | ✅（非 cy-sd4 路径） |
+| leonardo-web2api 号池 | `insufficient credits (need/have)` | ✅（非 cy-sd4 路径） |
+| leonardo-web2api 号池 | `busy`, `cooldown`, `proxy`, `auth_expired` | ✅（非 cy-sd4 路径） |
+| generation 失败 | `leonardo: video generation failed (FAILED): ...` | ✅（非 cy-sd4 路径） |
+| generation 失败 | `upstream returned no detail` | ✅（非 cy-sd4 路径） |
+| leonardo API | `DURATION_TOO_LONG` | ✅（非 cy-sd4 路径） |
 
 ## adobe.go（adobe2api / adobe-direct）
 

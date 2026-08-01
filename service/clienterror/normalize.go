@@ -14,7 +14,7 @@ func init() {
 	Register(normalizeTransport)
 	RegisterRaw(normalizeCommon)
 	RegisterRaw(normalizeOmni)
-	RegisterRaw(normalizeLeonardo)
+	Register(normalizeLeonardoRelay)
 	RegisterRaw(normalizeAdobe)
 	RegisterRaw(normalizeGrok)
 	RegisterRaw(normalizeManju)
@@ -105,6 +105,9 @@ func NormalizeOpenAIVideoResponse(c *gin.Context, data []byte) []byte {
 }
 
 func NormalizeOpenAIVideoResponseWithContext(c *gin.Context, data []byte, failure ErrorContext) []byte {
+	if IsLeonardoWeb2APIRelayModel(failure.Model) {
+		return data
+	}
 	var payload map[string]any
 	if err := common.Unmarshal(data, &payload); err != nil {
 		return data

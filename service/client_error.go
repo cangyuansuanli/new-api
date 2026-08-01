@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	ce "github.com/QuantumNous/new-api/service/clienterror"
@@ -93,7 +95,16 @@ func clientErrorContextFromTask(task *model.Task) ce.ErrorContext {
 // NormalizeTaskFailure renders a stored task failure without changing the
 // persisted raw reason used by logging and billing.
 func NormalizeTaskFailure(c *gin.Context, task *model.Task) string {
-	return ce.NormalizeError(c, clientErrorContextFromTask(task))
+	if task == nil {
+		return ""
+	}
+	ctx := clientErrorContextFromTask(task)
+	if ce.IsLeonardoWeb2APIRelayModel(ctx.Model) {
+		if raw := strings.TrimSpace(task.FailReason); raw != "" {
+			return raw
+		}
+	}
+	return ce.NormalizeError(c, ctx)
 }
 
 func NormalizeOpenAIImageTaskJobError(c *gin.Context, task *model.Task, job *dto.OpenAIImageJob) {

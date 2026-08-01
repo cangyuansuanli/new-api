@@ -8,9 +8,7 @@ import (
 )
 
 // Leonardo / Seedance cy-sd4 pool. Upstream: leonardo-web2api/
-//   - internal/service/public_message.go
-//   - internal/service/video_multimodal.go
-//   - internal/leonardo/generation_failure.go
+// Client-facing copy for cy-sd4 is produced by leonardo-web2api; NewAPI passes through.
 
 var (
 	leonardoReferenceImagesLimitRe         = regexp.MustCompile(`(?i)reference images exceed leonardo limit \((\d+)/(\d+)\)`)
@@ -465,4 +463,17 @@ func formatInsufficientCreditsDetail(preferChinese bool, reason string) string {
 		return "需 " + m[1] + " 积分，剩余 " + m[2]
 	}
 	return "need " + m[1] + ", have " + m[2]
+}
+
+// IsLeonardoWeb2APIRelayModel reports NewAPI internal models routed to leonardo-web2api.
+func IsLeonardoWeb2APIRelayModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return strings.HasPrefix(model, "cy-sd4-seedance")
+}
+
+func normalizeLeonardoRelay(preferChinese bool, failure ErrorContext) (string, bool) {
+	if IsLeonardoWeb2APIRelayModel(failure.Model) {
+		return "", false
+	}
+	return normalizeLeonardo(preferChinese, failure.Raw)
 }
