@@ -8,28 +8,16 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { getChannelMonitor, getChannelMonitors } from './api'
-import { statusColor } from './constants'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getChannelMonitors } from './api'
 import { StatusBadge } from './status'
-import type { ChannelMonitorView } from './types'
+import type { PublicChannelMonitorItem, PublicMonitorCategory } from './types'
+
+const categories: PublicMonitorCategory[] = ['text', 'image', 'video']
 
 function formatPercent(value: number | null): string {
   return value == null ? '-' : `${value.toFixed(2)}%`
@@ -39,123 +27,56 @@ function formatLatency(value: number | null): string {
   return value == null ? '-' : `${value} ms`
 }
 
-function MonitorTimeline(props: { monitor: ChannelMonitorView }) {
-  const { t } = useTranslation()
-  const timeline = props.monitor.primary.timeline ?? []
-  if (timeline.length === 0) {
-    return (
-      <div className='text-muted-foreground text-xs'>
-        {t('No probe samples yet')}
-      </div>
-    )
-  }
-  return (
-    <div
-      className='flex h-7 items-stretch gap-1'
-      aria-label={t('Recent probe timeline')}
-    >
-      {timeline.map((result, index) => (
-        <Tooltip key={`${result.checked_at}-${result.status}-${index}`}>
-          <TooltipTrigger
-            className={cn(
-              'min-w-1 flex-1 rounded-sm',
-              statusColor[result.status]
-            )}
-            aria-label={`${result.status} ${new Date(result.checked_at * 1000).toLocaleString()}`}
-          />
-          <TooltipContent>
-            {new Date(result.checked_at * 1000).toLocaleString()} ·{' '}
-            {formatLatency(result.latency_ms)}
-          </TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
-  )
-}
-
-function MonitorDetail(props: {
-  monitor: ChannelMonitorView | null
-  onOpenChange: (open: boolean) => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <Dialog open={props.monitor != null} onOpenChange={props.onOpenChange}>
-      <DialogContent className='sm:max-w-xl'>
-        {props.monitor && (
-          <>
-            <DialogHeader>
-              <DialogTitle>{props.monitor.name}</DialogTitle>
-              <DialogDescription>
-                {props.monitor.provider} · {props.monitor.primary_model}
-              </DialogDescription>
-            </DialogHeader>
-            <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-              <Metric
-                label={t('Status')}
-                value={
-                  <StatusBadge status={props.monitor.primary.latest_status} />
-                }
-              />
-              <Metric
-                label={t('Availability')}
-                value={formatPercent(props.monitor.primary.availability)}
-              />
-              <Metric
-                label={t('Average latency')}
-                value={formatLatency(props.monitor.primary.average_latency_ms)}
-              />
-              <Metric
-                label={t('Observed checks')}
-                value={String(props.monitor.primary.observed_checks)}
-              />
-            </div>
-            <div className='space-y-2'>
-              <div className='text-sm font-medium'>
-                {t('Recent probe timeline')}
-              </div>
-              <MonitorTimeline monitor={props.monitor} />
-            </div>
-            {props.monitor.extra_models.length > 0 && (
-              <div className='divide-y rounded-lg border'>
-                {props.monitor.extra_models.map((item) => (
-                  <div
-                    key={item.model}
-                    className='flex items-center justify-between gap-3 p-3'
-                  >
-                    <span className='min-w-0 truncate text-sm'>
-                      {item.model}
-                    </span>
-                    <div className='flex items-center gap-3'>
-                      <span className='text-muted-foreground text-xs'>
-                        {formatPercent(item.availability)}
-                      </span>
-                      <StatusBadge status={item.latest_status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
+function formatCheckedAt(value: number | null): string {
+  return value == null ? '-' : new Date(value * 1000).toLocaleString()
 }
 
 function Metric(props: { label: string; value: React.ReactNode }) {
   return (
-    <div className='min-w-0 rounded-lg border p-3'>
+    <div className='min-w-0 px-3 first:pl-0 last:pr-0 [&+&]:border-l'>
       <div className='text-muted-foreground mb-1 text-xs'>{props.label}</div>
       <div className='truncate text-sm font-semibold'>{props.value}</div>
     </div>
   )
 }
 
-function InlineMetric(props: { label: string; value: React.ReactNode }) {
+function AvailabilityCards(props: { items: PublicChannelMonitorItem[] }) {
+  const { t } = useTranslation()
+  if (props.items.length === 0) {
+    return (
+      <div className='text-muted-foreground rounded-lg border p-8 text-center text-sm'>
+        {t('No availability data in this category')}
+      </div>
+    )
+  }
+
   return (
-    <div className='min-w-0 px-3 first:pl-0 last:pr-0 [&+&]:border-l'>
-      <div className='text-muted-foreground mb-1 text-xs'>{props.label}</div>
-      <div className='truncate text-sm font-semibold'>{props.value}</div>
+    <div className='grid gap-3 lg:grid-cols-2 2xl:grid-cols-3'>
+      {props.items.map((item) => (
+        <Card key={`${item.category}-${item.name}`} className='rounded-lg'>
+          <CardHeader>
+            <CardTitle className='truncate'>{item.name}</CardTitle>
+            <CardAction>
+              <StatusBadge status={item.latest_status} />
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <div className='grid grid-cols-2 gap-y-4'>
+              <Metric
+                label={t('Availability')}
+                value={formatPercent(item.availability)}
+              />
+              <Metric
+                label={t('Average latency')}
+                value={formatLatency(item.average_latency_ms)}
+              />
+            </div>
+            <div className='text-muted-foreground mt-4 border-t pt-3 text-xs'>
+              {t('Last updated')}: {formatCheckedAt(item.latest_checked_at)}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
@@ -166,21 +87,12 @@ export function AvailabilityDashboard(props: {
 }) {
   const { t } = useTranslation()
   const [autoRefresh, setAutoRefresh] = useState(true)
-  const [selected, setSelected] = useState<ChannelMonitorView | null>(null)
   const listQuery = useQuery({
     queryKey: ['channel-monitors', props.windowDays],
     queryFn: () => getChannelMonitors(props.windowDays),
     refetchInterval: autoRefresh ? 60_000 : false,
   })
-  const detailQuery = useQuery({
-    queryKey: ['channel-monitor', selected?.id, props.windowDays],
-    queryFn: () => getChannelMonitor(selected!.id, props.windowDays),
-    enabled: selected != null,
-  })
   const data = listQuery.data
-  const coverage = data?.summary.visible_monitors
-    ? (data.summary.observed_monitors * 100) / data.summary.visible_monitors
-    : 0
 
   return (
     <div className='space-y-4'>
@@ -236,83 +148,26 @@ export function AvailabilityDashboard(props: {
         <div className='text-muted-foreground rounded-lg border p-6 text-center text-sm'>
           {t('Channel availability monitoring is disabled')}
         </div>
+      ) : data.items.length === 0 ? (
+        <div className='text-muted-foreground rounded-lg border p-8 text-center text-sm'>
+          {t('No visible channel monitors')}
+        </div>
       ) : (
-        <>
-          <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-5'>
-            <Metric
-              label={t('Observed coverage')}
-              value={`${coverage.toFixed(0)}%`}
-            />
-            <Metric
-              label={t('Operational')}
-              value={String(data.summary.operational)}
-            />
-            <Metric
-              label={t('Degraded')}
-              value={String(data.summary.degraded)}
-            />
-            <Metric
-              label={t('Unavailable')}
-              value={String(data.summary.unavailable ?? 0)}
-            />
-            <Metric
-              label={t('Unknown')}
-              value={String(data.summary.unknown ?? 0)}
-            />
-          </div>
-          {data.items.length === 0 ? (
-            <div className='text-muted-foreground rounded-lg border p-8 text-center text-sm'>
-              {t('No visible channel monitors')}
-            </div>
-          ) : (
-            <div className='grid gap-3 lg:grid-cols-2 2xl:grid-cols-3'>
-              {data.items.map((monitor) => (
-                <Card key={monitor.id} className='rounded-lg'>
-                  <CardHeader>
-                    <CardTitle className='truncate'>{monitor.name}</CardTitle>
-                    <CardDescription className='truncate'>
-                      {monitor.provider} · {monitor.primary_model}
-                    </CardDescription>
-                    <CardAction>
-                      <StatusBadge status={monitor.primary.latest_status} />
-                    </CardAction>
-                  </CardHeader>
-                  <CardContent className='space-y-4'>
-                    <div className='grid grid-cols-3 gap-3'>
-                      <InlineMetric
-                        label={t('Availability')}
-                        value={formatPercent(monitor.primary.availability)}
-                      />
-                      <InlineMetric
-                        label={t('Average latency')}
-                        value={formatLatency(
-                          monitor.primary.average_latency_ms
-                        )}
-                      />
-                      <InlineMetric
-                        label={t('Samples')}
-                        value={String(monitor.primary.observed_checks)}
-                      />
-                    </div>
-                    <MonitorTimeline monitor={monitor} />
-                    <Button
-                      variant='outline'
-                      className='w-full'
-                      onClick={() => setSelected(monitor)}
-                    >
-                      {t('View details')}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
+        <Tabs defaultValue='text' className='space-y-4'>
+          <TabsList>
+            <TabsTrigger value='text'>{t('Text')}</TabsTrigger>
+            <TabsTrigger value='image'>{t('Image')}</TabsTrigger>
+            <TabsTrigger value='video'>{t('Video')}</TabsTrigger>
+          </TabsList>
+          {categories.map((category) => (
+            <TabsContent key={category} value={category}>
+              <AvailabilityCards
+                items={data.items.filter((item) => item.category === category)}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
       )}
-      <MonitorDetail
-        monitor={detailQuery.data ?? selected}
-        onOpenChange={(open) => !open && setSelected(null)}
-      />
     </div>
   )
 }

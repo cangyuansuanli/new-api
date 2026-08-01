@@ -91,6 +91,32 @@ type ChannelMonitorRuntimeSummary struct {
 	Unknown          int  `json:"unknown"`
 }
 
+const (
+	ChannelMonitorCategoryText  = "text"
+	ChannelMonitorCategoryImage = "image"
+	ChannelMonitorCategoryVideo = "video"
+)
+
+// PublicChannelMonitorItem is the user-facing availability contract. It must
+// not contain channel identifiers, internal model names, or sample counts.
+type PublicChannelMonitorItem struct {
+	Name            string   `json:"name"`
+	Category        string   `json:"category"`
+	LatestStatus    string   `json:"latest_status"`
+	Availability    *float64 `json:"availability"`
+	AverageLatency  *int     `json:"average_latency_ms"`
+	LatestCheckedAt *int64   `json:"latest_checked_at"`
+}
+
+type PublicChannelMonitorSummary struct {
+	Enabled     bool `json:"enabled"`
+	Total       int  `json:"total"`
+	Operational int  `json:"operational"`
+	Degraded    int  `json:"degraded"`
+	Unavailable int  `json:"unavailable"`
+	Unknown     int  `json:"unknown"`
+}
+
 func IsChannelMonitorEnabled() bool {
 	common.OptionMapRWMutex.RLock()
 	value, ok := common.OptionMap["ChannelMonitorEnabled"]
@@ -617,6 +643,169 @@ func ListChannelMonitorViews(windowDays int, visibleOnly bool) ([]*ChannelMonito
 		}
 	}
 	return views, summary, nil
+}
+
+type publicChannelMonitorAggregate struct {
+	item                *PublicChannelMonitorItem
+	observed            int
+	operational         int
+	latencyTotal        int64
+	latencyMeasurements int
+}
+
+func publicChannelMonitorCategory(channelType int, modelName string) string {
+	if isVideoChannelMonitorTarget(channelType, modelName) {
+		return ChannelMonitorCategoryVideo
+	}
+	if channelType == constant.ChannelTypeSunoAPI {
+		return ""
+	}
+	return ChannelMonitorCategoryImage
+}
+
+func publicStatusPriority(status string) int {
+	switch status {
+	case model.ChannelMonitorStatusOperational:
+		return 4
+	case model.ChannelMonitorStatusDegraded:
+		return 3
+	case model.ChannelMonitorStatusUnavailable:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func mergePublicChannelMonitorStat(
+	aggregates map[string]*publicChannelMonitorAggregate,
+	name string,
+	category string,
+	stat *ChannelMonitorModelStat,
+) {
+	name = strings.TrimSpace(name)
+	if name == "" || stat == nil {
+		return
+	}
+	key := category + "\x00" + name
+	aggregate, exists := aggregates[key]
+	if !exists {
+		aggregate = &publicChannelMonitorAggregate{item: &PublicChannelMonitorItem{
+			Name: name, Category: category, LatestStatus: model.ChannelMonitorStatusUnknown,
+		}}
+		aggregates[key] = aggregate
+	}
+	if publicStatusPriority(stat.LatestStatus) > publicStatusPriority(aggregate.item.LatestStatus) {
+		aggregate.item.LatestStatus = stat.LatestStatus
+	}
+	if stat.LatestChecked != nil && (aggregate.item.LatestCheckedAt == nil || *stat.LatestChecked > *aggregate.item.LatestCheckedAt) {
+		checkedAt := *stat.LatestChecked
+		aggregate.item.LatestCheckedAt = &checkedAt
+	}
+	aggregate.observed += stat.Observed
+	aggregate.operational += stat.Operational
+	if stat.AverageLatency != nil {
+		aggregate.latencyTotal += int64(*stat.AverageLatency)
+		aggregate.latencyMeasurements++
+	}
+}
+
+func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays int) ([]*PublicChannelMonitorItem, error) {
+	aggregates := make(map[string]*publicChannelMonitorAggregate)
+	for _, monitor := range monitors {
+		channel, err := model.GetChannelById(monitor.ChannelID, false)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return nil, err
+		}
+
+		if monitor.ProbeKind == model.ChannelMonitorProbeTextActive && !IsBillableMediaMonitorTarget(channel.Type, monitor.PrimaryModel) {
+			view, err := BuildChannelMonitorView(monitor, windowDays, false)
+			if err != nil {
+				return nil, err
+			}
+			for _, group := range channel.GetGroups() {
+				mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, view.Primary)
+			}
+		}
+
+		for _, modelName := range channel.GetModels() {
+			if !IsBillableMediaMonitorTarget(channel.Type, modelName) {
+				continue
+			}
+			category := publicChannelMonitorCategory(channel.Type, modelName)
+			if category == "" {
+				continue
+			}
+			stat, err := buildPassiveMediaStat(channel, modelName, false)
+			if err != nil {
+				return nil, err
+			}
+			mergePublicChannelMonitorStat(
+				aggregates,
+				ToPublicModelName(modelName),
+				category,
+				stat,
+			)
+		}
+	}
+
+	items := make([]*PublicChannelMonitorItem, 0, len(aggregates))
+	for _, aggregate := range aggregates {
+		if aggregate.observed > 0 {
+			availability := float64(aggregate.operational) * 100 / float64(aggregate.observed)
+			aggregate.item.Availability = &availability
+		}
+		if aggregate.latencyMeasurements > 0 {
+			latency := int(aggregate.latencyTotal / int64(aggregate.latencyMeasurements))
+			aggregate.item.AverageLatency = &latency
+		}
+		items = append(items, aggregate.item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Category != items[j].Category {
+			return items[i].Category < items[j].Category
+		}
+		return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name)
+	})
+	return items, nil
+}
+
+func summarizePublicChannelMonitorItems(items []*PublicChannelMonitorItem) *PublicChannelMonitorSummary {
+	summary := &PublicChannelMonitorSummary{Enabled: IsChannelMonitorEnabled(), Total: len(items)}
+	for _, item := range items {
+		switch item.LatestStatus {
+		case model.ChannelMonitorStatusOperational:
+			summary.Operational++
+		case model.ChannelMonitorStatusDegraded:
+			summary.Degraded++
+		case model.ChannelMonitorStatusUnavailable:
+			summary.Unavailable++
+		default:
+			summary.Unknown++
+		}
+	}
+	return summary
+}
+
+func ListPublicChannelMonitorViews(windowDays int) ([]*PublicChannelMonitorItem, *PublicChannelMonitorSummary, error) {
+	monitors, err := model.ListChannelMonitors(true, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	items, err := buildPublicChannelMonitorItems(monitors, windowDays)
+	if err != nil {
+		return nil, nil, err
+	}
+	return items, summarizePublicChannelMonitorItems(items), nil
+}
+
+func BuildPublicChannelMonitorViews(monitor *model.ChannelMonitor, windowDays int) ([]*PublicChannelMonitorItem, error) {
+	if monitor == nil {
+		return nil, errors.New("channel monitor is required")
+	}
+	return buildPublicChannelMonitorItems([]*model.ChannelMonitor{monitor}, windowDays)
 }
 
 func ListAdminChannelMonitorViews(windowDays int) ([]*AdminChannelMonitorView, *ChannelMonitorRuntimeSummary, error) {

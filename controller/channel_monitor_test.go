@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -31,6 +32,7 @@ func setupChannelMonitorControllerTest(t *testing.T) {
 		&model.Channel{},
 		&model.ChannelMonitor{},
 		&model.ChannelMonitorResult{},
+		&model.Task{},
 		&model.Option{},
 	))
 	common.OptionMapRWMutex.Lock()
@@ -129,4 +131,44 @@ func TestGetChannelMonitorStatusHidesDisabledMonitor(t *testing.T) {
 	assert.Equal(t, 200, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), `"success":false`)
 	assert.NotContains(t, recorder.Body.String(), `"Paused monitor"`)
+}
+
+func TestListChannelMonitorStatusUsesPublicContract(t *testing.T) {
+	setupChannelMonitorControllerTest(t)
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap["ChannelMonitorEnabled"] = "true"
+	common.OptionMapRWMutex.Unlock()
+	channel := &model.Channel{
+		Name: "internal-channel", Type: constant.ChannelTypeOpenAI,
+		Key: "sensitive-key", Status: common.ChannelStatusEnabled,
+		Models: "internal-gpt-primary,internal-gpt-extra", Group: "LLM-GPT-pro",
+	}
+	require.NoError(t, model.DB.Create(channel).Error)
+	monitor := &model.ChannelMonitor{
+		ChannelID: channel.Id, Name: "Internal monitor", PrimaryModel: "internal-gpt-primary",
+		ExtraModelsJSON: `["internal-gpt-extra"]`, ProbeKind: model.ChannelMonitorProbeTextActive,
+		IntervalSeconds: 300, Enabled: true, Visible: true,
+	}
+	require.NoError(t, model.CreateChannelMonitor(monitor))
+	require.NoError(t, model.CreateChannelMonitorResult(&model.ChannelMonitorResult{
+		MonitorID: monitor.ID, Model: monitor.PrimaryModel, Status: model.ChannelMonitorStatusOperational,
+		HTTPStatus: 200, ErrorCode: "should_not_leak", ErrorMessage: "sensitive-upstream-error", CheckedAt: time.Now().Unix(),
+	}))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest("GET", "/api/channel-monitors", nil)
+	ListChannelMonitorStatus(ctx)
+
+	body := recorder.Body.String()
+	assert.Equal(t, 200, recorder.Code)
+	assert.Contains(t, body, `"name":"LLM-GPT-pro"`)
+	assert.Contains(t, body, `"category":"text"`)
+	for _, privateValue := range []string{
+		"observed_checks", "operational_checks", "channel_id", "channel_name",
+		"internal-gpt-primary", "internal-gpt-extra", "Internal monitor", "internal-channel",
+		"http_status", "error_code", "sensitive-key", "sensitive-upstream-error",
+	} {
+		assert.NotContains(t, body, privateValue)
+	}
 }

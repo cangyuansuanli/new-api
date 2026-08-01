@@ -21,14 +21,20 @@ When no effective observation exists inside the freshness window, the state is u
 ## Initial monitor configuration
 
 - Create one monitor for each enabled channel that has recent production traffic; do not seed disabled or historical-only channels.
-- Use one representative, recently used model for text channels and a conservative interval such as 15 minutes to control probe cost.
-- Media-only channels may include up to eight current models in one monitor because all evaluation is passive. Confirm every configured model resolves to `media_passive` before enabling global monitoring.
+- Text availability is published by channel group. Configure one representative, recently used primary model per text channel and a conservative interval such as 15 minutes to control probe cost. Extra text models remain available to administrators but are not published as separate user-facing entries.
+- Image and video availability is published per model. The public list reads all media models currently configured on each monitored channel, evaluates them passively, converts internal names through `ToPublicModelName`, and merges duplicate public names. This is independent of the eight-model administrator input limit and never sends generation requests.
 - Keep global monitoring disabled while monitors are created and reviewed. Enable it only after the configured channel IDs, model names, visibility, and probe kinds have been verified.
+
+## Public response contract
+
+The authenticated user endpoint returns only the public display name, category (`text`, `image`, or `video`), latest state, availability, average latency, and last update time. It does not expose monitor or channel identifiers, channel/provider names, internal model names, raw errors, sample counts, or probe timelines. The administrator endpoints retain the diagnostic view.
+
+Text items are keyed by channel group. Image and video items are keyed by category plus public model name; when several monitored channels provide the same public model, an operational fallback makes the public model operational, followed by degraded, unavailable, and unknown precedence.
 
 ## Release verification
 
 1. Keep global monitoring disabled immediately after deployment and confirm migrations created `channel_monitors` and `channel_monitor_results`.
 2. As an admin, create one text monitor and one media monitor. Confirm the media monitor reports `media_passive` and that running it does not create a generation task.
-3. Enable monitoring, then verify `/api/channel-monitors` exposes only enabled and visible monitors without `channel_id`, channel names, credentials, raw errors, task payloads, or private task data.
+3. Enable monitoring, then verify `/api/channel-monitors` exposes only enabled and visible public entries without monitor IDs, sample counts, internal model names, `channel_id`, channel names, credentials, raw errors, task payloads, or private task data.
 4. Confirm a recent media success is reflected as operational and three consecutive channel failures are reflected as unavailable.
-5. Verify the `/channel-availability` page on desktop and mobile, including admin configuration and regular-user status views.
+5. Verify the `/channel-availability` page on desktop and mobile, including the text/image/video tabs, public model names, admin configuration, and regular-user status views.

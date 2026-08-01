@@ -440,6 +440,87 @@ func TestPublicMonitorListExcludesDisabledMonitors(t *testing.T) {
 	assert.False(t, adminViews[0].Enabled)
 }
 
+func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing.T) {
+	setupChannelMonitorTest(t)
+	textMonitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "internal-gpt-primary")
+	textChannel, err := model.GetChannelById(textMonitor.ChannelID, false)
+	require.NoError(t, err)
+	textChannel.Group = "LLM-GPT-pro, shared"
+	textChannel.Models = "internal-gpt-primary,internal-gpt-extra,cy-img1-seedream-4"
+	require.NoError(t, model.DB.Save(textChannel).Error)
+	textLatency := 90
+	require.NoError(t, model.CreateChannelMonitorResult(&model.ChannelMonitorResult{
+		MonitorID: textMonitor.ID, Model: textMonitor.PrimaryModel,
+		Status: model.ChannelMonitorStatusOperational, LatencyMs: &textLatency, CheckedAt: time.Now().Unix(),
+	}))
+
+	mediaMonitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "cy-img1-gpt-image-2")
+	mediaChannel, err := model.GetChannelById(mediaMonitor.ChannelID, false)
+	require.NoError(t, err)
+	mediaChannel.Models = "cy-img1-gpt-image-2,cy-img1-gpt-image-2-edit,cy-sd4-seedance-2.0"
+	require.NoError(t, model.DB.Save(mediaChannel).Error)
+
+	modelPublicRegistryMu.Lock()
+	previousRegistry := modelPublicRegistryData
+	modelPublicRegistryData.channelPrefixes = []string{"cy-img1-", "cy-sd4-"}
+	modelPublicRegistryData.internalToPublic = map[string]string{
+		"cy-img1-seedream-4":       "seedream-4",
+		"cy-img1-gpt-image-2":      "gpt-image-2",
+		"cy-img1-gpt-image-2-edit": "gpt-image-2-edit",
+		"cy-sd4-seedance-2.0":      "seedance-2.0",
+	}
+	modelPublicRegistryMu.Unlock()
+	t.Cleanup(func() {
+		modelPublicRegistryMu.Lock()
+		modelPublicRegistryData = previousRegistry
+		modelPublicRegistryMu.Unlock()
+	})
+
+	items, summary, err := ListPublicChannelMonitorViews(7)
+	require.NoError(t, err)
+	require.Len(t, items, 6)
+	assert.Equal(t, 6, summary.Total)
+
+	byKey := make(map[string]*PublicChannelMonitorItem)
+	for _, item := range items {
+		byKey[item.Category+":"+item.Name] = item
+	}
+	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:shared"].LatestStatus)
+	assert.Contains(t, byKey, "image:gpt-image-2")
+	assert.Contains(t, byKey, "image:gpt-image-2-edit")
+	assert.Contains(t, byKey, "image:seedream-4")
+	assert.Contains(t, byKey, "video:seedance-2.0")
+	assert.NotContains(t, byKey, "text:internal-gpt-primary")
+	assert.NotContains(t, byKey, "text:internal-gpt-extra")
+	payload, err := common.Marshal(items)
+	require.NoError(t, err)
+	assert.NotContains(t, string(payload), "cy-img1-")
+	assert.NotContains(t, string(payload), "cy-sd4-")
+	assert.NotContains(t, string(payload), "internal-gpt")
+	assert.NotContains(t, string(payload), "observed_checks")
+	assert.NotContains(t, string(payload), "operational_checks")
+}
+
+func TestPublicChannelMonitorViewsPreferOperationalFallback(t *testing.T) {
+	aggregates := make(map[string]*publicChannelMonitorAggregate)
+	checkedEarly := int64(100)
+	checkedLate := int64(200)
+	mergePublicChannelMonitorStat(aggregates, "gpt-image-2", ChannelMonitorCategoryImage, &ChannelMonitorModelStat{
+		LatestStatus: model.ChannelMonitorStatusUnavailable, LatestChecked: &checkedLate,
+		Observed: 1,
+	})
+	mergePublicChannelMonitorStat(aggregates, "gpt-image-2", ChannelMonitorCategoryImage, &ChannelMonitorModelStat{
+		LatestStatus: model.ChannelMonitorStatusOperational, LatestChecked: &checkedEarly,
+		Observed: 1, Operational: 1,
+	})
+
+	aggregate := aggregates[ChannelMonitorCategoryImage+"\x00gpt-image-2"]
+	require.NotNil(t, aggregate)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, aggregate.item.LatestStatus)
+	assert.Equal(t, checkedLate, *aggregate.item.LatestCheckedAt)
+}
+
 func TestChannelMonitorLeasePreventsDuplicateClaimsAndExpires(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gpt-4o-mini")

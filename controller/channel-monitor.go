@@ -182,13 +182,13 @@ func AdminUpdateChannelMonitorSettings(c *gin.Context) {
 func ListChannelMonitorStatus(c *gin.Context) {
 	if !service.IsChannelMonitorEnabled() {
 		common.ApiSuccess(c, gin.H{
-			"items":   []service.ChannelMonitorView{},
-			"summary": service.ChannelMonitorRuntimeSummary{Enabled: false},
+			"items":   []service.PublicChannelMonitorItem{},
+			"summary": service.PublicChannelMonitorSummary{Enabled: false},
 		})
 		return
 	}
 	windowDays, _ := strconv.Atoi(c.Query("window_days"))
-	views, summary, err := service.ListChannelMonitorViews(windowDays, true)
+	views, summary, err := service.ListPublicChannelMonitorViews(windowDays)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -215,12 +215,12 @@ func GetChannelMonitorStatus(c *gin.Context) {
 		return
 	}
 	windowDays, _ := strconv.Atoi(c.Query("window_days"))
-	view, err := service.BuildChannelMonitorView(monitor, windowDays, true)
+	views, err := service.BuildPublicChannelMonitorViews(monitor, windowDays)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, view)
+	common.ApiSuccess(c, gin.H{"items": views})
 }
 
 // ProbeChannelMonitor adapts the existing channel test path to the monitor
