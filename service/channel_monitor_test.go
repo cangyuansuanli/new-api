@@ -17,6 +17,7 @@ func setupChannelMonitorTest(t *testing.T) {
 	InvalidatePublicChannelMonitorCache()
 	require.NoError(t, getChannelMonitorMediaCache().Purge())
 	require.NoError(t, model.DB.AutoMigrate(
+		&model.Model{},
 		&model.ChannelMonitor{},
 		&model.ChannelMonitorResult{},
 		&model.Task{},
@@ -219,6 +220,100 @@ func TestRunChannelMonitorUsesEnabledReplacementInSameGroup(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, model.ChannelMonitorStatusOperational, results[0].Status)
+}
+
+func TestTextGroupMonitorStopsAfterFirstOperationalChannel(t *testing.T) {
+	setupChannelMonitorTest(t)
+	channels := []*model.Channel{
+		{Name: "first", Type: constant.ChannelTypeOpenAI, Key: "first-key", Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro"},
+		{Name: "second", Type: constant.ChannelTypeOpenAI, Key: "second-key", Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro"},
+		{Name: "third", Type: constant.ChannelTypeOpenAI, Key: "third-key", Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro"},
+	}
+	for _, channel := range channels {
+		require.NoError(t, model.DB.Create(channel).Error)
+	}
+	monitor := &model.ChannelMonitor{
+		Scope: model.ChannelMonitorScopeText, Target: "LLM-GPT-pro", Name: "GPT pro",
+		PrimaryModel: "gpt-5.6-sol", ExtraModelsJSON: "[]", ProbeKind: model.ChannelMonitorProbeTextActive,
+		IntervalSeconds: 300, Enabled: true, Visible: true,
+	}
+	require.NoError(t, model.CreateChannelMonitor(monitor))
+	probeCalls := 0
+
+	results, err := RunChannelMonitor(context.Background(), monitor.ID, func(
+		_ context.Context,
+		_ *model.ChannelMonitor,
+		_ *model.Channel,
+		_ string,
+	) ChannelMonitorProbeOutcome {
+		probeCalls++
+		if probeCalls == 1 {
+			return ChannelMonitorProbeOutcome{Status: model.ChannelMonitorStatusUnavailable}
+		}
+		return ChannelMonitorProbeOutcome{Status: model.ChannelMonitorStatusOperational}
+	})
+
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, 2, probeCalls)
+	assert.Equal(t, model.ChannelMonitorStatusUnavailable, results[0].Status)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, results[1].Status)
+	view, err := BuildChannelMonitorView(monitor, 7, true)
+	require.NoError(t, err)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, view.Primary.LatestStatus)
+	assert.Equal(t, 1, view.Primary.Observed)
+}
+
+func TestMediaAggregationExcludesUnlistedModelsAcrossEnabledChannels(t *testing.T) {
+	setupChannelMonitorTest(t)
+	enabled := &model.Channel{
+		Name: "enabled-media", Type: constant.ChannelTypeOpenAI, Key: "enabled-key",
+		Status: common.ChannelStatusEnabled,
+		Models: "adobe-firefly-nano-banana-1k,adobe-firefly-nano-banana2-2k", Group: "default",
+	}
+	require.NoError(t, model.DB.Create(enabled).Error)
+	disabledModel := &model.Model{
+		ModelName: "adobe-firefly-nano-banana-1k", NameRule: model.NameRuleExact, Status: 0,
+	}
+	require.NoError(t, disabledModel.Insert())
+	monitor := &model.ChannelMonitor{
+		Scope: model.ChannelMonitorScopeImage, Name: "Images", ProbeKind: model.ChannelMonitorProbeMediaPassive,
+		ExtraModelsJSON: "[]", IntervalSeconds: 1800, Enabled: true, Visible: true,
+	}
+	require.NoError(t, model.CreateChannelMonitor(monitor))
+
+	items, err := buildPublicChannelMonitorItems([]*model.ChannelMonitor{monitor}, 7, true)
+
+	require.NoError(t, err)
+	byName := make(map[string]*PublicChannelMonitorItem)
+	for _, item := range items {
+		byName[item.Name] = item
+	}
+	assert.NotContains(t, byName, "adobe-firefly-nano-banana-1k")
+	assert.Contains(t, byName, "adobe-firefly-nano-banana2-2k")
+}
+
+func TestPublicMonitorCacheMissReturnsWithoutAggregation(t *testing.T) {
+	setupChannelMonitorTest(t)
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = make(map[string]string)
+	}
+	previousEnabled := common.OptionMap["ChannelMonitorEnabled"]
+	common.OptionMap["ChannelMonitorEnabled"] = "true"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap["ChannelMonitorEnabled"] = previousEnabled
+		common.OptionMapRWMutex.Unlock()
+	})
+	require.NoError(t, getPublicChannelMonitorCache().Purge())
+
+	items, summary, err := ListPublicChannelMonitorViews(7)
+
+	require.NoError(t, err)
+	assert.Empty(t, items)
+	assert.True(t, summary.Enabled)
 }
 
 func TestRunChannelMonitorProbesTextAndSkipsMediaInMixedMonitor(t *testing.T) {

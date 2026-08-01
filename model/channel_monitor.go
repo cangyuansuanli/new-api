@@ -19,13 +19,20 @@ const (
 
 	ChannelMonitorProbeTextActive   = "text_active"
 	ChannelMonitorProbeMediaPassive = "media_passive"
+
+	ChannelMonitorScopeText  = "text"
+	ChannelMonitorScopeImage = "image"
+	ChannelMonitorScopeVideo = "video"
+	ChannelMonitorScopeMedia = "media"
 )
 
 // ChannelMonitor stores monitoring policy separately from channel credentials.
 // A monitor references an existing channel and never persists a copy of its key.
 type ChannelMonitor struct {
 	ID              int64  `json:"id" gorm:"primaryKey;autoIncrement"`
-	ChannelID       int    `json:"channel_id" gorm:"not null;uniqueIndex"`
+	ChannelID       int    `json:"channel_id" gorm:"not null;default:0;index"`
+	Scope           string `json:"scope" gorm:"type:varchar(16);not null;default:'';index"`
+	Target          string `json:"target" gorm:"type:varchar(64);not null;default:'';index"`
 	Name            string `json:"name" gorm:"type:varchar(128);not null"`
 	PrimaryModel    string `json:"primary_model" gorm:"type:varchar(191);not null"`
 	ExtraModelsJSON string `json:"-" gorm:"column:extra_models;type:text"`
@@ -43,6 +50,7 @@ type ChannelMonitor struct {
 type ChannelMonitorResult struct {
 	ID           int64  `json:"id" gorm:"primaryKey;autoIncrement"`
 	MonitorID    int64  `json:"monitor_id" gorm:"not null;index:idx_monitor_model_checked,priority:1;index:idx_monitor_checked,priority:1"`
+	ChannelID    int    `json:"channel_id" gorm:"not null;default:0;index"`
 	Model        string `json:"model" gorm:"type:varchar(191);not null;index:idx_monitor_model_checked,priority:2"`
 	Status       string `json:"status" gorm:"type:varchar(32);not null;index"`
 	LatencyMs    *int   `json:"latency_ms"`
@@ -71,7 +79,7 @@ func UpdateChannelMonitor(monitor *ChannelMonitor) error {
 	monitor.LeaseExpiresAt = 0
 	return DB.Model(&ChannelMonitor{}).
 		Where("id = ?", monitor.ID).
-		Select("channel_id", "name", "primary_model", "extra_models", "probe_kind", "interval_seconds", "jitter_seconds", "enabled", "visible", "next_probe_at", "lease_expires_at", "updated_at").
+		Select("channel_id", "scope", "target", "name", "primary_model", "extra_models", "probe_kind", "interval_seconds", "jitter_seconds", "enabled", "visible", "next_probe_at", "lease_expires_at", "updated_at").
 		Updates(monitor).Error
 }
 
@@ -106,6 +114,26 @@ func GetChannelMonitorByChannelID(channelID int) (*ChannelMonitor, error) {
 		return nil, err
 	}
 	return &monitor, nil
+}
+
+func GetChannelMonitorByChannelScope(channelID int, scope string) (*ChannelMonitor, error) {
+	var monitor ChannelMonitor
+	if err := DB.Where("channel_id = ? AND scope = ?", channelID, strings.TrimSpace(scope)).First(&monitor).Error; err != nil {
+		return nil, err
+	}
+	return &monitor, nil
+}
+
+func ChannelMonitorTargetExists(id int64, scope string, target string) (bool, error) {
+	query := DB.Model(&ChannelMonitor{}).Where("scope = ? AND target = ?", strings.TrimSpace(scope), strings.TrimSpace(target))
+	if id > 0 {
+		query = query.Where("id <> ?", id)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func ListChannelMonitors(visibleOnly bool, enabledOnly bool) ([]*ChannelMonitor, error) {

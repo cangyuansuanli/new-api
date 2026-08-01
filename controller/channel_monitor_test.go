@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -30,6 +31,7 @@ func setupChannelMonitorControllerTest(t *testing.T) {
 	model.LOG_DB = db
 	require.NoError(t, db.AutoMigrate(
 		&model.Channel{},
+		&model.Model{},
 		&model.ChannelMonitor{},
 		&model.ChannelMonitorResult{},
 		&model.Task{},
@@ -104,6 +106,35 @@ func TestAdminCreateMediaMonitorUsesPassiveProbe(t *testing.T) {
 	assert.NotContains(t, recorder.Body.String(), "sensitive-key")
 }
 
+func TestAdminCreateGlobalImageMonitorDoesNotRequireChannelOrModel(t *testing.T) {
+	setupChannelMonitorControllerTest(t)
+	body := `{
+		"scope": "image",
+		"target": "",
+		"channel_id": 0,
+		"name": "Images",
+		"primary_model": "",
+		"extra_models": [],
+		"interval_seconds": 1800,
+		"jitter_seconds": 0,
+		"enabled": true,
+		"visible": true
+	}`
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest("POST", "/api/channel-monitors/admin", bytes.NewBufferString(body))
+
+	AdminCreateChannelMonitor(ctx)
+
+	assert.Equal(t, 200, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"success":true`)
+	var monitor model.ChannelMonitor
+	require.NoError(t, model.DB.Where("scope = ?", model.ChannelMonitorScopeImage).First(&monitor).Error)
+	assert.Zero(t, monitor.ChannelID)
+	assert.Empty(t, monitor.PrimaryModel)
+	assert.Equal(t, model.ChannelMonitorProbeMediaPassive, monitor.ProbeKind)
+}
+
 func TestGetChannelMonitorStatusHidesDisabledMonitor(t *testing.T) {
 	setupChannelMonitorControllerTest(t)
 	common.OptionMapRWMutex.Lock()
@@ -154,6 +185,7 @@ func TestListChannelMonitorStatusUsesPublicContract(t *testing.T) {
 		MonitorID: monitor.ID, Model: monitor.PrimaryModel, Status: model.ChannelMonitorStatusOperational,
 		HTTPStatus: 200, ErrorCode: "should_not_leak", ErrorMessage: "sensitive-upstream-error", CheckedAt: time.Now().Unix(),
 	}))
+	service.RefreshPublicChannelMonitorSnapshots()
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
