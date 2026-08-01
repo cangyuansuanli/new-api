@@ -144,32 +144,32 @@ export function ApiEndpointHints() {
         </p>
         <p className='text-muted-foreground text-[11px] leading-relaxed sm:text-xs'>
           {t(
-            'For servers and integrations outside mainland China. Prefer the acceleration node for sustained high-volume traffic; keep origin fallback as a backup.'
+            'For servers and integrations outside mainland China. Prefer direct origin for sustained high-volume traffic; use the VIP acceleration node as an alternative.'
           )}
         </p>
         <ul className='space-y-2'>
           <EndpointBlock
-            url={trafficRelayBaseUrl}
-            audience={t('Dedicated acceleration node')}
+            url={DIRECT_ENDPOINT}
+            audience={t('Origin direct access')}
             description={t(
-              'Overseas relay node with generous bandwidth over HTTPS. Suited to batch jobs, long streaming sessions, and large-scale API integrations.'
+              'Direct connection to origin NewAPI; same API key and billing as the main site. Recommended for overseas batch jobs and sustained high-volume integrations.'
             )}
             whenToUse={t(
-              'Your workloads run overseas and send sustained or heavy traffic — this is the default choice for most high-volume integrations.'
+              'Your workloads run overseas and send batch or sustained heavy traffic — use this as the primary base URL for large-scale integrations.'
             )}
-            copyLabel={t('Copy traffic relay URL')}
+            copyLabel={t('Copy API base URL')}
             recommended
           />
           <EndpointBlock
-            url={DIRECT_ENDPOINT}
-            audience={t('Origin fallback access')}
+            url={trafficRelayBaseUrl}
+            audience={t('Dedicated acceleration node')}
             description={t(
-              'Direct connection to origin NewAPI with limited bandwidth — a fallback option when other overseas endpoints are unavailable.'
+              'Overseas VIP relay node with HTTPS access and generous bandwidth. Suited to streaming and integrations that prefer the relay path.'
             )}
             whenToUse={t(
-              'The acceleration node cannot be reached from your network and you need a backup path — not for primary high-volume traffic.'
+              'You want HTTPS relay access or an alternative overseas path alongside direct origin — not the default for bulk traffic.'
             )}
-            copyLabel={t('Copy API base URL')}
+            copyLabel={t('Copy traffic relay URL')}
           />
         </ul>
       </div>
