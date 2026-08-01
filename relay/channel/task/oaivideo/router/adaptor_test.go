@@ -27,6 +27,7 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 	}{
 		{"manju-openai-sora2", "sora2", "manju"},
 		{"cy-sd4-seedance-2.0", "seedance-2.0", "seedance-leonardo"},
+		{"cy-sd4-minimax-h3-2k", "hailuo-03", "seedance-leonardo"},
 		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", "sd5"},
 		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance-tengda"},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", "chat"},

@@ -13,7 +13,8 @@
         "seedance",
         "grok-imagine",
         "happyhorse",
-        "cy-sd4-seedance"
+        "cy-sd4-seedance",
+        "cy-sd4-minimax-h3"
     ],
     "poll": {
         "videos-json-async": {
@@ -2322,7 +2323,7 @@
                     "label": "多模态",
                     "descriptionWithImages": "多模态：图 + 可选视频/音频"
                 },
-                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 4）；参考视频 mp4/mov ≤200MB，单条 4–15 秒、最多 3 条总 ≤15 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、≤15 秒。硬性规则以 leonardo-web2api worker 为准。",
+                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 4）；参考视频 mp4/mov ≤200MB，单条 4–15 秒、最多 3 条总 ≤15 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、≤15 秒。提交后由平台校验，不合规将返回明确说明。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -2408,7 +2409,222 @@
             },
             "hints": [
                 {
-                    "text": "标准 480p（16:9=864×496）/ HD 720p（1280×720）；多模态 4图/3视频（总时长≤15s）/1音频（≤15s）；与首尾帧互斥。"
+                    "text": "标准 480p（16:9=864×496）/ HD 720p（1280×720）；多模态 4 图 / 3 视频（合计 ≤15 秒，720–2160px、24–60 FPS）/ 1 音频；与首尾帧互斥。"
+                }
+            ]
+        },
+        {
+            "id": "video-tpl-minimax-h3-2k-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match": [
+                "cy-sd4-minimax-h3"
+            ],
+            "referenceLimits": {
+                "images": 5,
+                "videos": 0,
+                "audios": 3,
+                "imageMaxBytes": 26214400,
+                "audioMaxBytes": 15728640,
+                "audio": {
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000
+                },
+                "fullReferenceMode": {
+                    "label": "多模态",
+                    "descriptionWithImages": "多模态：参考图 + 可选参考音频（不支持参考视频）"
+                },
+                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 5）；参考音频 mp3/wav ≤15MB，最多 3 段、合计 ≤15 秒。不支持参考视频。提交后由平台校验。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "2k",
+                            "label": "2K"
+                        }
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "21:9",
+                            "label": "宽银幕"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15
+                    ],
+                    "min": 5,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": true,
+                    "hint": "是否生成原生音频（首尾帧模式下不可用）"
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧与多模态（参考图/音频）二选一；首尾帧下不可开原生音频"
+                }
+            },
+            "hints": [
+                {
+                    "text": "2K 成片，约 140 积分/秒；多模态 5 图 / 3 音频（合计 ≤15 秒）；与首尾帧互斥。"
+                }
+            ]
+        },
+        {
+            "id": "video-tpl-seedance-mini-8s-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match": [
+                "cy-sd4-seedance-2.0-mini-8s"
+            ],
+            "referenceLimits": {
+                "images": 4,
+                "videos": 3,
+                "audios": 1,
+                "imageMaxBytes": 26214400,
+                "videoMaxBytes": 209715200,
+                "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 4000,
+                    "maxDurationMs": 8000,
+                    "totalMaxDurationMs": 8000
+                },
+                "audio": {
+                    "maxDurationMs": 8000
+                },
+                "fullReferenceMode": {
+                    "label": "多模态",
+                    "descriptionWithImages": "多模态：图 + 可选视频/音频"
+                },
+                "validationHint": "成片时长 4–8 秒。参考图 png/jpg/webp ≤25MB（最多 4）；参考视频 mp4/mov ≤200MB，单条 4–8 秒、最多 3 条总 ≤8 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、≤8 秒。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "480p",
+                            "label": "标准 480p"
+                        },
+                        {
+                            "value": "720p",
+                            "label": "HD 720p"
+                        }
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "21:9",
+                            "label": "宽银幕"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        4,
+                        5,
+                        6,
+                        7,
+                        8
+                    ],
+                    "min": 4,
+                    "max": 8
+                },
+                "generateAudio": {
+                    "enabled": true,
+                    "hint": "是否生成原生音频，默认开启"
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧与多模态（参考图/视频/音频）二选一；成对指定 first + last"
+                }
+            },
+            "hints": [
+                {
+                    "text": "Mini 8 秒特惠：成片 4–8 秒；标准 480p / HD 720p；多模态 4 图 / 3 视频（合计 ≤8 秒）/ 1 音频；与首尾帧互斥。"
                 }
             ]
         },

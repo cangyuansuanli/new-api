@@ -1,0 +1,123 @@
+{
+  "dispatch_mode": "async",
+  "intro": "请求字段约定\nJSON 参考图统一推荐 reference_image_urls 字符串数组，单图也传 1 项；image_url、image、images、image_urls、reference_images 仅作为兼容别名。\nfirst_image_url / last_image_url 仅用于成对首尾帧；multipart 文件上传才使用 image。\n\nMiniMax H3 2K 视频\n模型：{{model}}\n计费以模型广场为准；失败不计费（内容策略类失败按平台规则处理）。\n\n调用流程\n1. POST /v1/videos 提交任务\n2. GET /v1/videos/{task_id} 轮询（建议间隔 5–10 秒）\n3. status=completed 后从 video_url 下载成片\n\n输出规格\n固定 2K，时长 5–15 秒。\n画幅与像素：21:9=3360×1440；16:9=2560×1440；4:3=1920×1440；1:1=1440×1440；3:4=1440×1920；9:16=1440×2560。\n画幅支持 16:9、9:16、1:1、21:9、3:4、4:3。\n\n限制\n多模态：参考图≤5（png/jpg/webp，单张≤25MB）、参考音频≤3（mp3/wav，单文件≤15MB，单条≤15秒、三段合计≤15秒）。不支持参考视频（勿传 reference_videos）。\n参考图支持 HTTPS 公网直链、data:image Base64、multipart 字段 image。\n参考音频须 HTTPS 公网直链（reference_audios）。\n多模态与首尾帧互斥；首尾帧模式下不可开启原生音频（audio / generate_audio），且不可携带参考音频。\n违规素材会在提交或处理阶段返回明确错误说明。\n\n常见错误\n参数或参考素材不合规时，响应 error.message 会给出可操作的说明。\n",
+  "params": [
+    {
+      "name": "model",
+      "description": "必填，传模型广场 public 名（与列表展示一致，如 minimax-h3-2k）。"
+    },
+    {
+      "name": "prompt",
+      "description": "必填。视频描述，≤5000 字符。多模态可用 @image1 … @image5、@audio1 … @audio3 占位。"
+    },
+    {
+      "name": "aspect_ratio",
+      "description": "画幅，默认 16:9。支持 16:9、9:16、1:1、21:9、3:4、4:3。"
+    },
+    {
+      "name": "duration",
+      "description": "时长秒数，5–15 任意整数。"
+    },
+    {
+      "name": "resolution",
+      "description": "清晰度：仅 2K。传 2k / 1440p 或省略（按画幅解析为上表像素）。"
+    },
+    {
+      "name": "audio",
+      "description": "是否生成原生音频，默认 true。首尾帧模式下不可用。兼容别名 generate_audio。"
+    },
+    {
+      "name": "reference_image_urls",
+      "description": "参考图 URL 数组（≤5，png/jpg/webp，单张≤25MB）；单图也传 1 项。兼容 image_url 等别名。"
+    },
+    {
+      "name": "reference_audios",
+      "description": "参考音频 HTTPS 直链（≤3，mp3/wav，单文件≤15MB，单条≤15秒、合计≤15秒）。"
+    },
+    {
+      "name": "first_image_url",
+      "description": "首尾帧：首帧（须与 last_image_url 成对，与多模态互斥；此模式下不可带 reference_audios 与 audio）。"
+    },
+    {
+      "name": "last_image_url",
+      "description": "首尾帧：尾帧（须与 first_image_url 成对）。"
+    },
+    {
+      "name": "image",
+      "description": "仅 multipart/form-data 单图文件（-F image=@photo.jpg）。"
+    }
+  ],
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "{{base}}/videos",
+      "description": "创建视频任务（application/json 或 multipart/form-data）。"
+    },
+    {
+      "method": "GET",
+      "path": "{{base}}/videos/{task_id}",
+      "description": "查询任务状态与结果。"
+    },
+    {
+      "method": "GET",
+      "path": "{{base}}/videos/{task_id}/content",
+      "description": "下载成片（亦可直接使用响应中的 video_url）。"
+    }
+  ],
+  "generation_modes": [
+    {
+      "label": "文生视频",
+      "minimum": "prompt",
+      "trigger": "不带任何素材字段",
+      "prompt_refs": "—"
+    },
+    {
+      "label": "单图生视频",
+      "minimum": "prompt + 1 张图",
+      "trigger": "reference_image_urls（1 张）或 image_url",
+      "prompt_refs": "—"
+    },
+    {
+      "label": "多模态",
+      "minimum": "prompt + ≥1 张图（可选音频）",
+      "trigger": "reference_image_urls / reference_audios",
+      "prompt_refs": "@image1 … @image5、@audio1 … @audio3",
+      "notes": "参考图≤5、音频≤3（合计≤15s）；不支持参考视频；与首尾帧互斥"
+    },
+    {
+      "label": "首尾帧",
+      "minimum": "prompt + 首帧 + 尾帧",
+      "trigger": "first_image_url + last_image_url（成对）",
+      "prompt_refs": "—",
+      "notes": "与多模态互斥；不可原生音频与参考音频"
+    }
+  ],
+  "basic_request_json": {
+    "model": "minimax-h3-2k",
+    "prompt": "雨夜霓虹街道，镜头缓慢推进，电影感光影",
+    "duration": 8,
+    "resolution": "2k",
+    "aspect_ratio": "16:9",
+    "audio": true
+  },
+  "request_json": {
+    "model": "minimax-h3-2k",
+    "prompt": "雨夜霓虹街道，镜头缓慢推进，电影感光影",
+    "duration": 8,
+    "resolution": "2k",
+    "aspect_ratio": "16:9",
+    "audio": true
+  },
+  "create_response_json": {
+    "id": "video_42",
+    "status": "queued",
+    "progress": 0,
+    "created_at": "2026-05-17T08:00:00Z"
+  },
+  "query_response_json": {
+    "id": "video_42",
+    "status": "completed",
+    "progress": 100,
+    "video_url": "https://example.com/output.mp4"
+  }
+}

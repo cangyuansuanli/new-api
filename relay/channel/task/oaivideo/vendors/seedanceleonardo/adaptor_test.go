@@ -92,6 +92,9 @@ func TestIsRelay(t *testing.T) {
 	if !IsRelay("cy-sd4-seedance-2.0") {
 		t.Fatal("expected leonardo relay")
 	}
+	if !IsRelay("cy-sd4-minimax-h3-2k") {
+		t.Fatal("expected minimax h3 relay")
+	}
 	if IsRelay("cy-sd1-seedance-2.0-720p") {
 		t.Fatal("cy-sd1 must not match leonardo")
 	}
