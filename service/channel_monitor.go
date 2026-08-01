@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -30,8 +31,10 @@ const (
 	channelMonitorPublicTimelineLimit = 48
 	channelMonitorPublicBucketSize    = 30 * time.Minute
 	channelMonitorCarryLookback       = 24 * time.Hour
-	channelMonitorPublicCacheTTL      = 60 * time.Second
-	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v1"
+	channelMonitorPublicCacheTTL      = 5 * time.Minute
+	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v2"
+	channelMonitorMediaCacheTTL       = 49 * time.Hour
+	channelMonitorMediaCacheNS        = "new-api:channel_monitor_media:v1"
 )
 
 var ErrChannelMonitorMediaProbeDisabled = errors.New("billable media probes are disabled")
@@ -43,10 +46,18 @@ type publicChannelMonitorCacheItem struct {
 	Summary *PublicChannelMonitorSummary `json:"summary"`
 }
 
+type channelMonitorMediaCacheItem struct {
+	Cursor int64         `json:"cursor"`
+	Tasks  []*model.Task `json:"tasks"`
+}
+
 var (
 	publicChannelMonitorCacheOnce sync.Once
 	publicChannelMonitorCache     *cachex.HybridCache[publicChannelMonitorCacheItem]
 	publicChannelMonitorFlight    singleflight.Group
+	channelMonitorMediaCacheOnce  sync.Once
+	channelMonitorMediaCache      *cachex.HybridCache[channelMonitorMediaCacheItem]
+	channelMonitorMediaFlight     singleflight.Group
 )
 
 func getPublicChannelMonitorCache() *cachex.HybridCache[publicChannelMonitorCacheItem] {
@@ -67,6 +78,26 @@ func getPublicChannelMonitorCache() *cachex.HybridCache[publicChannelMonitorCach
 		})
 	})
 	return publicChannelMonitorCache
+}
+
+func getChannelMonitorMediaCache() *cachex.HybridCache[channelMonitorMediaCacheItem] {
+	channelMonitorMediaCacheOnce.Do(func() {
+		channelMonitorMediaCache = cachex.NewHybridCache(cachex.HybridCacheConfig[channelMonitorMediaCacheItem]{
+			Namespace: cachex.Namespace(channelMonitorMediaCacheNS),
+			Redis:     common.RDB,
+			RedisEnabled: func() bool {
+				return common.RedisEnabled && common.RDB != nil
+			},
+			RedisCodec: cachex.JSONCodec[channelMonitorMediaCacheItem]{},
+			Memory: func() *hot.HotCache[string, channelMonitorMediaCacheItem] {
+				return hot.NewHotCache[string, channelMonitorMediaCacheItem](hot.LRU, 8).
+					WithTTL(channelMonitorMediaCacheTTL).
+					WithJanitor().
+					Build()
+			},
+		})
+	})
+	return channelMonitorMediaCache
 }
 
 func InvalidatePublicChannelMonitorCache() {
@@ -765,6 +796,76 @@ func publicStatusPriority(status string) int {
 	}
 }
 
+func channelMonitorMediaCacheKey(targets map[int][]string) string {
+	channelIDs := make([]int, 0, len(targets))
+	for channelID := range targets {
+		channelIDs = append(channelIDs, channelID)
+	}
+	sort.Ints(channelIDs)
+	var identity strings.Builder
+	for _, channelID := range channelIDs {
+		modelNames := append([]string(nil), targets[channelID]...)
+		sort.Strings(modelNames)
+		fmt.Fprintf(&identity, "%d:%s;", channelID, strings.Join(modelNames, ","))
+	}
+	return fmt.Sprintf("targets:%x", sha256.Sum256([]byte(identity.String())))
+}
+
+func mergeChannelMonitorMediaTasks(existing, fresh []*model.Task, cutoff int64) []*model.Task {
+	byID := make(map[int64]*model.Task, len(existing)+len(fresh))
+	for _, task := range append(existing, fresh...) {
+		if task != nil && task.UpdatedAt >= cutoff {
+			byID[task.ID] = task
+		}
+	}
+	merged := make([]*model.Task, 0, len(byID))
+	for _, task := range byID {
+		merged = append(merged, task)
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		if merged[i].UpdatedAt != merged[j].UpdatedAt {
+			return merged[i].UpdatedAt > merged[j].UpdatedAt
+		}
+		return merged[i].ID > merged[j].ID
+	})
+	return merged
+}
+
+func listCachedChannelMonitorMediaTasks(targets map[int][]string, cutoff int64) ([]*model.Task, error) {
+	cacheKey := channelMonitorMediaCacheKey(targets)
+	cache := getChannelMonitorMediaCache()
+	result, err, _ := channelMonitorMediaFlight.Do(cacheKey, func() (any, error) {
+		cached, found, cacheErr := cache.Get(cacheKey)
+		if cacheErr != nil {
+			common.SysError(fmt.Sprintf("channel monitor media cache get failed: %v", cacheErr))
+			found = false
+		}
+		since := cutoff
+		if found && cached.Cursor > since {
+			since = cached.Cursor - 1
+		}
+		fresh, cursor, queryErr := model.ListRecentChannelsMediaTasks(targets, since, 200000)
+		if queryErr != nil {
+			return channelMonitorMediaCacheItem{}, queryErr
+		}
+		if cursor < cached.Cursor {
+			cursor = cached.Cursor
+		}
+		item := channelMonitorMediaCacheItem{
+			Cursor: cursor,
+			Tasks:  mergeChannelMonitorMediaTasks(cached.Tasks, fresh, cutoff),
+		}
+		if cacheErr := cache.SetWithTTL(cacheKey, item, channelMonitorMediaCacheTTL); cacheErr != nil {
+			common.SysError(fmt.Sprintf("channel monitor media cache set failed: %v", cacheErr))
+		}
+		return item, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(channelMonitorMediaCacheItem).Tasks, nil
+}
+
 func mergePublicChannelMonitorStat(
 	aggregates map[string]*publicChannelMonitorAggregate,
 	name string,
@@ -878,10 +979,9 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 		}
 	}
 
-	mediaTasks, err := model.ListRecentChannelsMediaTasks(
+	mediaTasks, err := listCachedChannelMonitorMediaTasks(
 		mediaTargets,
 		time.Now().Add(-channelMonitorVideoFreshness-channelMonitorCarryLookback).Unix(),
-		200000,
 	)
 	if err != nil {
 		return nil, err

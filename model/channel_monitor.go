@@ -198,34 +198,14 @@ func ListRecentMediaTasks(channelID int, modelName string, since int64, limit in
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
-
-	var modelPredicate string
-	switch {
-	case common.UsingPostgreSQL:
-		modelPredicate = `(COALESCE(properties->>'client_model_name', '') = ? OR COALESCE(properties->>'origin_model_name', '') = ? OR COALESCE(properties->>'upstream_model_name', '') = ?)`
-	case common.UsingMySQL:
-		modelPredicate = `(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.client_model_name')), '') = ? OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.origin_model_name')), '') = ? OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.upstream_model_name')), '') = ?)`
-	default:
-		modelPredicate = `(COALESCE(json_extract(properties, '$.client_model_name'), '') = ? OR COALESCE(json_extract(properties, '$.origin_model_name'), '') = ? OR COALESCE(json_extract(properties, '$.upstream_model_name'), '') = ?)`
-	}
-
-	var tasks []*Task
-	err := DB.Model(&Task{}).
-		Select("id", "updated_at", "channel_id", "platform", "action", "status", "fail_reason", "properties").
-		Where("channel_id = ?", channelID).
-		Where("status IN ?", []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).
-		Where("updated_at >= ?", since).
-		Where(modelPredicate, modelName, modelName, modelName).
-		Order("updated_at DESC, id DESC").
-		Limit(limit).
-		Find(&tasks).Error
+	tasks, _, err := ListRecentChannelsMediaTasks(map[int][]string{channelID: {modelName}}, since, limit)
 	return tasks, err
 }
 
 // ListRecentChannelsMediaTasks returns recent terminal task metadata for
 // monitored channels. Public availability matches model naming boundaries in
 // memory after the indexed channel/status/time scan.
-func ListRecentChannelsMediaTasks(targets map[int][]string, since int64, limit int) ([]*Task, error) {
+func ListRecentChannelsMediaTasks(targets map[int][]string, since int64, limit int) ([]*Task, int64, error) {
 	channelIDs := make([]int, 0, len(targets))
 	modelsByChannel := make(map[int]map[string]struct{}, len(targets))
 	for channelID, modelNames := range targets {
@@ -246,36 +226,34 @@ func ListRecentChannelsMediaTasks(targets map[int][]string, since int64, limit i
 		modelsByChannel[channelID] = modelSet
 	}
 	if len(channelIDs) == 0 {
-		return []*Task{}, nil
+		return []*Task{}, since, nil
 	}
 	if limit <= 0 || limit > 200000 {
 		limit = 200000
 	}
 	type mediaTaskProjection struct {
-		ID                int64
-		TaskID            string
-		UpdatedAt         int64
-		ChannelID         int `gorm:"column:channel_id"`
-		Platform          constant.TaskPlatform
-		Action            string
-		Status            TaskStatus
-		FailReason        string
-		ClientModelName   string
-		OriginModelName   string
-		UpstreamModelName string
+		ID             int64
+		TaskID         string
+		UpdatedAt      int64
+		ChannelID      int `gorm:"column:channel_id"`
+		Platform       constant.TaskPlatform
+		Action         string
+		Status         TaskStatus
+		FailReason     string
+		PropertiesText string `gorm:"column:properties_text"`
 	}
-	modelColumns := ""
+	propertiesColumn := ""
 	switch {
 	case common.UsingPostgreSQL:
-		modelColumns = "COALESCE(properties->>'client_model_name', '') AS client_model_name, COALESCE(properties->>'origin_model_name', '') AS origin_model_name, COALESCE(properties->>'upstream_model_name', '') AS upstream_model_name"
+		propertiesColumn = "CAST(properties AS TEXT) AS properties_text"
 	case common.UsingMySQL:
-		modelColumns = "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.client_model_name')), '') AS client_model_name, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.origin_model_name')), '') AS origin_model_name, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.upstream_model_name')), '') AS upstream_model_name"
+		propertiesColumn = "CAST(properties AS CHAR) AS properties_text"
 	default:
-		modelColumns = "COALESCE(json_extract(properties, '$.client_model_name'), '') AS client_model_name, COALESCE(json_extract(properties, '$.origin_model_name'), '') AS origin_model_name, COALESCE(json_extract(properties, '$.upstream_model_name'), '') AS upstream_model_name"
+		propertiesColumn = "CAST(properties AS TEXT) AS properties_text"
 	}
 	var candidates []*mediaTaskProjection
 	err := DB.Model(&Task{}).
-		Select("id, task_id, updated_at, channel_id, platform, action, status, fail_reason, "+modelColumns).
+		Select("id, task_id, updated_at, channel_id, platform, action, status, fail_reason, "+propertiesColumn).
 		Where("channel_id IN ?", channelIDs).
 		Where("status IN ?", []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).
 		Where("updated_at >= ?", since).
@@ -283,25 +261,30 @@ func ListRecentChannelsMediaTasks(targets map[int][]string, since int64, limit i
 		Limit(limit).
 		Find(&candidates).Error
 	if err != nil {
-		return nil, err
+		return nil, since, err
 	}
+	cursor := since
 	tasks := make([]*Task, 0, len(candidates))
 	for _, candidate := range candidates {
+		if candidate.UpdatedAt > cursor {
+			cursor = candidate.UpdatedAt
+		}
+		properties := Properties{}
+		if err := common.UnmarshalJsonStr(candidate.PropertiesText, &properties); err != nil {
+			continue
+		}
 		modelSet := modelsByChannel[candidate.ChannelID]
-		_, clientMatch := modelSet[strings.TrimSpace(candidate.ClientModelName)]
-		_, originMatch := modelSet[strings.TrimSpace(candidate.OriginModelName)]
-		_, upstreamMatch := modelSet[strings.TrimSpace(candidate.UpstreamModelName)]
+		_, clientMatch := modelSet[strings.TrimSpace(properties.ClientModelName)]
+		_, originMatch := modelSet[strings.TrimSpace(properties.OriginModelName)]
+		_, upstreamMatch := modelSet[strings.TrimSpace(properties.UpstreamModelName)]
 		if clientMatch || originMatch || upstreamMatch {
+			properties.Input = ""
 			tasks = append(tasks, &Task{
 				ID: candidate.ID, TaskID: candidate.TaskID, UpdatedAt: candidate.UpdatedAt, ChannelId: candidate.ChannelID,
 				Platform: candidate.Platform, Action: candidate.Action, Status: candidate.Status,
-				FailReason: candidate.FailReason,
-				Properties: Properties{
-					ClientModelName: candidate.ClientModelName, OriginModelName: candidate.OriginModelName,
-					UpstreamModelName: candidate.UpstreamModelName,
-				},
+				FailReason: candidate.FailReason, Properties: properties,
 			})
 		}
 	}
-	return tasks, nil
+	return tasks, cursor, nil
 }
