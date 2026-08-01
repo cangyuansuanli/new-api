@@ -365,6 +365,16 @@ func GetAllChannels(startIdx int, num int, selectAll bool, idSort bool, sortOpti
 	return channels, err
 }
 
+func GetEnabledChannels(selectAll bool) ([]*Channel, error) {
+	query := DB.Where("status = ?", common.ChannelStatusEnabled).Order("id ASC")
+	if !selectAll {
+		query = query.Omit("key")
+	}
+	var channels []*Channel
+	err := query.Find(&channels).Error
+	return channels, err
+}
+
 func GetChannelsByTag(tag string, idSort bool, selectAll bool, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
 	var channels []*Channel
 	order := resolveChannelSortOptions(idSort, sortOptions)
