@@ -11,6 +11,7 @@ func TestResolve(t *testing.T) {
 		{"manju-openai-sora2", "sora2", VendorManju},
 		{"cy-sd1-seedance-2.0-fast-720p", "Seedance-2.0-720p", VendorSeedanceOairegbox},
 		{"cy-sd4-seedance-2.0", "seedance-2.0", VendorSeedanceLeonardo},
+		{"cy-sd4-minimax-h3-2k", "hailuo-03", VendorSeedanceLeonardo},
 		{"cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", VendorSD5},
 		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", VendorSD5},
 		{"cy-sd2-seedance-2.0", "manxue-2.0", VendorSeedanceTengda},

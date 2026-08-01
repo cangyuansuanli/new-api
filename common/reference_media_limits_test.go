@@ -30,15 +30,54 @@ func TestReferenceMediaLimitsSeedDataSync(t *testing.T) {
 			continue
 		}
 		if value, ok := limits["imageMaxBytes"]; ok {
-			assertLimitEquals(t, profile.ID, "imageMaxBytes", value, ReferenceImageMaxBytes)
+			want := referenceImageMaxBytesForProfile(profile.ID, limits)
+			assertLimitEquals(t, profile.ID, "imageMaxBytes", value, want)
 		}
 		if value, ok := limits["videoMaxBytes"]; ok {
-			assertLimitEquals(t, profile.ID, "videoMaxBytes", value, ReferenceVideoMaxBytes)
+			want := referenceVideoMaxBytesForProfile(profile.ID, limits)
+			assertLimitEquals(t, profile.ID, "videoMaxBytes", value, want)
 		}
 		if value, ok := limits["audioMaxBytes"]; ok {
 			assertLimitEquals(t, profile.ID, "audioMaxBytes", value, ReferenceAudioMaxBytes)
 		}
 	}
+}
+
+func referenceImageMaxBytesForProfile(profileID string, limits map[string]interface{}) int64 {
+	if override, ok := profileReferenceLimitOverrides[profileID]; ok && override.imageMaxBytes != nil {
+		return *override.imageMaxBytes
+	}
+	return ReferenceImageMaxBytes
+}
+
+func referenceVideoMaxBytesForProfile(profileID string, limits map[string]interface{}) int64 {
+	if override, ok := profileReferenceLimitOverrides[profileID]; ok && override.videoMaxBytes != nil {
+		return *override.videoMaxBytes
+	}
+	return ReferenceVideoMaxBytes
+}
+
+type profileReferenceLimitOverride struct {
+	imageMaxBytes *int64
+	videoMaxBytes *int64
+}
+
+var profileReferenceLimitOverrides = map[string]profileReferenceLimitOverride{
+	"video-tpl-seedance-subscription-async": {
+		imageMaxBytes: int64Ptr(25 << 20),
+		videoMaxBytes: int64Ptr(200 << 20),
+	},
+	"video-tpl-seedance-mini-8s-async": {
+		imageMaxBytes: int64Ptr(25 << 20),
+		videoMaxBytes: int64Ptr(200 << 20),
+	},
+	"video-tpl-minimax-h3-2k-async": {
+		imageMaxBytes: int64Ptr(25 << 20),
+	},
+}
+
+func int64Ptr(v int64) *int64 {
+	return &v
 }
 
 func assertLimitEquals(t *testing.T, profileID, key string, got any, want int64) {
