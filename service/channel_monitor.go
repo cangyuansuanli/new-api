@@ -373,27 +373,40 @@ func passiveMediaStatus(effective []*model.Task, isVideo bool) string {
 	return model.ChannelMonitorStatusDegraded
 }
 
-func buildPassiveMediaStat(channel *model.Channel, modelName string, includeTimeline bool) (*ChannelMonitorModelStat, error) {
+func taskMatchesChannelMonitorModel(task *model.Task, modelName string) bool {
+	if task == nil {
+		return false
+	}
+	modelName = strings.TrimSpace(modelName)
+	return modelName != "" && (task.Properties.ClientModelName == modelName ||
+		task.Properties.OriginModelName == modelName ||
+		task.Properties.UpstreamModelName == modelName)
+}
+
+func buildPassiveMediaStatFromTasks(channel *model.Channel, modelName string, tasks []*model.Task, includeTimeline bool) *ChannelMonitorModelStat {
 	isVideo := isVideoChannelMonitorTarget(channel.Type, modelName)
 	freshness := channelMonitorImageFreshness
 	if isVideo {
 		freshness = channelMonitorVideoFreshness
 	}
-	tasks, err := model.ListRecentMediaTasks(channel.Id, modelName, time.Now().Add(-freshness).Unix(), channelMonitorPassiveQueryLimit)
-	if err != nil {
-		return nil, err
-	}
+	cutoff := time.Now().Add(-freshness).Unix()
 	effective := make([]*model.Task, 0, len(tasks))
 	for _, task := range tasks {
+		if task.UpdatedAt < cutoff || !taskMatchesChannelMonitorModel(task, modelName) {
+			continue
+		}
 		classification := classifyMediaTask(task)
 		if classification == mediaTaskSuccess || classification == mediaTaskChannelFailure {
 			effective = append(effective, task)
+			if len(effective) >= channelMonitorPassiveQueryLimit {
+				break
+			}
 		}
 	}
 
 	stat := &ChannelMonitorModelStat{Model: modelName, LatestStatus: passiveMediaStatus(effective, isVideo)}
 	if len(effective) == 0 {
-		return stat, nil
+		return stat
 	}
 	checkedAt := effective[0].UpdatedAt
 	stat.LatestChecked = &checkedAt
@@ -427,7 +440,20 @@ func buildPassiveMediaStat(channel *model.Channel, modelName string, includeTime
 			stat.Timeline = append(stat.Timeline, &ChannelMonitorTimelinePoint{Status: status, CheckedAt: effective[i].UpdatedAt})
 		}
 	}
-	return stat, nil
+	return stat
+}
+
+func buildPassiveMediaStat(channel *model.Channel, modelName string, includeTimeline bool) (*ChannelMonitorModelStat, error) {
+	isVideo := isVideoChannelMonitorTarget(channel.Type, modelName)
+	freshness := channelMonitorImageFreshness
+	if isVideo {
+		freshness = channelMonitorVideoFreshness
+	}
+	tasks, err := model.ListRecentMediaTasks(channel.Id, modelName, time.Now().Add(-freshness).Unix(), channelMonitorPassiveQueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	return buildPassiveMediaStatFromTasks(channel, modelName, tasks, includeTimeline), nil
 }
 
 func ChannelMonitorModels(monitor *model.ChannelMonitor) []string {
@@ -709,8 +735,16 @@ func mergePublicChannelMonitorStat(
 	}
 }
 
+type publicChannelMonitorSource struct {
+	monitor     *model.ChannelMonitor
+	channel     *model.Channel
+	mediaModels []string
+}
+
 func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays int) ([]*PublicChannelMonitorItem, error) {
 	aggregates := make(map[string]*publicChannelMonitorAggregate)
+	sources := make([]*publicChannelMonitorSource, 0, len(monitors))
+	mediaTargets := make(map[int][]string)
 	for _, monitor := range monitors {
 		channel, err := model.GetChannelById(monitor.ChannelID, false)
 		if err != nil {
@@ -719,17 +753,7 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 			}
 			return nil, err
 		}
-
-		if monitor.ProbeKind == model.ChannelMonitorProbeTextActive && !IsBillableMediaMonitorTarget(channel.Type, monitor.PrimaryModel) {
-			view, err := BuildChannelMonitorView(monitor, windowDays, false)
-			if err != nil {
-				return nil, err
-			}
-			for _, group := range channel.GetGroups() {
-				mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, view.Primary)
-			}
-		}
-
+		mediaModels := make([]string, 0)
 		for _, modelName := range channel.GetModels() {
 			if !IsBillableMediaMonitorTarget(channel.Type, modelName) {
 				continue
@@ -738,10 +762,40 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 			if category == "" {
 				continue
 			}
-			stat, err := buildPassiveMediaStat(channel, modelName, false)
+			mediaModels = append(mediaModels, modelName)
+		}
+		sources = append(sources, &publicChannelMonitorSource{monitor: monitor, channel: channel, mediaModels: mediaModels})
+		if len(mediaModels) > 0 {
+			mediaTargets[channel.Id] = mediaModels
+		}
+	}
+
+	mediaTasks, err := model.ListRecentChannelsMediaTasks(
+		mediaTargets,
+		time.Now().Add(-channelMonitorVideoFreshness).Unix(),
+		50000,
+	)
+	if err != nil {
+		return nil, err
+	}
+	mediaTasksByChannel := make(map[int][]*model.Task)
+	for _, task := range mediaTasks {
+		mediaTasksByChannel[task.ChannelId] = append(mediaTasksByChannel[task.ChannelId], task)
+	}
+
+	for _, source := range sources {
+		if source.monitor.ProbeKind == model.ChannelMonitorProbeTextActive && !IsBillableMediaMonitorTarget(source.channel.Type, source.monitor.PrimaryModel) {
+			view, err := BuildChannelMonitorView(source.monitor, windowDays, false)
 			if err != nil {
 				return nil, err
 			}
+			for _, group := range source.channel.GetGroups() {
+				mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, view.Primary)
+			}
+		}
+		for _, modelName := range source.mediaModels {
+			category := publicChannelMonitorCategory(source.channel.Type, modelName)
+			stat := buildPassiveMediaStatFromTasks(source.channel, modelName, mediaTasksByChannel[source.channel.Id], false)
 			mergePublicChannelMonitorStat(
 				aggregates,
 				ToPublicModelName(modelName),

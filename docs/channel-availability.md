@@ -23,6 +23,7 @@ When no effective observation exists inside the freshness window, the state is u
 - Create one monitor for each enabled channel that has recent production traffic; do not seed disabled or historical-only channels.
 - Text availability is published by channel group. Configure one representative, recently used primary model per text channel and a conservative interval such as 15 minutes to control probe cost. Extra text models remain available to administrators but are not published as separate user-facing entries.
 - Image and video availability is published per model. The public list reads all media models currently configured on each monitored channel, evaluates them passively, converts internal names through `ToPublicModelName`, and merges duplicate public names. This is independent of the eight-model administrator input limit and never sends generation requests.
+- Public media aggregation loads recent terminal task metadata for all monitored channels in one batch and evaluates configured models in memory, avoiding one task-table scan per model.
 - Keep global monitoring disabled while monitors are created and reviewed. Enable it only after the configured channel IDs, model names, visibility, and probe kinds have been verified.
 
 ## Public response contract
