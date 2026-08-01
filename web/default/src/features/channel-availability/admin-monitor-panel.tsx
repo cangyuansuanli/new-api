@@ -20,13 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import { getChannels } from '@/features/channels/api'
-import type { Channel } from '@/features/channels/types'
 import {
   createChannelMonitor,
   deleteChannelMonitor,
@@ -40,6 +37,8 @@ import type { AdminChannelMonitorView, ChannelMonitorInput } from './types'
 
 const emptyInput: ChannelMonitorInput = {
   channel_id: 0,
+  scope: 'text',
+  target: '',
   name: '',
   primary_model: '',
   extra_models: [],
@@ -49,8 +48,10 @@ const emptyInput: ChannelMonitorInput = {
   visible: true,
 }
 
+type MonitorScope = ChannelMonitorInput['scope']
+
 function MonitorFormDialog(props: {
-  channels: Channel[]
+  textTargets: Array<{ group: string; models: string[] }>
   monitor: AdminChannelMonitorView | null
   open: boolean
   pending: boolean
@@ -62,6 +63,9 @@ function MonitorFormDialog(props: {
     props.monitor
       ? {
           channel_id: props.monitor.channel_id,
+          scope:
+            props.monitor.scope === 'media' ? 'image' : props.monitor.scope,
+          target: props.monitor.target || props.monitor.group,
           name: props.monitor.name,
           primary_model: props.monitor.primary_model,
           extra_models: props.monitor.extra_model_names,
@@ -72,18 +76,15 @@ function MonitorFormDialog(props: {
         }
       : emptyInput
   )
-  const [extras, setExtras] = useState(
-    () => props.monitor?.extra_model_names.join(', ') ?? ''
-  )
+  const textModels =
+    props.textTargets.find((target) => target.group === form.target)?.models ??
+    []
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     props.onSubmit({
       ...form,
-      extra_models: extras
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
+      extra_models: [],
     })
   }
 
@@ -96,109 +97,102 @@ function MonitorFormDialog(props: {
               {props.monitor ? t('Edit monitor') : t('Create monitor')}
             </DialogTitle>
             <DialogDescription>
-              {t(
-                'Media models use recent real tasks and never trigger active generation.'
-              )}
+              {t('Choose text probing or automatic media aggregation.')}
             </DialogDescription>
           </DialogHeader>
           <div className='grid gap-4 sm:grid-cols-2'>
             <div className='space-y-2 sm:col-span-2'>
-              <Label htmlFor='monitor-channel'>{t('Channel')}</Label>
+              <Label htmlFor='monitor-scope'>{t('Monitor type')}</Label>
               <NativeSelect
-                id='monitor-channel'
+                id='monitor-scope'
                 className='w-full'
-                value={String(form.channel_id)}
+                value={form.scope}
                 onChange={(event) =>
                   setForm((value) => ({
                     ...value,
-                    channel_id: Number(event.target.value),
+                    scope: event.target.value as MonitorScope,
+                    channel_id: 0,
+                    target: '',
+                    primary_model: '',
+                    interval_seconds:
+                      event.target.value === 'text' ? 300 : 1800,
+                    jitter_seconds: event.target.value === 'text' ? 30 : 0,
                   }))
                 }
-                required
               >
-                <NativeSelectOption value='0' disabled>
-                  {t('Select a channel')}
+                <NativeSelectOption value='text'>
+                  {t('Text probe')}
                 </NativeSelectOption>
-                {props.channels.map((channel) => (
-                  <NativeSelectOption key={channel.id} value={channel.id}>
-                    {channel.name}
-                  </NativeSelectOption>
-                ))}
+                <NativeSelectOption value='image'>
+                  {t('Image aggregation')}
+                </NativeSelectOption>
+                <NativeSelectOption value='video'>
+                  {t('Video aggregation')}
+                </NativeSelectOption>
               </NativeSelect>
             </div>
-            <div className='space-y-2 sm:col-span-2'>
-              <Label htmlFor='monitor-name'>{t('Display name')}</Label>
-              <Input
-                id='monitor-name'
-                value={form.name}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, name: event.target.value }))
-                }
-                maxLength={128}
-                required
-              />
-            </div>
-            <div className='space-y-2 sm:col-span-2'>
-              <Label htmlFor='monitor-primary-model'>
-                {t('Primary model')}
-              </Label>
-              <Input
-                id='monitor-primary-model'
-                value={form.primary_model}
-                onChange={(event) =>
-                  setForm((value) => ({
-                    ...value,
-                    primary_model: event.target.value,
-                  }))
-                }
-                required
-              />
-            </div>
-            <div className='space-y-2 sm:col-span-2'>
-              <Label htmlFor='monitor-extra-models'>{t('Extra models')}</Label>
-              <Input
-                id='monitor-extra-models'
-                value={extras}
-                onChange={(event) => setExtras(event.target.value)}
-                placeholder={t('Comma-separated, up to 8 models')}
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='monitor-interval'>
-                {t('Interval (seconds)')}
-              </Label>
-              <Input
-                id='monitor-interval'
-                type='number'
-                min={60}
-                max={86400}
-                value={form.interval_seconds}
-                onChange={(event) =>
-                  setForm((value) => ({
-                    ...value,
-                    interval_seconds: Number(event.target.value),
-                  }))
-                }
-                required
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='monitor-jitter'>{t('Jitter (seconds)')}</Label>
-              <Input
-                id='monitor-jitter'
-                type='number'
-                min={0}
-                max={Math.floor(form.interval_seconds / 2)}
-                value={form.jitter_seconds}
-                onChange={(event) =>
-                  setForm((value) => ({
-                    ...value,
-                    jitter_seconds: Number(event.target.value),
-                  }))
-                }
-                required
-              />
-            </div>
+            {form.scope === 'text' && (
+              <div className='space-y-2 sm:col-span-2'>
+                <Label htmlFor='monitor-group'>{t('Group')}</Label>
+                <NativeSelect
+                  id='monitor-group'
+                  className='w-full'
+                  value={form.target}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      target: event.target.value,
+                      primary_model: '',
+                    }))
+                  }
+                  required
+                >
+                  <NativeSelectOption value='' disabled>
+                    {t('Select a group')}
+                  </NativeSelectOption>
+                  {props.textTargets.map((target) => (
+                    <NativeSelectOption key={target.group} value={target.group}>
+                      {target.group}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+            )}
+            {form.scope === 'text' && (
+              <div className='space-y-2 sm:col-span-2'>
+                <Label htmlFor='monitor-primary-model'>
+                  {t('Probe model')}
+                </Label>
+                <NativeSelect
+                  id='monitor-primary-model'
+                  className='w-full'
+                  value={form.primary_model}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      primary_model: event.target.value,
+                    }))
+                  }
+                  required
+                >
+                  <NativeSelectOption value='' disabled>
+                    {t('Select a model')}
+                  </NativeSelectOption>
+                  {textModels.map((model) => (
+                    <NativeSelectOption key={model} value={model}>
+                      {model}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+            )}
+            {form.scope !== 'text' && (
+              <div className='text-muted-foreground rounded-lg border p-3 text-sm sm:col-span-2'>
+                {t(
+                  'All currently listed models of this type are aggregated automatically every 30 minutes.'
+                )}
+              </div>
+            )}
           </div>
           <div className='flex items-center justify-between rounded-lg border p-3'>
             <Label htmlFor='monitor-enabled'>{t('Monitoring enabled')}</Label>
@@ -247,10 +241,6 @@ export function AdminMonitorPanel() {
     queryKey: ['channel-monitors', 'admin'],
     queryFn: () => getAdminChannelMonitors(7),
   })
-  const channelsQuery = useQuery({
-    queryKey: ['channels', 'monitor-options'],
-    queryFn: () => getChannels({ p: 1, page_size: 100 }),
-  })
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['channel-monitors'] })
   }
@@ -284,7 +274,6 @@ export function AdminMonitorPanel() {
     mutationFn: updateChannelMonitorSettings,
     onSuccess: invalidate,
   })
-  const channels = channelsQuery.data?.data?.items ?? []
 
   return (
     <div className='space-y-4'>
@@ -330,19 +319,27 @@ export function AdminMonitorPanel() {
               <CardHeader>
                 <CardTitle>{monitor.name}</CardTitle>
                 <CardDescription>
-                  {monitor.channel_name} · {monitor.primary_model}
+                  {monitor.scope === 'text'
+                    ? `${monitor.group} · ${monitor.primary_model}`
+                    : t(
+                        monitor.scope === 'video'
+                          ? 'Video aggregation'
+                          : 'Image aggregation'
+                      )}
                 </CardDescription>
-                <CardAction>
-                  <StatusBadge status={monitor.primary.latest_status} />
-                </CardAction>
+                {monitor.scope === 'text' && (
+                  <CardAction>
+                    <StatusBadge status={monitor.primary.latest_status} />
+                  </CardAction>
+                )}
               </CardHeader>
               <CardContent className='space-y-3'>
                 <div className='text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs'>
                   <span>
-                    {t('Interval')}: {monitor.interval_seconds}s
-                  </span>
-                  <span>
-                    {t('Jitter')}: {monitor.jitter_seconds}s
+                    {t('Refresh cycle')}:{' '}
+                    {monitor.scope === 'text'
+                      ? t('5 minutes')
+                      : t('30 minutes')}
                   </span>
                   <span>{monitor.enabled ? t('Enabled') : t('Disabled')}</span>
                   <span>{monitor.visible ? t('Visible') : t('Hidden')}</span>
@@ -355,15 +352,17 @@ export function AdminMonitorPanel() {
                   </div>
                 )}
                 <div className='flex justify-end gap-1'>
-                  <Button
-                    variant='outline'
-                    size='icon'
-                    aria-label={t('Run now')}
-                    disabled={runMutation.isPending}
-                    onClick={() => runMutation.mutate(monitor.id)}
-                  >
-                    <Play />
-                  </Button>
+                  {monitor.scope === 'text' && (
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      aria-label={t('Run now')}
+                      disabled={runMutation.isPending}
+                      onClick={() => runMutation.mutate(monitor.id)}
+                    >
+                      <Play />
+                    </Button>
+                  )}
                   <Button
                     variant='outline'
                     size='icon'
@@ -404,7 +403,7 @@ export function AdminMonitorPanel() {
       {dialogOpen && (
         <MonitorFormDialog
           key={editing?.id ?? 'new'}
-          channels={channels}
+          textTargets={monitorsQuery.data?.text_targets ?? []}
           monitor={editing}
           open
           pending={saveMutation.isPending}

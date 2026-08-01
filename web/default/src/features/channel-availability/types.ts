@@ -28,6 +28,7 @@ export type AdminChannelMonitorView = {
   name: string
   provider: string
   probe_kind: 'text_active' | 'media_passive' | 'media_disabled'
+  scope: 'text' | 'image' | 'video' | 'media'
   enabled: boolean
   visible: boolean
   interval_seconds: number
@@ -38,6 +39,7 @@ export type AdminChannelMonitorView = {
   channel_id: number
   channel_name: string
   group: string
+  target: string
   jitter_seconds: number
   extra_model_names: string[]
 }
@@ -55,6 +57,7 @@ export type ChannelMonitorSummary = {
 export type AdminChannelMonitorList = {
   items: AdminChannelMonitorView[]
   summary: ChannelMonitorSummary
+  text_targets: Array<{ group: string; models: string[] }>
 }
 
 export type PublicMonitorCategory = 'text' | 'image' | 'video'
@@ -84,6 +87,8 @@ export type PublicChannelMonitorList = {
 
 export type ChannelMonitorInput = {
   channel_id: number
+  scope: 'text' | 'image' | 'video'
+  target: string
   name: string
   primary_model: string
   extra_models: string[]

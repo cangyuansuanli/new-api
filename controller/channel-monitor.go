@@ -17,6 +17,8 @@ import (
 
 type channelMonitorRequest struct {
 	ChannelID       int      `json:"channel_id"`
+	Scope           string   `json:"scope"`
+	Target          string   `json:"target"`
 	Name            string   `json:"name"`
 	PrimaryModel    string   `json:"primary_model"`
 	ExtraModels     []string `json:"extra_models"`
@@ -40,23 +42,73 @@ func decodeChannelMonitorRequest(c *gin.Context) (*channelMonitorRequest, bool) 
 }
 
 func applyChannelMonitorRequest(monitor *model.ChannelMonitor, request *channelMonitorRequest, creating bool) error {
-	primary, extras, err := service.NormalizeChannelMonitorModels(request.PrimaryModel, request.ExtraModels)
+	scope := strings.TrimSpace(request.Scope)
+	legacyScope := scope == "" && monitor.Scope == ""
+	if scope == "" {
+		scope = monitor.Scope
+	}
+	if scope == "" {
+		scope = model.ChannelMonitorScopeText
+	}
+	scope, err := service.NormalizeChannelMonitorScope(scope)
 	if err != nil {
 		return err
+	}
+	primary := ""
+	extras := []string{}
+	if scope == model.ChannelMonitorScopeText || legacyScope {
+		primary, extras, err = service.NormalizeChannelMonitorModels(request.PrimaryModel, request.ExtraModels)
+		if err != nil {
+			return err
+		}
 	}
 	extraModelsJSON, err := service.EncodeChannelMonitorExtraModels(extras)
 	if err != nil {
 		return err
 	}
-	channel, err := model.GetChannelById(request.ChannelID, false)
-	if err != nil {
-		return err
+	var channel *model.Channel
+	if legacyScope {
+		channel, err = model.GetChannelById(request.ChannelID, false)
+		if err != nil {
+			return err
+		}
 	}
-	monitor.ChannelID = request.ChannelID
+	monitor.ChannelID = 0
+	monitor.Target = strings.TrimSpace(request.Target)
+	if legacyScope {
+		probeKind := service.ResolveChannelMonitorProbeKind(channel.Type, primary, extras)
+		if probeKind == model.ChannelMonitorProbeMediaPassive {
+			scope = model.ChannelMonitorScopeMedia
+		}
+		monitor.ChannelID = request.ChannelID
+	}
+	monitor.Scope = scope
 	monitor.Name = strings.TrimSpace(request.Name)
+	if monitor.Name == "" {
+		switch scope {
+		case model.ChannelMonitorScopeText:
+			monitor.Name = monitor.Target
+		case model.ChannelMonitorScopeImage:
+			monitor.Name = "Image aggregation"
+		case model.ChannelMonitorScopeVideo:
+			monitor.Name = "Video aggregation"
+		default:
+			monitor.Name = "Media aggregation"
+		}
+	}
 	monitor.PrimaryModel = primary
 	monitor.ExtraModelsJSON = extraModelsJSON
-	monitor.ProbeKind = service.ResolveChannelMonitorProbeKind(channel.Type, primary, extras)
+	if scope == model.ChannelMonitorScopeText {
+		if monitor.Target == "" {
+			return errors.New("target group is required")
+		}
+		if err := service.ValidateTextChannelMonitorTarget(monitor.Target, primary); err != nil {
+			return err
+		}
+		monitor.ProbeKind = model.ChannelMonitorProbeTextActive
+	} else {
+		monitor.ProbeKind = model.ChannelMonitorProbeMediaPassive
+	}
 	monitor.IntervalSeconds = request.IntervalSeconds
 	monitor.JitterSeconds = request.JitterSeconds
 	if creating {
@@ -75,7 +127,17 @@ func applyChannelMonitorRequest(monitor *model.ChannelMonitor, request *channelM
 	if request.Visible != nil {
 		monitor.Visible = *request.Visible
 	}
-	return service.ValidateChannelMonitor(monitor)
+	if err := service.ValidateChannelMonitor(monitor); err != nil {
+		return err
+	}
+	exists, err := model.ChannelMonitorTargetExists(monitor.ID, monitor.Scope, monitor.Target)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.New("a monitor for this target already exists")
+	}
+	return nil
 }
 
 func parseChannelMonitorID(c *gin.Context) (int64, bool) {
@@ -94,7 +156,12 @@ func AdminListChannelMonitors(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, gin.H{"items": views, "summary": summary})
+	textTargets, err := service.ListChannelMonitorTextTargets()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"items": views, "summary": summary, "text_targets": textTargets})
 }
 
 func AdminCreateChannelMonitor(c *gin.Context) {
@@ -112,6 +179,7 @@ func AdminCreateChannelMonitor(c *gin.Context) {
 		return
 	}
 	service.InvalidatePublicChannelMonitorCache()
+	service.SchedulePublicChannelMonitorRefresh()
 	common.ApiSuccess(c, monitor)
 }
 
@@ -138,6 +206,7 @@ func AdminUpdateChannelMonitor(c *gin.Context) {
 		return
 	}
 	service.InvalidatePublicChannelMonitorCache()
+	service.SchedulePublicChannelMonitorRefresh()
 	common.ApiSuccess(c, monitor)
 }
 
@@ -151,6 +220,7 @@ func AdminDeleteChannelMonitor(c *gin.Context) {
 		return
 	}
 	service.InvalidatePublicChannelMonitorCache()
+	service.SchedulePublicChannelMonitorRefresh()
 	common.ApiSuccess(c, nil)
 }
 
@@ -167,6 +237,7 @@ func AdminRunChannelMonitor(c *gin.Context) {
 		return
 	}
 	service.InvalidatePublicChannelMonitorCache()
+	service.SchedulePublicChannelMonitorRefresh()
 	common.ApiSuccess(c, gin.H{"results": results})
 }
 
@@ -181,6 +252,7 @@ func AdminUpdateChannelMonitorSettings(c *gin.Context) {
 		return
 	}
 	service.InvalidatePublicChannelMonitorCache()
+	service.SchedulePublicChannelMonitorRefresh()
 	common.ApiSuccess(c, gin.H{"enabled": request.Enabled})
 }
 

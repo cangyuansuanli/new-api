@@ -35,13 +35,13 @@ type Model struct {
 	UpdatedTime  int64          `json:"updated_time" gorm:"bigint"`
 	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index;uniqueIndex:uk_model_name_delete_at,priority:2"`
 
-	BoundChannels []BoundChannel `json:"bound_channels,omitempty" gorm:"-"`
-	EnableGroups  []string       `json:"enable_groups,omitempty" gorm:"-"`
-	QuotaTypes    []int          `json:"quota_types,omitempty" gorm:"-"`
-	NameRule         int    `json:"name_rule" gorm:"default:0"`
-	VideoProfileId   string `json:"video_profile_id,omitempty" gorm:"size:128"`
-	ImageProfileId   string `json:"image_profile_id,omitempty" gorm:"size:128"`
-	ApiDoc           string `json:"api_doc,omitempty" gorm:"type:text"`
+	BoundChannels  []BoundChannel `json:"bound_channels,omitempty" gorm:"-"`
+	EnableGroups   []string       `json:"enable_groups,omitempty" gorm:"-"`
+	QuotaTypes     []int          `json:"quota_types,omitempty" gorm:"-"`
+	NameRule       int            `json:"name_rule" gorm:"default:0"`
+	VideoProfileId string         `json:"video_profile_id,omitempty" gorm:"size:128"`
+	ImageProfileId string         `json:"image_profile_id,omitempty" gorm:"size:128"`
+	ApiDoc         string         `json:"api_doc,omitempty" gorm:"type:text"`
 
 	MatchedModels []string `json:"matched_models,omitempty" gorm:"-"`
 	MatchedCount  int      `json:"matched_count,omitempty" gorm:"-"`
@@ -111,6 +111,20 @@ func GetAllModels(offset int, limit int) ([]*Model, error) {
 	var models []*Model
 	err := DB.Order("id DESC").Offset(offset).Limit(limit).Find(&models).Error
 	return models, err
+}
+
+func GetDisabledExactModelNames() (map[string]struct{}, error) {
+	var modelNames []string
+	if err := DB.Model(&Model{}).
+		Where("status <> ? AND name_rule = ?", 1, NameRuleExact).
+		Pluck("model_name", &modelNames).Error; err != nil {
+		return nil, err
+	}
+	disabled := make(map[string]struct{}, len(modelNames))
+	for _, modelName := range modelNames {
+		disabled[strings.TrimSpace(modelName)] = struct{}{}
+	}
+	return disabled, nil
 }
 
 func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel, error) {
