@@ -1,9 +1,8 @@
 import { api } from '@/lib/api'
 import type {
-  AdminChannelMonitorView,
+  AdminChannelMonitorList,
   ChannelMonitorInput,
-  ChannelMonitorList,
-  ChannelMonitorView,
+  PublicChannelMonitorList,
 } from './types'
 
 type ApiEnvelope<T> = {
@@ -26,20 +25,9 @@ async function assertSuccess(request: Promise<{ data: ApiEnvelope<unknown> }>) {
 
 export async function getChannelMonitors(
   windowDays: number
-): Promise<ChannelMonitorList> {
-  const response = await api.get<ApiEnvelope<ChannelMonitorList>>(
+): Promise<PublicChannelMonitorList> {
+  const response = await api.get<ApiEnvelope<PublicChannelMonitorList>>(
     '/api/channel-monitors',
-    { params: { window_days: windowDays } }
-  )
-  return unwrap(response.data)
-}
-
-export async function getChannelMonitor(
-  id: number,
-  windowDays: number
-): Promise<ChannelMonitorView> {
-  const response = await api.get<ApiEnvelope<ChannelMonitorView>>(
-    `/api/channel-monitors/${id}/status`,
     { params: { window_days: windowDays } }
   )
   return unwrap(response.data)
@@ -47,10 +35,11 @@ export async function getChannelMonitor(
 
 export async function getAdminChannelMonitors(
   windowDays: number
-): Promise<ChannelMonitorList<AdminChannelMonitorView>> {
-  const response = await api.get<
-    ApiEnvelope<ChannelMonitorList<AdminChannelMonitorView>>
-  >('/api/channel-monitors/admin', { params: { window_days: windowDays } })
+): Promise<AdminChannelMonitorList> {
+  const response = await api.get<ApiEnvelope<AdminChannelMonitorList>>(
+    '/api/channel-monitors/admin',
+    { params: { window_days: windowDays } }
+  )
   return unwrap(response.data)
 }
 

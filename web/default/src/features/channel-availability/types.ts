@@ -23,7 +23,7 @@ export type ChannelMonitorModelStat = {
   timeline?: ChannelMonitorResult[]
 }
 
-export type ChannelMonitorView = {
+export type AdminChannelMonitorView = {
   id: number
   name: string
   provider: string
@@ -35,9 +35,6 @@ export type ChannelMonitorView = {
   primary: ChannelMonitorModelStat
   extra_models: ChannelMonitorModelStat[]
   window_days: number
-}
-
-export type AdminChannelMonitorView = ChannelMonitorView & {
   channel_id: number
   channel_name: string
   group: string
@@ -55,9 +52,34 @@ export type ChannelMonitorSummary = {
   unknown: number
 }
 
-export type ChannelMonitorList<T = ChannelMonitorView> = {
-  items: T[]
+export type AdminChannelMonitorList = {
+  items: AdminChannelMonitorView[]
   summary: ChannelMonitorSummary
+}
+
+export type PublicMonitorCategory = 'text' | 'image' | 'video'
+
+export type PublicChannelMonitorItem = {
+  name: string
+  category: PublicMonitorCategory
+  latest_status: MonitorStatus
+  availability: number | null
+  average_latency_ms: number | null
+  latest_checked_at: number | null
+}
+
+export type PublicChannelMonitorSummary = {
+  enabled: boolean
+  total: number
+  operational: number
+  degraded: number
+  unavailable: number
+  unknown: number
+}
+
+export type PublicChannelMonitorList = {
+  items: PublicChannelMonitorItem[]
+  summary: PublicChannelMonitorSummary
 }
 
 export type ChannelMonitorInput = {
