@@ -164,7 +164,8 @@ func TestListChannelMonitorStatusUsesPublicContract(t *testing.T) {
 	assert.Equal(t, 200, recorder.Code)
 	assert.Contains(t, body, `"name":"LLM-GPT-pro"`)
 	assert.Contains(t, body, `"category":"text"`)
-	assert.Contains(t, body, `"timeline":[{"status":"operational"}]`)
+	assert.Contains(t, body, `"timeline":[`)
+	assert.Contains(t, body, `{"status":"operational"}]`)
 	for _, privateValue := range []string{
 		"observed_checks", "operational_checks", "channel_id", "channel_name",
 		"internal-gpt-primary", "internal-gpt-extra", "Internal monitor", "internal-channel",

@@ -51,7 +51,8 @@ function StatusTimeline(props: { item: PublicChannelMonitorItem }) {
           key={index}
           className={cn(
             'min-w-0 flex-1 rounded-[1px]',
-            statusBarClass[point.status]
+            statusBarClass[point.status],
+            point.carried && 'opacity-30'
           )}
           aria-hidden='true'
         />

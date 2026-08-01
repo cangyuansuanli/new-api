@@ -13,6 +13,9 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/cachex"
+	"github.com/samber/hot"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
@@ -25,11 +28,52 @@ const (
 	channelMonitorVideoFreshness      = 24 * time.Hour
 	channelMonitorPassiveQueryLimit   = 100
 	channelMonitorPublicTimelineLimit = 48
+	channelMonitorPublicBucketSize    = 30 * time.Minute
+	channelMonitorCarryLookback       = 24 * time.Hour
+	channelMonitorPublicCacheTTL      = 60 * time.Second
+	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v1"
 )
 
 var ErrChannelMonitorMediaProbeDisabled = errors.New("billable media probes are disabled")
 var ErrChannelMonitorAlreadyRunning = errors.New("channel monitor is already running")
 var ErrChannelMonitorDisabled = errors.New("channel monitor is disabled")
+
+type publicChannelMonitorCacheItem struct {
+	Items   []*PublicChannelMonitorItem  `json:"items"`
+	Summary *PublicChannelMonitorSummary `json:"summary"`
+}
+
+var (
+	publicChannelMonitorCacheOnce sync.Once
+	publicChannelMonitorCache     *cachex.HybridCache[publicChannelMonitorCacheItem]
+	publicChannelMonitorFlight    singleflight.Group
+)
+
+func getPublicChannelMonitorCache() *cachex.HybridCache[publicChannelMonitorCacheItem] {
+	publicChannelMonitorCacheOnce.Do(func() {
+		publicChannelMonitorCache = cachex.NewHybridCache(cachex.HybridCacheConfig[publicChannelMonitorCacheItem]{
+			Namespace: cachex.Namespace(channelMonitorPublicCacheNS),
+			Redis:     common.RDB,
+			RedisEnabled: func() bool {
+				return common.RedisEnabled && common.RDB != nil
+			},
+			RedisCodec: cachex.JSONCodec[publicChannelMonitorCacheItem]{},
+			Memory: func() *hot.HotCache[string, publicChannelMonitorCacheItem] {
+				return hot.NewHotCache[string, publicChannelMonitorCacheItem](hot.LRU, 8).
+					WithTTL(channelMonitorPublicCacheTTL).
+					WithJanitor().
+					Build()
+			},
+		})
+	})
+	return publicChannelMonitorCache
+}
+
+func InvalidatePublicChannelMonitorCache() {
+	if err := getPublicChannelMonitorCache().Purge(); err != nil {
+		common.SysError(fmt.Sprintf("public channel monitor cache purge failed: %v", err))
+	}
+}
 
 type ChannelMonitorProbeOutcome struct {
 	Status       string
@@ -57,6 +101,7 @@ type ChannelMonitorTimelinePoint struct {
 	Status    string `json:"status"`
 	LatencyMs *int   `json:"latency_ms"`
 	CheckedAt int64  `json:"checked_at"`
+	Carried   bool   `json:"carried,omitempty"`
 }
 
 type ChannelMonitorView struct {
@@ -111,7 +156,8 @@ type PublicChannelMonitorItem struct {
 }
 
 type PublicChannelMonitorTimelinePoint struct {
-	Status string `json:"status"`
+	Status  string `json:"status"`
+	Carried bool   `json:"carried,omitempty"`
 }
 
 type PublicChannelMonitorSummary struct {
@@ -342,7 +388,7 @@ func isVideoChannelMonitorTarget(channelType int, modelName string) bool {
 	})
 }
 
-func passiveMediaStatus(effective []*model.Task, isVideo bool) string {
+func passiveMediaStatus(effective []*model.Task, _ bool) string {
 	if len(effective) == 0 {
 		return model.ChannelMonitorStatusUnknown
 	}
@@ -356,21 +402,13 @@ func passiveMediaStatus(effective []*model.Task, isVideo bool) string {
 	if consecutiveFailures >= 3 {
 		return model.ChannelMonitorStatusUnavailable
 	}
-	if isVideo || len(effective) < 5 {
-		if classifyMediaTask(effective[0]) == mediaTaskSuccess {
-			return model.ChannelMonitorStatusOperational
-		}
-		return model.ChannelMonitorStatusDegraded
-	}
-
-	recent := effective[:5]
 	successes := 0
-	for _, task := range recent {
+	for _, task := range effective {
 		if classifyMediaTask(task) == mediaTaskSuccess {
 			successes++
 		}
 	}
-	if classifyMediaTask(recent[0]) == mediaTaskSuccess && successes >= 4 {
+	if successes*100 >= len(effective)*80 {
 		return model.ChannelMonitorStatusOperational
 	}
 	if successes == 0 {
@@ -390,61 +428,78 @@ func taskMatchesChannelMonitorModel(task *model.Task, modelName string) bool {
 }
 
 func buildPassiveMediaStatFromTasks(channel *model.Channel, modelName string, tasks []*model.Task, includeTimeline bool) *ChannelMonitorModelStat {
+	return buildPassiveMediaStatFromTasksAt(channel, modelName, tasks, includeTimeline, time.Now())
+}
+
+func buildPassiveMediaStatFromTasksAt(channel *model.Channel, modelName string, tasks []*model.Task, includeTimeline bool, now time.Time) *ChannelMonitorModelStat {
 	isVideo := isVideoChannelMonitorTarget(channel.Type, modelName)
-	freshness := channelMonitorImageFreshness
-	if isVideo {
-		freshness = channelMonitorVideoFreshness
-	}
-	cutoff := time.Now().Add(-freshness).Unix()
+	bucketSeconds := int64(channelMonitorPublicBucketSize / time.Second)
+	timelineEnd := ((now.Unix() / bucketSeconds) + 1) * bucketSeconds
+	timelineStart := timelineEnd - int64(channelMonitorPublicTimelineLimit)*bucketSeconds
+	lookbackStart := timelineStart - int64(channelMonitorCarryLookback/time.Second)
 	effective := make([]*model.Task, 0, len(tasks))
 	for _, task := range tasks {
-		if task.UpdatedAt < cutoff || !taskMatchesChannelMonitorModel(task, modelName) {
+		if task.UpdatedAt < lookbackStart || task.UpdatedAt >= timelineEnd || !taskMatchesChannelMonitorModel(task, modelName) {
 			continue
 		}
 		classification := classifyMediaTask(task)
 		if classification == mediaTaskSuccess || classification == mediaTaskChannelFailure {
 			effective = append(effective, task)
-			if len(effective) >= channelMonitorPassiveQueryLimit {
-				break
-			}
 		}
 	}
+	sort.SliceStable(effective, func(i, j int) bool { return effective[i].UpdatedAt > effective[j].UpdatedAt })
 
 	stat := &ChannelMonitorModelStat{Model: modelName, LatestStatus: passiveMediaStatus(effective, isVideo)}
 	if len(effective) == 0 {
+		if includeTimeline {
+			stat.Timeline = make([]*ChannelMonitorTimelinePoint, 0, channelMonitorPublicTimelineLimit)
+			for index := 0; index < channelMonitorPublicTimelineLimit; index++ {
+				stat.Timeline = append(stat.Timeline, &ChannelMonitorTimelinePoint{
+					Status: model.ChannelMonitorStatusUnknown, CheckedAt: timelineStart + int64(index)*bucketSeconds, Carried: true,
+				})
+			}
+		}
 		return stat
 	}
 	checkedAt := effective[0].UpdatedAt
 	stat.LatestChecked = &checkedAt
-	availabilityWindow := 20
-	if isVideo {
-		availabilityWindow = 5
-	}
-	if len(effective) < availabilityWindow {
-		availabilityWindow = len(effective)
-	}
-	for _, task := range effective[:availabilityWindow] {
-		stat.Observed++
-		if classifyMediaTask(task) == mediaTaskSuccess {
-			stat.Operational++
+	buckets := make([][]*model.Task, channelMonitorPublicTimelineLimit)
+	baseline := make([]*model.Task, 0)
+	for _, task := range effective {
+		if task.UpdatedAt < timelineStart {
+			baseline = append(baseline, task)
+			continue
+		}
+		index := int((task.UpdatedAt - timelineStart) / bucketSeconds)
+		if index >= 0 && index < len(buckets) {
+			buckets[index] = append(buckets[index], task)
 		}
 	}
-	availability := float64(stat.Operational) * 100 / float64(stat.Observed)
-	stat.Availability = &availability
-
-	if includeTimeline {
-		timelineLimit := channelMonitorPublicTimelineLimit
-		if len(effective) < timelineLimit {
-			timelineLimit = len(effective)
-		}
-		stat.Timeline = make([]*ChannelMonitorTimelinePoint, 0, timelineLimit)
-		for i := timelineLimit - 1; i >= 0; i-- {
-			status := model.ChannelMonitorStatusDegraded
-			if classifyMediaTask(effective[i]) == mediaTaskSuccess {
-				status = model.ChannelMonitorStatusOperational
+	carriedStatus := passiveMediaStatus(baseline, isVideo)
+	stat.Timeline = make([]*ChannelMonitorTimelinePoint, 0, channelMonitorPublicTimelineLimit)
+	for index, bucket := range buckets {
+		status := carriedStatus
+		carried := true
+		if len(bucket) > 0 {
+			status = passiveMediaStatus(bucket, isVideo)
+			carriedStatus = status
+			carried = false
+			stat.Observed++
+			if status == model.ChannelMonitorStatusOperational {
+				stat.Operational++
 			}
-			stat.Timeline = append(stat.Timeline, &ChannelMonitorTimelinePoint{Status: status, CheckedAt: effective[i].UpdatedAt})
 		}
+		stat.Timeline = append(stat.Timeline, &ChannelMonitorTimelinePoint{
+			Status: status, CheckedAt: timelineStart + int64(index)*bucketSeconds, Carried: carried,
+		})
+	}
+	stat.LatestStatus = stat.Timeline[len(stat.Timeline)-1].Status
+	if stat.Observed > 0 {
+		availability := float64(stat.Operational) * 100 / float64(stat.Observed)
+		stat.Availability = &availability
+	}
+	if !includeTimeline {
+		stat.Timeline = nil
 	}
 	return stat
 }
@@ -455,7 +510,8 @@ func buildPassiveMediaStat(channel *model.Channel, modelName string, includeTime
 	if isVideo {
 		freshness = channelMonitorVideoFreshness
 	}
-	tasks, err := model.ListRecentMediaTasks(channel.Id, modelName, time.Now().Add(-freshness).Unix(), channelMonitorPassiveQueryLimit)
+	since := time.Now().Add(-freshness - channelMonitorCarryLookback).Unix()
+	tasks, err := model.ListRecentMediaTasks(channel.Id, modelName, since, channelMonitorPassiveQueryLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -739,6 +795,51 @@ func mergePublicChannelMonitorStat(
 	}
 }
 
+func buildPublicChannelMonitorTimeline(points []*ChannelMonitorTimelinePoint, now time.Time) []*PublicChannelMonitorTimelinePoint {
+	bucketSeconds := int64(channelMonitorPublicBucketSize / time.Second)
+	timelineEnd := ((now.Unix() / bucketSeconds) + 1) * bucketSeconds
+	timelineStart := timelineEnd - int64(channelMonitorPublicTimelineLimit)*bucketSeconds
+	type bucketState struct {
+		status  string
+		carried bool
+		set     bool
+	}
+	buckets := make([]bucketState, channelMonitorPublicTimelineLimit)
+	baselineStatus := model.ChannelMonitorStatusUnknown
+	baselineCheckedAt := int64(0)
+	for _, point := range points {
+		if point == nil || point.CheckedAt >= timelineEnd {
+			continue
+		}
+		if point.CheckedAt < timelineStart {
+			if point.CheckedAt >= baselineCheckedAt {
+				baselineStatus = point.Status
+				baselineCheckedAt = point.CheckedAt
+			}
+			continue
+		}
+		index := int((point.CheckedAt - timelineStart) / bucketSeconds)
+		bucket := &buckets[index]
+		if !bucket.set || (bucket.carried && !point.Carried) ||
+			(bucket.carried == point.Carried && publicStatusPriority(point.Status) > publicStatusPriority(bucket.status)) {
+			bucket.status = point.Status
+			bucket.carried = point.Carried
+			bucket.set = true
+		}
+	}
+	timeline := make([]*PublicChannelMonitorTimelinePoint, 0, channelMonitorPublicTimelineLimit)
+	carriedStatus := baselineStatus
+	for _, bucket := range buckets {
+		if bucket.set {
+			carriedStatus = bucket.status
+			timeline = append(timeline, &PublicChannelMonitorTimelinePoint{Status: bucket.status, Carried: bucket.carried})
+			continue
+		}
+		timeline = append(timeline, &PublicChannelMonitorTimelinePoint{Status: carriedStatus, Carried: true})
+	}
+	return timeline
+}
+
 type publicChannelMonitorSource struct {
 	monitor     *model.ChannelMonitor
 	channel     *model.Channel
@@ -756,6 +857,9 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 				continue
 			}
 			return nil, err
+		}
+		if channel.Status != common.ChannelStatusEnabled {
+			continue
 		}
 		mediaModels := make([]string, 0)
 		for _, modelName := range channel.GetModels() {
@@ -776,8 +880,8 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 
 	mediaTasks, err := model.ListRecentChannelsMediaTasks(
 		mediaTargets,
-		time.Now().Add(-channelMonitorVideoFreshness).Unix(),
-		50000,
+		time.Now().Add(-channelMonitorVideoFreshness-channelMonitorCarryLookback).Unix(),
+		200000,
 	)
 	if err != nil {
 		return nil, err
@@ -809,18 +913,10 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 		}
 	}
 
+	now := time.Now()
 	items := make([]*PublicChannelMonitorItem, 0, len(aggregates))
 	for _, aggregate := range aggregates {
-		sort.SliceStable(aggregate.timeline, func(i, j int) bool {
-			return aggregate.timeline[i].CheckedAt < aggregate.timeline[j].CheckedAt
-		})
-		if len(aggregate.timeline) > channelMonitorPublicTimelineLimit {
-			aggregate.timeline = aggregate.timeline[len(aggregate.timeline)-channelMonitorPublicTimelineLimit:]
-		}
-		aggregate.item.Timeline = make([]*PublicChannelMonitorTimelinePoint, 0, len(aggregate.timeline))
-		for _, point := range aggregate.timeline {
-			aggregate.item.Timeline = append(aggregate.item.Timeline, &PublicChannelMonitorTimelinePoint{Status: point.Status})
-		}
+		aggregate.item.Timeline = buildPublicChannelMonitorTimeline(aggregate.timeline, now)
 		if aggregate.observed > 0 {
 			availability := float64(aggregate.operational) * 100 / float64(aggregate.observed)
 			aggregate.item.Availability = &availability
@@ -858,6 +954,40 @@ func summarizePublicChannelMonitorItems(items []*PublicChannelMonitorItem) *Publ
 }
 
 func ListPublicChannelMonitorViews(windowDays int) ([]*PublicChannelMonitorItem, *PublicChannelMonitorSummary, error) {
+	windowDays = NormalizeChannelMonitorWindow(windowDays)
+	cacheKey := fmt.Sprintf("window:%d", windowDays)
+	cache := getPublicChannelMonitorCache()
+	if item, found, cacheErr := cache.Get(cacheKey); cacheErr == nil && found {
+		return item.Items, item.Summary, nil
+	} else if cacheErr != nil {
+		common.SysError(fmt.Sprintf("public channel monitor cache get failed: %v", cacheErr))
+	}
+
+	result, err, _ := publicChannelMonitorFlight.Do(cacheKey, func() (any, error) {
+		if item, found, cacheErr := cache.Get(cacheKey); cacheErr == nil && found {
+			return item, nil
+		} else if cacheErr != nil {
+			common.SysError(fmt.Sprintf("public channel monitor cache recheck failed: %v", cacheErr))
+		}
+
+		items, summary, buildErr := listPublicChannelMonitorViewsUncached(windowDays)
+		if buildErr != nil {
+			return publicChannelMonitorCacheItem{}, buildErr
+		}
+		item := publicChannelMonitorCacheItem{Items: items, Summary: summary}
+		if cacheErr := cache.SetWithTTL(cacheKey, item, channelMonitorPublicCacheTTL); cacheErr != nil {
+			common.SysError(fmt.Sprintf("public channel monitor cache set failed: %v", cacheErr))
+		}
+		return item, nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	item := result.(publicChannelMonitorCacheItem)
+	return item.Items, item.Summary, nil
+}
+
+func listPublicChannelMonitorViewsUncached(windowDays int) ([]*PublicChannelMonitorItem, *PublicChannelMonitorSummary, error) {
 	monitors, err := model.ListChannelMonitors(true, true)
 	if err != nil {
 		return nil, nil, err

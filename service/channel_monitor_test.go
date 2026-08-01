@@ -14,6 +14,7 @@ import (
 
 func setupChannelMonitorTest(t *testing.T) {
 	t.Helper()
+	InvalidatePublicChannelMonitorCache()
 	require.NoError(t, model.DB.AutoMigrate(
 		&model.ChannelMonitor{},
 		&model.ChannelMonitorResult{},
@@ -152,7 +153,11 @@ func TestMediaMonitorViewIsUnknownBeforeFirstObservation(t *testing.T) {
 	assert.Equal(t, model.ChannelMonitorStatusUnknown, view.Primary.LatestStatus)
 	assert.Nil(t, view.Primary.Availability)
 	assert.Zero(t, view.Primary.Observed)
-	assert.Empty(t, view.Primary.Timeline)
+	require.Len(t, view.Primary.Timeline, channelMonitorPublicTimelineLimit)
+	for _, point := range view.Primary.Timeline {
+		assert.Equal(t, model.ChannelMonitorStatusUnknown, point.Status)
+		assert.True(t, point.Carried)
+	}
 }
 
 func TestRunChannelMonitorPersistsTextProbeResult(t *testing.T) {
@@ -260,7 +265,7 @@ func TestRecentMediaTasksMatchAllPersistedModelNames(t *testing.T) {
 	assert.Len(t, tasks, 3)
 }
 
-func TestPassiveVideoUsesLatestEffectiveObservation(t *testing.T) {
+func TestPassiveVideoAggregatesCurrentBucketObservations(t *testing.T) {
 	setupChannelMonitorTest(t)
 	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "seedance-2.0")
 	now := time.Now()
@@ -272,12 +277,13 @@ func TestPassiveVideoUsesLatestEffectiveObservation(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, model.ChannelMonitorProbeMediaPassive, view.ProbeKind)
-	assert.Equal(t, model.ChannelMonitorStatusOperational, view.Primary.LatestStatus)
-	assert.Equal(t, 2, view.Primary.Observed)
-	assert.Equal(t, 1, view.Primary.Operational)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, view.Primary.LatestStatus)
+	assert.Equal(t, 1, view.Primary.Observed)
+	assert.Zero(t, view.Primary.Operational)
 	require.NotNil(t, view.Primary.Availability)
-	assert.InDelta(t, 50, *view.Primary.Availability, 0.001)
-	assert.Len(t, view.Primary.Timeline, 2)
+	assert.InDelta(t, 0, *view.Primary.Availability, 0.001)
+	require.Len(t, view.Primary.Timeline, channelMonitorPublicTimelineLimit)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, view.Primary.Timeline[len(view.Primary.Timeline)-1].Status)
 }
 
 func TestPassiveVideoThreeRecentChannelFailuresAreUnavailable(t *testing.T) {
@@ -319,7 +325,7 @@ func TestPassiveImageUsesRecentFiveEffectiveObservations(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, model.ChannelMonitorStatusDegraded, view.Primary.LatestStatus)
 	require.NotNil(t, view.Primary.Availability)
-	assert.InDelta(t, 60, *view.Primary.Availability, 0.001)
+	assert.InDelta(t, 0, *view.Primary.Availability, 0.001)
 }
 
 func TestClassifyMediaTaskSeparatesFailureOwnership(t *testing.T) {
@@ -440,6 +446,21 @@ func TestPublicMonitorListExcludesDisabledMonitors(t *testing.T) {
 	assert.False(t, adminViews[0].Enabled)
 }
 
+func TestPublicChannelMonitorViewsExcludeDisabledChannels(t *testing.T) {
+	setupChannelMonitorTest(t)
+	monitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "gemini-banana-pro-4k")
+	channel, err := model.GetChannelById(monitor.ChannelID, false)
+	require.NoError(t, err)
+	channel.Status = common.ChannelStatusManuallyDisabled
+	require.NoError(t, model.DB.Save(channel).Error)
+
+	items, summary, err := ListPublicChannelMonitorViews(7)
+
+	require.NoError(t, err)
+	assert.Empty(t, items)
+	assert.Zero(t, summary.Total)
+}
+
 func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing.T) {
 	setupChannelMonitorTest(t)
 	textMonitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "internal-gpt-primary")
@@ -495,7 +516,7 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].LatestStatus)
 	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:shared"].LatestStatus)
 	require.Len(t, byKey["text:LLM-GPT-pro"].Timeline, channelMonitorPublicTimelineLimit)
-	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].Timeline[0].Status)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].Timeline[len(byKey["text:LLM-GPT-pro"].Timeline)-1].Status)
 	assert.Contains(t, byKey, "image:gpt-image-2")
 	assert.Contains(t, byKey, "image:gpt-image-2-edit")
 	assert.Contains(t, byKey, "image:seedream-4")
@@ -559,9 +580,82 @@ func TestBuildPassiveMediaStatFromTasksPreservesFreshnessAndModelBoundaries(t *t
 	stat := buildPassiveMediaStatFromTasks(channel, "gpt-image-2", tasks, true)
 
 	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
+	assert.Equal(t, 2, stat.Observed)
+	assert.Equal(t, 1, stat.Operational)
+	require.Len(t, stat.Timeline, channelMonitorPublicTimelineLimit)
+}
+
+func TestBuildPassiveMediaTimelineUsesFixedBucketsAndCarriesState(t *testing.T) {
+	now := time.Date(2026, 8, 1, 22, 17, 0, 0, time.UTC)
+	channel := &model.Channel{Id: 1, Type: constant.ChannelTypeOpenAI}
+	tasks := []*model.Task{
+		{
+			UpdatedAt: now.Add(-5 * time.Minute).Unix(), Status: model.TaskStatusSuccess,
+			Properties: model.Properties{OriginModelName: "gpt-image-2"},
+		},
+		{
+			UpdatedAt: now.Add(-35 * time.Minute).Unix(), Status: model.TaskStatusFailure,
+			FailReason: "bad response status 502",
+			Properties: model.Properties{OriginModelName: "gpt-image-2"},
+		},
+		{
+			UpdatedAt: now.Add(-40 * time.Minute).Unix(), Status: model.TaskStatusSuccess,
+			Properties: model.Properties{OriginModelName: "gpt-image-2"},
+		},
+	}
+
+	stat := buildPassiveMediaStatFromTasksAt(channel, "gpt-image-2", tasks, true, now)
+
+	require.Len(t, stat.Timeline, channelMonitorPublicTimelineLimit)
+	latest := stat.Timeline[len(stat.Timeline)-1]
+	previous := stat.Timeline[len(stat.Timeline)-2]
+	carried := stat.Timeline[len(stat.Timeline)-3]
+	assert.Equal(t, model.ChannelMonitorStatusOperational, latest.Status)
+	assert.False(t, latest.Carried)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, previous.Status)
+	assert.False(t, previous.Carried)
+	assert.Equal(t, model.ChannelMonitorStatusUnknown, carried.Status)
+	assert.True(t, carried.Carried)
+	assert.Equal(t, 2, stat.Observed)
+	assert.Equal(t, 1, stat.Operational)
+	assert.InDelta(t, 50, *stat.Availability, 0.001)
+}
+
+func TestBuildPassiveMediaTimelineCarriesLastKnownStatusWithoutCountingBucket(t *testing.T) {
+	now := time.Date(2026, 8, 1, 22, 17, 0, 0, time.UTC)
+	channel := &model.Channel{Id: 1, Type: constant.ChannelTypeOpenAI}
+	tasks := []*model.Task{{
+		UpdatedAt: now.Add(-35 * time.Minute).Unix(), Status: model.TaskStatusSuccess,
+		Properties: model.Properties{OriginModelName: "gpt-image-2"},
+	}}
+
+	stat := buildPassiveMediaStatFromTasksAt(channel, "gpt-image-2", tasks, true, now)
+
+	latest := stat.Timeline[len(stat.Timeline)-1]
+	assert.Equal(t, model.ChannelMonitorStatusOperational, latest.Status)
+	assert.True(t, latest.Carried)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
 	assert.Equal(t, 1, stat.Observed)
 	assert.Equal(t, 1, stat.Operational)
-	require.Len(t, stat.Timeline, 1)
+}
+
+func TestBuildPassiveMediaTimelineUsesPreWindowBaseline(t *testing.T) {
+	now := time.Date(2026, 8, 1, 22, 17, 0, 0, time.UTC)
+	channel := &model.Channel{Id: 1, Type: constant.ChannelTypeOpenAI}
+	tasks := []*model.Task{{
+		UpdatedAt: now.Add(-25 * time.Hour).Unix(), Status: model.TaskStatusSuccess,
+		Properties: model.Properties{OriginModelName: "gpt-image-2"},
+	}}
+
+	stat := buildPassiveMediaStatFromTasksAt(channel, "gpt-image-2", tasks, true, now)
+
+	require.Len(t, stat.Timeline, channelMonitorPublicTimelineLimit)
+	for _, point := range stat.Timeline {
+		assert.Equal(t, model.ChannelMonitorStatusOperational, point.Status)
+		assert.True(t, point.Carried)
+	}
+	assert.Zero(t, stat.Observed)
+	assert.Nil(t, stat.Availability)
 }
 
 func TestChannelMonitorLeasePreventsDuplicateClaimsAndExpires(t *testing.T) {
