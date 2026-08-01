@@ -453,6 +453,13 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 		MonitorID: textMonitor.ID, Model: textMonitor.PrimaryModel,
 		Status: model.ChannelMonitorStatusOperational, LatencyMs: &textLatency, CheckedAt: time.Now().Unix(),
 	}))
+	for index := 1; index <= 55; index++ {
+		require.NoError(t, model.CreateChannelMonitorResult(&model.ChannelMonitorResult{
+			MonitorID: textMonitor.ID, Model: textMonitor.PrimaryModel,
+			Status: model.ChannelMonitorStatusOperational, LatencyMs: &textLatency,
+			CheckedAt: time.Now().Add(-time.Duration(index) * time.Minute).Unix(),
+		}))
+	}
 
 	mediaMonitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "cy-img1-gpt-image-2")
 	mediaChannel, err := model.GetChannelById(mediaMonitor.ChannelID, false)
@@ -487,6 +494,8 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 	}
 	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].LatestStatus)
 	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:shared"].LatestStatus)
+	require.Len(t, byKey["text:LLM-GPT-pro"].Timeline, channelMonitorPublicTimelineLimit)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].Timeline[0].Status)
 	assert.Contains(t, byKey, "image:gpt-image-2")
 	assert.Contains(t, byKey, "image:gpt-image-2-edit")
 	assert.Contains(t, byKey, "image:seedream-4")
@@ -500,6 +509,9 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 	assert.NotContains(t, string(payload), "internal-gpt")
 	assert.NotContains(t, string(payload), "observed_checks")
 	assert.NotContains(t, string(payload), "operational_checks")
+	assert.NotContains(t, string(payload), "latest_checked_at")
+	assert.NotContains(t, string(payload), "checked_at")
+	assert.NotContains(t, string(payload), `"latency_ms":`)
 }
 
 func TestPublicChannelMonitorViewsPreferOperationalFallback(t *testing.T) {
@@ -508,17 +520,20 @@ func TestPublicChannelMonitorViewsPreferOperationalFallback(t *testing.T) {
 	checkedLate := int64(200)
 	mergePublicChannelMonitorStat(aggregates, "gpt-image-2", ChannelMonitorCategoryImage, &ChannelMonitorModelStat{
 		LatestStatus: model.ChannelMonitorStatusUnavailable, LatestChecked: &checkedLate,
-		Observed: 1,
+		Observed: 1, Timeline: []*ChannelMonitorTimelinePoint{{Status: model.ChannelMonitorStatusUnavailable, CheckedAt: checkedLate}},
 	})
 	mergePublicChannelMonitorStat(aggregates, "gpt-image-2", ChannelMonitorCategoryImage, &ChannelMonitorModelStat{
 		LatestStatus: model.ChannelMonitorStatusOperational, LatestChecked: &checkedEarly,
 		Observed: 1, Operational: 1,
+		Timeline: []*ChannelMonitorTimelinePoint{{Status: model.ChannelMonitorStatusOperational, CheckedAt: checkedEarly}},
 	})
 
 	aggregate := aggregates[ChannelMonitorCategoryImage+"\x00gpt-image-2"]
 	require.NotNil(t, aggregate)
 	assert.Equal(t, model.ChannelMonitorStatusOperational, aggregate.item.LatestStatus)
-	assert.Equal(t, checkedLate, *aggregate.item.LatestCheckedAt)
+	require.Len(t, aggregate.timeline, 2)
+	assert.Equal(t, checkedLate, aggregate.timeline[0].CheckedAt)
+	assert.Equal(t, checkedEarly, aggregate.timeline[1].CheckedAt)
 }
 
 func TestBuildPassiveMediaStatFromTasksPreservesFreshnessAndModelBoundaries(t *testing.T) {

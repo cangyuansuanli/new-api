@@ -164,10 +164,12 @@ func TestListChannelMonitorStatusUsesPublicContract(t *testing.T) {
 	assert.Equal(t, 200, recorder.Code)
 	assert.Contains(t, body, `"name":"LLM-GPT-pro"`)
 	assert.Contains(t, body, `"category":"text"`)
+	assert.Contains(t, body, `"timeline":[{"status":"operational"}]`)
 	for _, privateValue := range []string{
 		"observed_checks", "operational_checks", "channel_id", "channel_name",
 		"internal-gpt-primary", "internal-gpt-extra", "Internal monitor", "internal-channel",
-		"http_status", "error_code", "sensitive-key", "sensitive-upstream-error",
+		"latest_checked_at", `"checked_at":`, `"latency_ms":`, "http_status", "error_code",
+		"sensitive-key", "sensitive-upstream-error",
 	} {
 		assert.NotContains(t, body, privateValue)
 	}

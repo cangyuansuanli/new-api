@@ -17,13 +17,14 @@ import (
 )
 
 const (
-	channelMonitorMinIntervalSeconds = 60
-	channelMonitorMaxIntervalSeconds = 86400
-	channelMonitorHistoryDays        = 45
-	channelMonitorWorkerConcurrency  = 4
-	channelMonitorImageFreshness     = 30 * time.Minute
-	channelMonitorVideoFreshness     = 24 * time.Hour
-	channelMonitorPassiveQueryLimit  = 100
+	channelMonitorMinIntervalSeconds  = 60
+	channelMonitorMaxIntervalSeconds  = 86400
+	channelMonitorHistoryDays         = 45
+	channelMonitorWorkerConcurrency   = 4
+	channelMonitorImageFreshness      = 30 * time.Minute
+	channelMonitorVideoFreshness      = 24 * time.Hour
+	channelMonitorPassiveQueryLimit   = 100
+	channelMonitorPublicTimelineLimit = 48
 )
 
 var ErrChannelMonitorMediaProbeDisabled = errors.New("billable media probes are disabled")
@@ -98,14 +99,19 @@ const (
 )
 
 // PublicChannelMonitorItem is the user-facing availability contract. It must
-// not contain channel identifiers, internal model names, or sample counts.
+// not contain channel identifiers, internal model names, sample counts, or
+// per-observation timestamps and latency.
 type PublicChannelMonitorItem struct {
-	Name            string   `json:"name"`
-	Category        string   `json:"category"`
-	LatestStatus    string   `json:"latest_status"`
-	Availability    *float64 `json:"availability"`
-	AverageLatency  *int     `json:"average_latency_ms"`
-	LatestCheckedAt *int64   `json:"latest_checked_at"`
+	Name           string                               `json:"name"`
+	Category       string                               `json:"category"`
+	LatestStatus   string                               `json:"latest_status"`
+	Availability   *float64                             `json:"availability"`
+	AverageLatency *int                                 `json:"average_latency_ms"`
+	Timeline       []*PublicChannelMonitorTimelinePoint `json:"timeline"`
+}
+
+type PublicChannelMonitorTimelinePoint struct {
+	Status string `json:"status"`
 }
 
 type PublicChannelMonitorSummary struct {
@@ -427,7 +433,7 @@ func buildPassiveMediaStatFromTasks(channel *model.Channel, modelName string, ta
 	stat.Availability = &availability
 
 	if includeTimeline {
-		timelineLimit := 24
+		timelineLimit := channelMonitorPublicTimelineLimit
 		if len(effective) < timelineLimit {
 			timelineLimit = len(effective)
 		}
@@ -586,8 +592,8 @@ func buildChannelMonitorModelStat(modelName string, results []*model.ChannelMoni
 	}
 	if includeTimeline {
 		sort.Slice(modelResults, func(i, j int) bool { return modelResults[i].CheckedAt < modelResults[j].CheckedAt })
-		if len(modelResults) > 24 {
-			modelResults = modelResults[len(modelResults)-24:]
+		if len(modelResults) > channelMonitorPublicTimelineLimit {
+			modelResults = modelResults[len(modelResults)-channelMonitorPublicTimelineLimit:]
 		}
 		stat.Timeline = make([]*ChannelMonitorTimelinePoint, 0, len(modelResults))
 		for _, result := range modelResults {
@@ -673,6 +679,7 @@ func ListChannelMonitorViews(windowDays int, visibleOnly bool) ([]*ChannelMonito
 
 type publicChannelMonitorAggregate struct {
 	item                *PublicChannelMonitorItem
+	timeline            []*ChannelMonitorTimelinePoint
 	observed            int
 	operational         int
 	latencyTotal        int64
@@ -723,10 +730,7 @@ func mergePublicChannelMonitorStat(
 	if publicStatusPriority(stat.LatestStatus) > publicStatusPriority(aggregate.item.LatestStatus) {
 		aggregate.item.LatestStatus = stat.LatestStatus
 	}
-	if stat.LatestChecked != nil && (aggregate.item.LatestCheckedAt == nil || *stat.LatestChecked > *aggregate.item.LatestCheckedAt) {
-		checkedAt := *stat.LatestChecked
-		aggregate.item.LatestCheckedAt = &checkedAt
-	}
+	aggregate.timeline = append(aggregate.timeline, stat.Timeline...)
 	aggregate.observed += stat.Observed
 	aggregate.operational += stat.Operational
 	if stat.AverageLatency != nil {
@@ -785,7 +789,7 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 
 	for _, source := range sources {
 		if source.monitor.ProbeKind == model.ChannelMonitorProbeTextActive && !IsBillableMediaMonitorTarget(source.channel.Type, source.monitor.PrimaryModel) {
-			view, err := BuildChannelMonitorView(source.monitor, windowDays, false)
+			view, err := BuildChannelMonitorView(source.monitor, windowDays, true)
 			if err != nil {
 				return nil, err
 			}
@@ -795,7 +799,7 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 		}
 		for _, modelName := range source.mediaModels {
 			category := publicChannelMonitorCategory(source.channel.Type, modelName)
-			stat := buildPassiveMediaStatFromTasks(source.channel, modelName, mediaTasksByChannel[source.channel.Id], false)
+			stat := buildPassiveMediaStatFromTasks(source.channel, modelName, mediaTasksByChannel[source.channel.Id], true)
 			mergePublicChannelMonitorStat(
 				aggregates,
 				ToPublicModelName(modelName),
@@ -807,6 +811,16 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 
 	items := make([]*PublicChannelMonitorItem, 0, len(aggregates))
 	for _, aggregate := range aggregates {
+		sort.SliceStable(aggregate.timeline, func(i, j int) bool {
+			return aggregate.timeline[i].CheckedAt < aggregate.timeline[j].CheckedAt
+		})
+		if len(aggregate.timeline) > channelMonitorPublicTimelineLimit {
+			aggregate.timeline = aggregate.timeline[len(aggregate.timeline)-channelMonitorPublicTimelineLimit:]
+		}
+		aggregate.item.Timeline = make([]*PublicChannelMonitorTimelinePoint, 0, len(aggregate.timeline))
+		for _, point := range aggregate.timeline {
+			aggregate.item.Timeline = append(aggregate.item.Timeline, &PublicChannelMonitorTimelinePoint{Status: point.Status})
+		}
 		if aggregate.observed > 0 {
 			availability := float64(aggregate.operational) * 100 / float64(aggregate.observed)
 			aggregate.item.Availability = &availability
