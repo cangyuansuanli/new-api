@@ -65,7 +65,7 @@ export type PublicChannelMonitorItem = {
   latest_status: MonitorStatus
   availability: number | null
   average_latency_ms: number | null
-  timeline: Array<{ status: MonitorStatus }>
+  timeline: Array<{ status: MonitorStatus; carried?: boolean }>
 }
 
 export type PublicChannelMonitorSummary = {

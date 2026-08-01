@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 
 	"gorm.io/gorm"
 )
@@ -221,55 +222,86 @@ func ListRecentMediaTasks(channelID int, modelName string, since int64, limit in
 	return tasks, err
 }
 
-// ListRecentChannelsMediaTasks returns terminal task metadata for monitored
-// channel/model pairs in one scan. Public availability evaluates the results
-// in memory instead of repeating the same JSON model scan for every model.
+// ListRecentChannelsMediaTasks returns recent terminal task metadata for
+// monitored channels. Public availability matches model naming boundaries in
+// memory after the indexed channel/status/time scan.
 func ListRecentChannelsMediaTasks(targets map[int][]string, since int64, limit int) ([]*Task, error) {
 	channelIDs := make([]int, 0, len(targets))
-	seen := make(map[string]struct{})
-	normalizedModels := make([]string, 0)
+	modelsByChannel := make(map[int]map[string]struct{}, len(targets))
 	for channelID, modelNames := range targets {
-		if channelID <= 0 {
+		if channelID <= 0 || len(modelNames) == 0 {
+			continue
+		}
+		modelSet := make(map[string]struct{}, len(modelNames))
+		for _, modelName := range modelNames {
+			modelName = strings.TrimSpace(modelName)
+			if modelName != "" {
+				modelSet[modelName] = struct{}{}
+			}
+		}
+		if len(modelSet) == 0 {
 			continue
 		}
 		channelIDs = append(channelIDs, channelID)
-		for _, modelName := range modelNames {
-			modelName = strings.TrimSpace(modelName)
-			if modelName == "" {
-				continue
-			}
-			if _, exists := seen[modelName]; exists {
-				continue
-			}
-			seen[modelName] = struct{}{}
-			normalizedModels = append(normalizedModels, modelName)
-		}
+		modelsByChannel[channelID] = modelSet
 	}
-	if len(channelIDs) == 0 || len(normalizedModels) == 0 {
+	if len(channelIDs) == 0 {
 		return []*Task{}, nil
 	}
-	if limit <= 0 || limit > 50000 {
-		limit = 10000
+	if limit <= 0 || limit > 200000 {
+		limit = 200000
 	}
-	var modelPredicate string
+	type mediaTaskProjection struct {
+		ID                int64
+		TaskID            string
+		UpdatedAt         int64
+		ChannelID         int `gorm:"column:channel_id"`
+		Platform          constant.TaskPlatform
+		Action            string
+		Status            TaskStatus
+		FailReason        string
+		ClientModelName   string
+		OriginModelName   string
+		UpstreamModelName string
+	}
+	modelColumns := ""
 	switch {
 	case common.UsingPostgreSQL:
-		modelPredicate = `(COALESCE(properties->>'client_model_name', '') IN ? OR COALESCE(properties->>'origin_model_name', '') IN ? OR COALESCE(properties->>'upstream_model_name', '') IN ?)`
+		modelColumns = "COALESCE(properties->>'client_model_name', '') AS client_model_name, COALESCE(properties->>'origin_model_name', '') AS origin_model_name, COALESCE(properties->>'upstream_model_name', '') AS upstream_model_name"
 	case common.UsingMySQL:
-		modelPredicate = `(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.client_model_name')), '') IN ? OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.origin_model_name')), '') IN ? OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.upstream_model_name')), '') IN ?)`
+		modelColumns = "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.client_model_name')), '') AS client_model_name, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.origin_model_name')), '') AS origin_model_name, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(properties, '$.upstream_model_name')), '') AS upstream_model_name"
 	default:
-		modelPredicate = `(COALESCE(json_extract(properties, '$.client_model_name'), '') IN ? OR COALESCE(json_extract(properties, '$.origin_model_name'), '') IN ? OR COALESCE(json_extract(properties, '$.upstream_model_name'), '') IN ?)`
+		modelColumns = "COALESCE(json_extract(properties, '$.client_model_name'), '') AS client_model_name, COALESCE(json_extract(properties, '$.origin_model_name'), '') AS origin_model_name, COALESCE(json_extract(properties, '$.upstream_model_name'), '') AS upstream_model_name"
 	}
-
-	var tasks []*Task
+	var candidates []*mediaTaskProjection
 	err := DB.Model(&Task{}).
-		Select("id", "updated_at", "channel_id", "platform", "action", "status", "fail_reason", "properties").
+		Select("id, task_id, updated_at, channel_id, platform, action, status, fail_reason, "+modelColumns).
 		Where("channel_id IN ?", channelIDs).
 		Where("status IN ?", []TaskStatus{TaskStatusSuccess, TaskStatusFailure}).
 		Where("updated_at >= ?", since).
-		Where(modelPredicate, normalizedModels, normalizedModels, normalizedModels).
 		Order("updated_at DESC, id DESC").
 		Limit(limit).
-		Find(&tasks).Error
-	return tasks, err
+		Find(&candidates).Error
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]*Task, 0, len(candidates))
+	for _, candidate := range candidates {
+		modelSet := modelsByChannel[candidate.ChannelID]
+		_, clientMatch := modelSet[strings.TrimSpace(candidate.ClientModelName)]
+		_, originMatch := modelSet[strings.TrimSpace(candidate.OriginModelName)]
+		_, upstreamMatch := modelSet[strings.TrimSpace(candidate.UpstreamModelName)]
+		if clientMatch || originMatch || upstreamMatch {
+			tasks = append(tasks, &Task{
+				ID: candidate.ID, TaskID: candidate.TaskID, UpdatedAt: candidate.UpdatedAt, ChannelId: candidate.ChannelID,
+				Platform: candidate.Platform, Action: candidate.Action, Status: candidate.Status,
+				FailReason: candidate.FailReason,
+				Properties: Properties{
+					ClientModelName: candidate.ClientModelName, OriginModelName: candidate.OriginModelName,
+					UpstreamModelName: candidate.UpstreamModelName,
+				},
+			})
+		}
+	}
+	return tasks, nil
 }

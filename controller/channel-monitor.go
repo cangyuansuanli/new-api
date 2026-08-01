@@ -111,6 +111,7 @@ func AdminCreateChannelMonitor(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	service.InvalidatePublicChannelMonitorCache()
 	common.ApiSuccess(c, monitor)
 }
 
@@ -136,6 +137,7 @@ func AdminUpdateChannelMonitor(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	service.InvalidatePublicChannelMonitorCache()
 	common.ApiSuccess(c, monitor)
 }
 
@@ -148,6 +150,7 @@ func AdminDeleteChannelMonitor(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	service.InvalidatePublicChannelMonitorCache()
 	common.ApiSuccess(c, nil)
 }
 
@@ -163,6 +166,7 @@ func AdminRunChannelMonitor(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	service.InvalidatePublicChannelMonitorCache()
 	common.ApiSuccess(c, gin.H{"results": results})
 }
 
@@ -176,6 +180,7 @@ func AdminUpdateChannelMonitorSettings(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	service.InvalidatePublicChannelMonitorCache()
 	common.ApiSuccess(c, gin.H{"enabled": request.Enabled})
 }
 
