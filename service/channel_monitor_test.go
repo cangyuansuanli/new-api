@@ -678,7 +678,7 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 		modelPublicRegistryMu.Unlock()
 	})
 
-	items, summary, err := ListPublicChannelMonitorViews(7)
+	items, summary, err := listPublicChannelMonitorViewsUncached(7)
 	require.NoError(t, err)
 	require.Len(t, items, 6)
 	assert.Equal(t, 6, summary.Total)
@@ -793,6 +793,48 @@ func TestBuildPassiveMediaTimelineUsesFixedBucketsAndCarriesState(t *testing.T) 
 	assert.Equal(t, 2, stat.Observed)
 	assert.Equal(t, 1, stat.Operational)
 	assert.InDelta(t, 50, *stat.Availability, 0.001)
+}
+
+func TestBuildPublicTextTimelineUsesOneBarPerProbeRound(t *testing.T) {
+	points := make([]*ChannelMonitorTimelinePoint, 0, 55)
+	for index := 0; index < 55; index++ {
+		status := model.ChannelMonitorStatusOperational
+		if index == 54 {
+			status = model.ChannelMonitorStatusUnavailable
+		}
+		points = append(points, &ChannelMonitorTimelinePoint{
+			Status: status, CheckedAt: int64(index * 300),
+		})
+	}
+
+	timeline := buildPublicTextChannelMonitorTimeline(points)
+
+	require.Len(t, timeline, channelMonitorPublicTimelineLimit)
+	for _, point := range timeline[:len(timeline)-1] {
+		assert.Equal(t, model.ChannelMonitorStatusOperational, point.Status)
+		assert.False(t, point.Carried)
+	}
+	assert.Equal(t, model.ChannelMonitorStatusUnavailable, timeline[len(timeline)-1].Status)
+	assert.False(t, timeline[len(timeline)-1].Carried)
+}
+
+func TestBuildPublicTextTimelinePadsOnlyMissingProbeRounds(t *testing.T) {
+	points := []*ChannelMonitorTimelinePoint{
+		{Status: model.ChannelMonitorStatusOperational, CheckedAt: 300},
+		{Status: model.ChannelMonitorStatusUnavailable, CheckedAt: 600},
+	}
+
+	timeline := buildPublicTextChannelMonitorTimeline(points)
+
+	require.Len(t, timeline, channelMonitorPublicTimelineLimit)
+	for _, point := range timeline[:channelMonitorPublicTimelineLimit-2] {
+		assert.Equal(t, model.ChannelMonitorStatusUnknown, point.Status)
+		assert.True(t, point.Carried)
+	}
+	assert.Equal(t, model.ChannelMonitorStatusOperational, timeline[channelMonitorPublicTimelineLimit-2].Status)
+	assert.False(t, timeline[channelMonitorPublicTimelineLimit-2].Carried)
+	assert.Equal(t, model.ChannelMonitorStatusUnavailable, timeline[channelMonitorPublicTimelineLimit-1].Status)
+	assert.False(t, timeline[channelMonitorPublicTimelineLimit-1].Carried)
 }
 
 func TestBuildPassiveMediaTimelineCarriesLastKnownStatusWithoutCountingBucket(t *testing.T) {

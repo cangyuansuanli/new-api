@@ -31,6 +31,7 @@ const (
 	channelMonitorPublicTimelineLimit = 48
 	channelMonitorPublicBucketSize    = 30 * time.Minute
 	channelMonitorCarryLookback       = 24 * time.Hour
+	channelMonitorPublicTextRefresh   = 5 * time.Minute
 	channelMonitorPublicRefresh       = 30 * time.Minute
 	channelMonitorPublicCacheTTL      = 2 * time.Hour
 	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v4"
@@ -1190,6 +1191,30 @@ func buildPublicChannelMonitorTimeline(points []*ChannelMonitorTimelinePoint, no
 	return timeline
 }
 
+func buildPublicTextChannelMonitorTimeline(points []*ChannelMonitorTimelinePoint) []*PublicChannelMonitorTimelinePoint {
+	filtered := make([]*ChannelMonitorTimelinePoint, 0, len(points))
+	for _, point := range points {
+		if point != nil {
+			filtered = append(filtered, point)
+		}
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].CheckedAt < filtered[j].CheckedAt })
+	if len(filtered) > channelMonitorPublicTimelineLimit {
+		filtered = filtered[len(filtered)-channelMonitorPublicTimelineLimit:]
+	}
+	timeline := make([]*PublicChannelMonitorTimelinePoint, 0, channelMonitorPublicTimelineLimit)
+	for len(timeline)+len(filtered) < channelMonitorPublicTimelineLimit {
+		timeline = append(timeline, &PublicChannelMonitorTimelinePoint{
+			Status:  model.ChannelMonitorStatusUnknown,
+			Carried: true,
+		})
+	}
+	for _, point := range filtered {
+		timeline = append(timeline, &PublicChannelMonitorTimelinePoint{Status: point.Status})
+	}
+	return timeline
+}
+
 type publicChannelMonitorSource struct {
 	channel     *model.Channel
 	mediaModels []string
@@ -1294,12 +1319,15 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 		}
 	}
 
-	mediaTasks, err := listCachedChannelMonitorMediaTasks(
-		mediaTargets,
-		time.Now().Add(-channelMonitorVideoFreshness-channelMonitorCarryLookback).Unix(),
-	)
-	if err != nil {
-		return nil, err
+	mediaTasks := make([]*model.Task, 0)
+	if len(mediaTargets) > 0 {
+		mediaTasks, err = listCachedChannelMonitorMediaTasks(
+			mediaTargets,
+			time.Now().Add(-channelMonitorVideoFreshness-channelMonitorCarryLookback).Unix(),
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	mediaTasksByChannel := make(map[int][]*model.Task)
 	for _, task := range mediaTasks {
@@ -1322,7 +1350,11 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 	now := time.Now()
 	items := make([]*PublicChannelMonitorItem, 0, len(aggregates))
 	for _, aggregate := range aggregates {
-		aggregate.item.Timeline = buildPublicChannelMonitorTimeline(aggregate.timeline, now)
+		if aggregate.item.Category == ChannelMonitorCategoryText {
+			aggregate.item.Timeline = buildPublicTextChannelMonitorTimeline(aggregate.timeline)
+		} else {
+			aggregate.item.Timeline = buildPublicChannelMonitorTimeline(aggregate.timeline, now)
+		}
 		if aggregate.observed > 0 {
 			availability := float64(aggregate.operational) * 100 / float64(aggregate.observed)
 			aggregate.item.Availability = &availability
@@ -1381,6 +1413,21 @@ func listPublicChannelMonitorViewsUncached(windowDays int) ([]*PublicChannelMoni
 		return nil, nil, err
 	}
 	return items, summarizePublicChannelMonitorItems(items), nil
+}
+
+func listPublicTextChannelMonitorViewsUncached(windowDays int) ([]*PublicChannelMonitorItem, error) {
+	monitors, err := model.ListChannelMonitors(true, true)
+	if err != nil {
+		return nil, err
+	}
+	textMonitors := make([]*model.ChannelMonitor, 0, len(monitors))
+	for _, monitor := range monitors {
+		if monitor.Scope == model.ChannelMonitorScopeText ||
+			(monitor.Scope == "" && monitor.ProbeKind == model.ChannelMonitorProbeTextActive) {
+			textMonitors = append(textMonitors, monitor)
+		}
+	}
+	return buildPublicChannelMonitorItems(textMonitors, windowDays, true)
 }
 
 func BuildPublicChannelMonitorViews(monitor *model.ChannelMonitor, windowDays int) ([]*PublicChannelMonitorItem, error) {
@@ -1496,9 +1543,11 @@ func StartChannelMonitorRunner(probe ChannelMonitorProbeFunc) {
 		go RefreshPublicChannelMonitorSnapshots()
 		go func() {
 			ticker := time.NewTicker(15 * time.Second)
+			textRefreshTicker := time.NewTicker(channelMonitorPublicTextRefresh)
 			publicRefreshTicker := time.NewTicker(channelMonitorPublicRefresh)
 			cleanupTicker := time.NewTicker(6 * time.Hour)
 			defer ticker.Stop()
+			defer textRefreshTicker.Stop()
 			defer publicRefreshTicker.Stop()
 			defer cleanupTicker.Stop()
 			runDueChannelMonitors(probe)
@@ -1506,6 +1555,8 @@ func StartChannelMonitorRunner(probe ChannelMonitorProbeFunc) {
 				select {
 				case <-ticker.C:
 					runDueChannelMonitors(probe)
+				case <-textRefreshTicker.C:
+					RefreshPublicTextChannelMonitorSnapshots()
 				case <-publicRefreshTicker.C:
 					RefreshPublicChannelMonitorSnapshots()
 				case <-cleanupTicker.C:
@@ -1513,6 +1564,44 @@ func StartChannelMonitorRunner(probe ChannelMonitorProbeFunc) {
 				}
 			}
 		}()
+	})
+}
+
+func RefreshPublicTextChannelMonitorSnapshots() {
+	if !IsChannelMonitorEnabled() {
+		return
+	}
+	_, _, _ = publicChannelMonitorFlight.Do("refresh", func() (any, error) {
+		for _, windowDays := range []int{7, 15, 30} {
+			cacheKey := fmt.Sprintf("window:%d", windowDays)
+			cached, found, err := getPublicChannelMonitorCache().Get(cacheKey)
+			if err != nil || !found {
+				continue
+			}
+			textItems, err := listPublicTextChannelMonitorViewsUncached(windowDays)
+			if err != nil {
+				common.SysLog(fmt.Sprintf("channel monitor: refresh public text snapshot for %d days failed: %v", windowDays, err))
+				continue
+			}
+			items := make([]*PublicChannelMonitorItem, 0, len(cached.Items)+len(textItems))
+			for _, item := range cached.Items {
+				if item.Category != ChannelMonitorCategoryText {
+					items = append(items, item)
+				}
+			}
+			items = append(items, textItems...)
+			sort.Slice(items, func(i, j int) bool {
+				if items[i].Category != items[j].Category {
+					return items[i].Category < items[j].Category
+				}
+				return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name)
+			})
+			updated := publicChannelMonitorCacheItem{Items: items, Summary: summarizePublicChannelMonitorItems(items)}
+			if err := getPublicChannelMonitorCache().SetWithTTL(cacheKey, updated, channelMonitorPublicCacheTTL); err != nil {
+				common.SysLog(fmt.Sprintf("channel monitor: store public text snapshot for %d days failed: %v", windowDays, err))
+			}
+		}
+		return nil, nil
 	})
 }
 
