@@ -151,13 +151,13 @@ func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.
 	}
 	path := snapshot.Path
 	relayMode := relayconstant.RelayModeImagesGenerations
-	if snapshot.Kind == RequestSnapshotEditMultipart {
+	if snapshot.Kind == RequestSnapshotEditMultipart || snapshot.Kind == RequestSnapshotEditJSON {
 		relayMode = relayconstant.RelayModeImagesEdits
 	} else if snapshot.Kind == RequestSnapshotLegacyChatJSON {
 		relayMode = relayconstant.RelayModeChatCompletions
 	}
 
-	if relayMode == relayconstant.RelayModeImagesEdits {
+	if snapshot.Kind == RequestSnapshotEditMultipart {
 		payload := *snapshot.Multipart
 		useURLResponse := imageAsyncUsesURLResponse(task.Properties.OriginModelName)
 		body, err := os.CreateTemp("", "new-api-image-edit-replay-*")

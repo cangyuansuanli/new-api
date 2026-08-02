@@ -29,6 +29,32 @@
       }
     },
     {
+      "name": "image-edit-json-async",
+      "snapshot_kind": "image.edit.json",
+      "method": "POST",
+      "client_path": "/images/edits",
+      "api_path": "/v1/images/edits",
+      "content_type": "application/json",
+      "client_body": {
+        "model": "gpt-image-2",
+        "prompt": "contract",
+        "images": ["https://cdn.example.com/reference.png"],
+        "n": 1,
+        "size": "2048x2048",
+        "response_format": "url",
+        "async": true
+      },
+      "worker_body": {
+        "model": "gpt-image-2",
+        "prompt": "contract",
+        "images": ["https://cdn.example.com/reference.png"],
+        "n": 1,
+        "size": "2048x2048",
+        "response_format": "b64_json",
+        "stream": false
+      }
+    },
+    {
       "name": "image-edit-multipart-async",
       "snapshot_kind": "image.edit.multipart",
       "method": "POST",

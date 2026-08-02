@@ -55,7 +55,7 @@ func TestMediaRequestContractSnapshots(t *testing.T) {
 		t.Run(contract.Name, func(t *testing.T) {
 			require.Equal(t, http.MethodPost, contract.Method)
 			switch contract.SnapshotKind {
-			case RequestSnapshotGenerationJSON:
+			case RequestSnapshotGenerationJSON, RequestSnapshotEditJSON:
 				assertGenerationContract(t, contract)
 			case RequestSnapshotEditMultipart:
 				assertEditContract(t, contract)
