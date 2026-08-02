@@ -16,7 +16,12 @@
 | **NewAPI** | `service/client_error.go`、`clienterror/normalize.go` | `cy-sd4-seedance*` / `cy-sd4-minimax-h3*`：`fail_reason` 与轮询 JSON **原样返回** upstream 已人话化文案（跳过 `leonardo.go`） |
 | **leonardo-web2api** | `internal/videocatalog` | 对外 `model` slug、成片能力、`ReferenceMediaPolicyID` |
 | **leonardo-web2api** | `internal/referencemedia` | 入队 `ValidateEnqueue`；worker 下载 → 上传 → **CreateVideoGeneration 前** policy 硬校验 |
-| **leonardo-web2api** | `internal/clienterror` | HTTP 4xx 与任务 `failed` 文案（`service.ClientFacingMessage` 委托） |
+| **leonardo-web2api** | `internal/clienterror` | HTTP 4xx 与任务 `failed` 文案；队列保留原始错误，`GET /v1/videos/{id}` 结合任务输入模式归一化一次 |
+
+错误归一化遵循“渠道具体、通用兜底”：Leonardo worker / 上游的原始错误保存在其
+`queue_jobs.error_message`，Leonardo 视频任务出口根据持久化的 `input_mode` 与素材数量
+生成最终客户文案；NewAPI `cy-sd4` 不再改写。NewAPI 的通用错误层只处理未由渠道覆盖的
+跨渠道错误，不得覆盖渠道已经生成的 `error.message` / `fail_reason`。
 
 ## 路由
 
