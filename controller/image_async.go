@@ -314,8 +314,20 @@ func imageSyncBacklogLimit() int64 {
 
 func snapshotAsyncImageRequest(c *gin.Context, relayMode int, taskID string) ([]byte, string, error) {
 	if relayMode == relayconstant.RelayModeImagesEdits {
-		body, err := image.SnapshotEditRequest(c, taskID)
-		return body, "/v1/images/edits", err
+		if strings.Contains(strings.ToLower(c.GetHeader("Content-Type")), "multipart/form-data") {
+			body, err := image.SnapshotEditRequest(c, taskID)
+			return body, "/v1/images/edits", err
+		}
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			return nil, "", err
+		}
+		body, err := storage.Bytes()
+		if err != nil {
+			return nil, "", err
+		}
+		snapshot, err := image.NewJSONRequestSnapshot(image.RequestSnapshotEditJSON, "/v1/images/edits", body)
+		return snapshot, "/v1/images/edits", err
 	}
 	if relayMode == relayconstant.RelayModeChatCompletions {
 		storage, err := common.GetBodyStorage(c)

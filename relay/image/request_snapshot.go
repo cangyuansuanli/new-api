@@ -15,6 +15,7 @@ type RequestSnapshotKind string
 
 const (
 	RequestSnapshotGenerationJSON RequestSnapshotKind = "image.generation.json"
+	RequestSnapshotEditJSON       RequestSnapshotKind = "image.edit.json"
 	RequestSnapshotEditMultipart  RequestSnapshotKind = "image.edit.multipart"
 	RequestSnapshotLegacyChatJSON RequestSnapshotKind = "image.legacy-chat.json"
 )
@@ -33,7 +34,7 @@ type RequestSnapshot struct {
 }
 
 func NewJSONRequestSnapshot(kind RequestSnapshotKind, path string, body []byte) ([]byte, error) {
-	if kind != RequestSnapshotGenerationJSON && kind != RequestSnapshotLegacyChatJSON {
+	if kind != RequestSnapshotGenerationJSON && kind != RequestSnapshotEditJSON && kind != RequestSnapshotLegacyChatJSON {
 		return nil, fmt.Errorf("unsupported JSON image snapshot kind %q", kind)
 	}
 	var decoded any
@@ -117,6 +118,10 @@ func (snapshot RequestSnapshot) validate() error {
 	case RequestSnapshotGenerationJSON:
 		if snapshot.Path != "/v1/images/generations" || snapshot.ContentType != "application/json" || len(snapshot.Body) == 0 || snapshot.Multipart != nil {
 			return fmt.Errorf("invalid generation request snapshot")
+		}
+	case RequestSnapshotEditJSON:
+		if snapshot.Path != "/v1/images/edits" || snapshot.ContentType != "application/json" || len(snapshot.Body) == 0 || snapshot.Multipart != nil {
+			return fmt.Errorf("invalid JSON edit request snapshot")
 		}
 	case RequestSnapshotEditMultipart:
 		if snapshot.Path != "/v1/images/edits" || snapshot.ContentType != "multipart/form-data" || snapshot.Multipart == nil || len(snapshot.Body) != 0 {
