@@ -2763,6 +2763,7 @@
                 "videos": 3,
                 "audios": 3,
                 "total": 12,
+				"sourceTotal": 3,
                 "imageMaxBytes": 31457280,
                 "videoMaxBytes": 52428800,
                 "audioMaxBytes": 15728640,
@@ -2776,9 +2777,9 @@
                 },
                 "fullReferenceMode": {
                     "label": "全能参考",
-                    "descriptionWithImages": "最多 9 图 / 3 视频 / 3 音频，三类合计不超过 12"
+					"descriptionWithImages": "最多 9 张参考图，并可添加最多 3 个视频/音频素材（两类共享 3 个名额），全部素材合计不超过 12"
                 },
-                "validationHint": "全能参考最多 9 图、3 视频、3 音频，三类合计不超过 12；首尾帧与全能参考互斥。",
+				"validationHint": "全能参考最多 9 张图；视频与音频合计最多 3 个，全部素材合计不超过 12；首尾帧与全能参考互斥。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -2800,10 +2801,26 @@
                     "enabled": true,
                     "options": [
                         {
+							"value": "21:9",
+							"label": "超宽屏"
+						},
+						{
                             "value": "16:9",
                             "label": "横屏"
                         },
                         {
+							"value": "4:3",
+							"label": "横向 4:3"
+						},
+						{
+							"value": "1:1",
+							"label": "方形"
+						},
+						{
+							"value": "3:4",
+							"label": "竖向 3:4"
+						},
+						{
                             "value": "9:16",
                             "label": "竖屏"
                         }
@@ -2846,12 +2863,12 @@
                 },
                 "frameInputs": {
                     "enabled": true,
-                    "hint": "首尾帧与 9/3/3 全能参考互斥；成对指定 first + last"
+					"hint": "首尾帧与 9 图 + 3 个视频/音频素材的全能参考互斥；成对指定 first + last"
                 }
             },
             "hints": [
                 {
-                    "text": "Seedance 2.0：480p / 720p、4–15 秒任意整数、可选整数 seed；支持 9 图 / 3 视频 / 3 音频且合计不超过 12，也支持首尾帧。"
+					"text": "Seedance 2.0：支持六种画幅、480p / 720p、4–15 秒任意整数、negative_prompt、可选整数 seed；支持 9 张参考图 + 最多 3 个视频/音频素材（共享名额），也支持首尾帧。真人脸素材可能被 Adobe 安全策略拒绝。"
                 }
             ]
         },

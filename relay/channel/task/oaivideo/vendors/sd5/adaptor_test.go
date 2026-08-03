@@ -20,9 +20,9 @@ func TestIsRelayUsesSD5ModelIdentityWithoutMapping(t *testing.T) {
 	}
 }
 
-func TestBuildRequestBodyPreservesSeedance933References(t *testing.T) {
+func TestBuildRequestBodyPreservesSeedanceNinePlusThreeReferences(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := `{"model":"cy-sd5-seedance-2.0-fast","prompt":"test","duration":4,"aspect_ratio":"16x9","resolution":"480p","seed":0,"generate_audio":false,"reference_mode":"media","images":["i1"],"reference_videos":["v1","v2","v3"],"reference_audios":["a1","a2","a3"]}`
+	body := `{"model":"cy-sd5-seedance-2.0-fast","prompt":"test","duration":4,"aspect_ratio":"21x9","resolution":"480p","seed":0,"generate_audio":false,"negative_prompt":"bad aesthetics","reference_mode":"media","images":["i1"],"reference_videos":["v1","v2"],"reference_audios":["a1"]}`
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -52,7 +52,7 @@ func TestBuildRequestBodyPreservesSeedance933References(t *testing.T) {
 	if payload["model"] != "cy-sd5-seedance-2.0-fast" {
 		t.Fatalf("model name should pass through unchanged: %#v", payload)
 	}
-	if payload["aspect_ratio"] != "16:9" || payload["reference_mode"] != "media" {
+	if payload["aspect_ratio"] != "21:9" || payload["reference_mode"] != "media" || payload["negative_prompt"] != "bad aesthetics" {
 		t.Fatalf("SD5 request normalization failed: %#v", payload)
 	}
 	if payload["duration"] != float64(4) || payload["resolution"] != "480p" || payload["generate_audio"] != false {
@@ -61,14 +61,32 @@ func TestBuildRequestBodyPreservesSeedance933References(t *testing.T) {
 	if seedValue, ok := payload["seed"].(float64); !ok || seedValue != 0 {
 		t.Fatalf("seed = %#v, want explicit zero", payload["seed"])
 	}
-	if got, ok := payload["reference_videos"].([]any); !ok || len(got) != 3 {
+	if got, ok := payload["reference_videos"].([]any); !ok || len(got) != 2 {
 		t.Fatalf("reference videos were not preserved: %#v", payload)
 	}
-	if got, ok := payload["reference_audios"].([]any); !ok || len(got) != 3 {
+	if got, ok := payload["reference_audios"].([]any); !ok || len(got) != 1 {
 		t.Fatalf("reference audios were not preserved: %#v", payload)
 	}
 	if got, ok := payload["images"].([]any); !ok || len(got) != 1 || got[0] != "i1" {
 		t.Fatalf("reference images were not preserved: %#v", payload)
+	}
+}
+
+func TestBuildRequestBodyRejectsMoreThanThreeCombinedSources(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{"model":"cy-sd5-seedance-2.0-fast","prompt":"test","images":["i1"],"reference_videos":["v1","v2"],"reference_audios":["a1","a2"]}`
+	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	var taskRequest relaycommon.TaskSubmitReq
+	if err := basecommon.Unmarshal([]byte(body), &taskRequest); err != nil {
+		t.Fatal(err)
+	}
+	c.Set("task_request", taskRequest)
+
+	_, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "cy-sd5-seedance-2.0-fast"}})
+	if err == nil || !strings.Contains(err.Error(), "at most 3 items combined") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

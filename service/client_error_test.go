@@ -42,7 +42,7 @@ func TestNormalizeClientErrorMessageUsesRequestModelContext(t *testing.T) {
 	}
 }
 
-func TestNormalizeOpenAIVideoTaskResponseUsesStoredSD5Payload(t *testing.T) {
+func TestNormalizeOpenAIVideoTaskResponsePassesThroughSD5Payload(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/v1/videos/task_1", nil)
@@ -53,19 +53,28 @@ func TestNormalizeOpenAIVideoTaskResponseUsesStoredSD5Payload(t *testing.T) {
 		Data:       []byte(`{"error":"system under load","error_type":"submission_overloaded","error_status":408}`),
 	}
 
-	out := NormalizeOpenAIVideoTaskResponse(c, task, []byte(`{"status":"failed","error":{"message":"system under load"},"fail_reason":"system under load"}`))
-	var payload struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-		FailReason string `json:"fail_reason"`
+	in := []byte(`{"status":"failed","error":{"message":"当前服务负载较高，请稍后重试。"},"fail_reason":"当前服务负载较高，请稍后重试。"}`)
+	out := NormalizeOpenAIVideoTaskResponse(c, task, in)
+	if string(out) != string(in) {
+		t.Fatalf("expected SD5 upstream payload passthrough, got %s", out)
 	}
-	if err := common.Unmarshal(out, &payload); err != nil {
-		t.Fatal(err)
+}
+
+func TestNormalizeTaskFailurePassesThroughSD5Message(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	upstream := "参考素材包含可识别真人肖像，当前模型无法处理；请移除真人脸或改用不含真实身份的人物素材。"
+	task := &model.Task{FailReason: upstream, Properties: model.Properties{OriginModelName: "cy-sd5-seedance-2.0"}}
+	if got := NormalizeTaskFailure(c, task); got != upstream {
+		t.Fatalf("NormalizeTaskFailure() = %q, want passthrough %q", got, upstream)
 	}
-	want := "SD5 上游负载过高或提交超时，请稍后重试。"
-	if payload.Error.Message != want || payload.FailReason != want {
-		t.Fatalf("NormalizeOpenAIVideoTaskResponse() = %#v, want message %q", payload, want)
+}
+
+func TestNormalizeTaskFailurePassesThroughSD5GenericFailureFaceHint(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	upstream := "视频生成失败，上游未提供具体原因。若使用了参考素材，可能因素材包含可识别真人脸而被当前渠道拒绝，也可能与内容安全、素材冲突或模型临时异常有关；请优先移除真人脸素材后重试。"
+	task := &model.Task{FailReason: upstream, Properties: model.Properties{OriginModelName: "cy-sd5-seedance-2.0-fast"}}
+	if got := NormalizeTaskFailure(c, task); got != upstream {
+		t.Fatalf("NormalizeTaskFailure() = %q, want passthrough %q", got, upstream)
 	}
 }
 

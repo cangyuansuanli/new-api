@@ -31,7 +31,7 @@ oaivideo/
     ├── seedanceoairegbox/ # cy-sd1 → OAIREGBox flat /v1/videos
     ├── seedancetengda/    # cy-sd2 / tengd → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
-    ├── sd5/         # cy-sd5 Seedance：typed JSON、seed、9/3/3（合计 12）
+    ├── sd5/         # cy-sd5 Seedance：typed JSON、seed、首尾帧、9 图 + 3 个视频/音频共享源位
     ├── omnii2v/     # cy-sd1 omni-fast*：flat reference_image_urls → 上游 images/image_url
     ├── omniv2v/     # cy-sd1 omni-fast-v2v*：flat reference_videos → 上游 videos/images
     ├── adobe/       # Adobe2API typed video：/v1/videos/generations

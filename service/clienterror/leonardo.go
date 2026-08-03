@@ -473,6 +473,13 @@ func IsLeonardoWeb2APIRelayModel(model string) bool {
 		strings.HasPrefix(model, "cy-sd4-happyhouse-")
 }
 
+// IsUpstreamNormalizedVideoModel reports video models whose upstream service
+// already owns client-facing task error normalization.
+func IsUpstreamNormalizedVideoModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return IsLeonardoWeb2APIRelayModel(model) || strings.HasPrefix(model, "cy-sd5-seedance-2.0")
+}
+
 func normalizeLeonardoRelay(preferChinese bool, failure ErrorContext) (string, bool) {
 	if IsLeonardoWeb2APIRelayModel(failure.Model) {
 		return "", false

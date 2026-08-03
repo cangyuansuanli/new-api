@@ -99,7 +99,7 @@ func NormalizeTaskFailure(c *gin.Context, task *model.Task) string {
 		return ""
 	}
 	ctx := clientErrorContextFromTask(task)
-	if ce.IsLeonardoWeb2APIRelayModel(ctx.Model) {
+	if ce.IsUpstreamNormalizedVideoModel(ctx.Model) {
 		if raw := strings.TrimSpace(task.FailReason); raw != "" {
 			return raw
 		}
