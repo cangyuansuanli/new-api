@@ -95,7 +95,27 @@ func TestIsRelay(t *testing.T) {
 	if !IsRelay("cy-sd4-minimax-h3-2k") {
 		t.Fatal("expected minimax h3 relay")
 	}
+	if !IsRelay("cy-sd4-happyhouse-1.0") || !IsRelay("cy-sd4-happyhouse-1.1") {
+		t.Fatal("expected happyhouse relay")
+	}
+	if IsRelay("cy-sd4-happyhouse") {
+		t.Fatal("happyhouse family without a version must not match")
+	}
 	if IsRelay("cy-sd1-seedance-2.0-720p") {
 		t.Fatal("cy-sd1 must not match leonardo")
+	}
+}
+
+func TestBuildUpstreamBody_HappyHouseUsesDuration(t *testing.T) {
+	out := buildUpstreamBody(map[string]interface{}{
+		"prompt":     "test",
+		"seconds":    float64(4),
+		"resolution": "720p",
+	}, "happy-horse-1.1", 4, nil)
+	if out["model"] != "happy-horse-1.1" || out["duration"] != 4 {
+		t.Fatalf("unexpected model/duration: %v", out)
+	}
+	if _, ok := out["seconds"]; ok {
+		t.Fatalf("seconds must not be sent upstream: %v", out)
 	}
 }

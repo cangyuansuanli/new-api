@@ -1,4 +1,4 @@
-# Leonardo Seedance / Hailuo（cy-sd4）
+# Leonardo 视频模型（cy-sd4）
 
 > 契约：`leonardo-web2api/docs/api.md` · Seedance 规则：`leonardo-web2api/docs/models/seedance-2.0.md` · Hailuo：`leonardo-web2api/docs/models/hailuo-03.md` · 任务路由：[`video-task-routing.md`](video-task-routing.md)
 
@@ -28,7 +28,8 @@
 | internal 模型前缀 | Vendor | 上游 `model`（渠道 `model_mapping`） |
 | --- | --- | --- |
 | `cy-sd4-seedance*` | `seedance-leonardo` | `seedance-2.0` / `seedance-2.0-fast` / … |
-| `cy-sd4-minimax-h3*` | `seedance-leonardo`（同一 flat 适配器） | `hailuo-03`（或 `minimax-h3-2k`） |
+| `cy-sd4-minimax-h3*` | `seedance-leonardo`（同一 flat 适配器） | H3 模型 |
+| `cy-sd4-happyhouse-*` | `seedance-leonardo`（同一 flat 适配器） | Happy House 1.0 / 1.1 |
 
 对客模型：`cy-sd4-minimax-h3-2k` → 渠道 `model_mapping` → upstream `hailuo-03`。
 
@@ -42,6 +43,9 @@
 - MiniMax H3 2K：`video-tpl-minimax-h3-2k-async`（含 **原生音频** `generateAudio` → 请求体 `audio`）
 
 `referenceLimits` 与 leonardo-web2api 模型文档常量表对齐，仅作表单提示。
+Happy House 的素材数量、格式、尺寸、FPS、时长组合和版本能力差异同样由
+leonardo-web2api 在入队与 worker 阶段校验；NewAPI 只负责 flat 请求归一化、
+模型映射、异步轮询和错误透传。
 
 ## 相关代码
 

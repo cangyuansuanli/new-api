@@ -468,7 +468,9 @@ func formatInsufficientCreditsDetail(preferChinese bool, reason string) string {
 // IsLeonardoWeb2APIRelayModel reports NewAPI internal models routed to leonardo-web2api.
 func IsLeonardoWeb2APIRelayModel(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
-	return strings.HasPrefix(model, "cy-sd4-seedance") || strings.HasPrefix(model, "cy-sd4-minimax-h3")
+	return strings.HasPrefix(model, "cy-sd4-seedance") ||
+		strings.HasPrefix(model, "cy-sd4-minimax-h3") ||
+		strings.HasPrefix(model, "cy-sd4-happyhouse-")
 }
 
 func normalizeLeonardoRelay(preferChinese bool, failure ErrorContext) (string, bool) {

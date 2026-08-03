@@ -6,5 +6,7 @@ const mini8sModel = "cy-sd4-seedance-2.0-mini-8s"
 
 func IsRelay(originModel string) bool {
 	origin := strings.ToLower(strings.TrimSpace(originModel))
-	return strings.HasPrefix(origin, "cy-sd4-seedance") || strings.HasPrefix(origin, "cy-sd4-minimax-h3")
+	return strings.HasPrefix(origin, "cy-sd4-seedance") ||
+		strings.HasPrefix(origin, "cy-sd4-minimax-h3") ||
+		strings.HasPrefix(origin, "cy-sd4-happyhouse-")
 }
