@@ -26,11 +26,13 @@ func setupChannelMonitorTest(t *testing.T) {
 	require.NoError(t, model.DB.Exec("DELETE FROM channel_monitor_results").Error)
 	require.NoError(t, model.DB.Exec("DELETE FROM channel_monitors").Error)
 	require.NoError(t, model.DB.Exec("DELETE FROM channels").Error)
+	require.NoError(t, model.DB.Exec("DELETE FROM models").Error)
 	t.Cleanup(func() {
 		model.DB.Exec("DELETE FROM tasks")
 		model.DB.Exec("DELETE FROM channel_monitor_results")
 		model.DB.Exec("DELETE FROM channel_monitors")
 		model.DB.Exec("DELETE FROM channels")
+		model.DB.Exec("DELETE FROM models")
 	})
 }
 
@@ -144,6 +146,42 @@ func TestOmniMediaModelsUseVideoFreshness(t *testing.T) {
 func TestMinimaxMediaModelsUseVideoFreshness(t *testing.T) {
 	assert.True(t, IsBillableMediaMonitorTarget(constant.ChannelTypeMidjourneyPlus, "cy-sd4-minimax-h3-2k"))
 	assert.True(t, isVideoChannelMonitorTarget(constant.ChannelTypeMidjourneyPlus, "cy-sd4-minimax-h3-2k"))
+}
+
+func TestModelMetadataClassifiesVideoWithoutNameMarker(t *testing.T) {
+	setupChannelMonitorTest(t)
+	require.NoError(t, model.DB.Create(&model.Model{
+		ModelName:      "cy-sd4-happyhouse-1.1",
+		Status:         1,
+		NameRule:       model.NameRuleExact,
+		VideoProfileId: "video-tpl-happyhouse-1.1-async",
+		Endpoints:      `{"openai-video":{"path":"/v1/videos","method":"POST"}}`,
+	}).Error)
+
+	assert.True(t, IsBillableMediaMonitorTarget(constant.ChannelTypeOpenAI, "cy-sd4-happyhouse-1.1"))
+	assert.True(t, isVideoChannelMonitorTarget(constant.ChannelTypeOpenAI, "cy-sd4-happyhouse-1.1"))
+	assert.Equal(t, ChannelMonitorCategoryVideo, publicChannelMonitorCategory(constant.ChannelTypeOpenAI, "cy-sd4-happyhouse-1.1"))
+}
+
+func TestPublicTextGroupsExcludeMetadataClassifiedVideoChannel(t *testing.T) {
+	setupChannelMonitorTest(t)
+	require.NoError(t, model.DB.Create(&model.Model{
+		ModelName:      "cy-sd4-happyhouse-1.1",
+		Status:         1,
+		NameRule:       model.NameRuleExact,
+		VideoProfileId: "video-tpl-happyhouse-1.1-async",
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Name: "happyhouse", Type: constant.ChannelTypeOpenAI, Key: "sensitive-test-key",
+		Status: common.ChannelStatusEnabled, Models: "cy-sd4-happyhouse-1.1",
+		Group: "VIDEO,全模型-无claude/gpt,downstream-canghai",
+	}).Error)
+
+	items, summary, err := listPublicChannelMonitorViewsUncached(7)
+
+	require.NoError(t, err)
+	assert.Empty(t, items)
+	assert.Zero(t, summary.Total)
 }
 
 func TestMediaMonitorViewIsUnknownBeforeFirstObservation(t *testing.T) {
@@ -597,7 +635,7 @@ func TestPublicChannelMonitorViewsIncludeEnabledTextGroupsWithoutMonitor(t *test
 	}
 	require.NoError(t, model.DB.Create(channel).Error)
 
-	items, summary, err := ListPublicChannelMonitorViews(7)
+	items, summary, err := listPublicChannelMonitorViewsUncached(7)
 
 	require.NoError(t, err)
 	require.Len(t, items, 2)
