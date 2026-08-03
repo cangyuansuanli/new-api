@@ -115,3 +115,19 @@ func TestNormalizeOpenAIVideoTaskResponsePassthroughCySd4Leonardo(t *testing.T) 
 		t.Fatalf("expected passthrough body, got %s", out)
 	}
 }
+
+func TestNormalizeTaskFailurePassthroughCySd4HappyHouse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/v1/videos/task_1", nil)
+	c.Request.Header.Set("Accept-Language", "zh-CN")
+
+	upstream := "参考视频仅部分版本支持，请调整素材后重试。"
+	task := &model.Task{
+		FailReason: upstream,
+		Properties: model.Properties{OriginModelName: "cy-sd4-happyhouse-1.1"},
+	}
+	if got := NormalizeTaskFailure(c, task); got != upstream {
+		t.Fatalf("NormalizeTaskFailure() = %q, want passthrough %q", got, upstream)
+	}
+}

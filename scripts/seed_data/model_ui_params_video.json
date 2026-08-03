@@ -14,7 +14,8 @@
         "grok-imagine",
         "happyhorse",
         "cy-sd4-seedance",
-        "cy-sd4-minimax-h3"
+        "cy-sd4-minimax-h3",
+        "cy-sd4-happyhouse"
     ],
     "poll": {
         "videos-json-async": {
@@ -2411,6 +2412,128 @@
                 {
                     "text": "标准 480p（16:9=864×496）/ HD 720p（1280×720）；多模态 4 图 / 3 视频（合计 ≤15 秒，720–2160px、24–60 FPS）/ 1 音频；与首尾帧互斥。"
                 }
+            ]
+        },
+        {
+            "id": "video-tpl-happyhouse-1.1-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd4-happyhouse-1.1"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 0,
+                "audios": 0,
+                "imageMaxBytes": 26214400,
+                "fullReferenceMode": {
+                    "label": "多图参考",
+                    "descriptionWithImages": "最多 9 张参考图"
+                },
+                "validationHint": "参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张。不支持参考视频、参考音频和首尾帧。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "720p", "label": "HD 720p"},
+                        {"value": "1080p", "label": "Full HD 1080p"}
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "16:9", "label": "横屏"},
+                        {"value": "9:16", "label": "竖屏"},
+                        {"value": "1:1", "label": "方形"},
+                        {"value": "3:4", "label": "3:4"},
+                        {"value": "4:3", "label": "4:3"}
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                    "min": 3,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": true,
+                    "hint": "是否生成原生音频，默认开启"
+                },
+                "watermark": {"enabled": false},
+                "seed": {"enabled": false},
+                "widthHeight": {"enabled": false},
+                "frameInputs": {"enabled": false}
+            },
+            "hints": [
+                {"text": "720p / 1080p，3–15 秒；支持最多 9 张参考图，不支持参考视频、参考音频和首尾帧。"}
+            ]
+        },
+        {
+            "id": "video-tpl-happyhouse-1.0-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd4-happyhouse-1.0"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 1,
+                "audios": 0,
+                "imageMaxBytes": 26214400,
+                "videoMaxBytes": 209715200,
+                "video": {
+                    "minDurationMs": 3000,
+                    "maxDurationMs": 10000,
+                    "totalMaxDurationMs": 10000
+                },
+                "fullReferenceMode": {
+                    "label": "多模态",
+                    "descriptionWithImages": "参考图 + 可选 1 个参考视频"
+                },
+                "validationHint": "参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张；带参考视频时最多 5 张图。参考视频支持 mp4/mov，不超过 200MB，宽高各 720–2160px、24–60 FPS、3–10 秒，最多 1 个。不支持参考音频和首尾帧。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "720p", "label": "HD 720p"},
+                        {"value": "1080p", "label": "Full HD 1080p"}
+                    ]
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "16:9", "label": "横屏"},
+                        {"value": "9:16", "label": "竖屏"},
+                        {"value": "1:1", "label": "方形"},
+                        {"value": "3:4", "label": "3:4"},
+                        {"value": "4:3", "label": "4:3"}
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                    "min": 3,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": true,
+                    "hint": "是否生成原生音频，默认开启"
+                },
+                "watermark": {"enabled": false},
+                "seed": {"enabled": false},
+                "widthHeight": {"enabled": false},
+                "frameInputs": {"enabled": false}
+            },
+            "hints": [
+                {"text": "720p / 1080p，3–15 秒；支持最多 9 张参考图或 1 个参考视频，带视频时最多 5 张图。"}
             ]
         },
         {
