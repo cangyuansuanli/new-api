@@ -105,7 +105,7 @@ func NormalizeOpenAIVideoResponse(c *gin.Context, data []byte) []byte {
 }
 
 func NormalizeOpenAIVideoResponseWithContext(c *gin.Context, data []byte, failure ErrorContext) []byte {
-	if IsLeonardoWeb2APIRelayModel(failure.Model) {
+	if IsUpstreamNormalizedVideoModel(failure.Model) {
 		return data
 	}
 	var payload map[string]any

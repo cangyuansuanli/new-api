@@ -58,13 +58,14 @@
 
 ## sd5.go（渠道 86 / cy-sd5）
 
-SD5 任务错误优先读取持久化 `error_code`、`error_type`、`error_status`，仅在上游没有稳定错误码的提交阶段使用本渠道原文兜底；规则不得放入 `common.go`。
+`cy-sd5-seedance-2.0*` 的任务失败与轮询响应由 Adobe2API 完成归一，NewAPI 原样透传。`sd5.go` 仅保留同步提交阶段、历史任务和非标准 payload 的兼容兜底；规则不得放入 `common.go`。
 
 | 错误码/来源 | 面向用户分类 | 状态 |
 |-------------|--------------|------|
 | `submission_overloaded` | SD5 上游过载或提交超时 | ✅ |
 | `reference_image_privacy_error` | 参考素材包含真人脸 | ✅ |
 | `video_unsafe`, `prompt_unsafe`, `policy_error` | 内容审核拒绝 | ✅ |
+| 无明确错误码的 generation 失败 | 提示当前渠道可能因可识别真人脸、内容安全、素材冲突或临时异常拒绝，并建议优先移除真人脸素材 | ✅（Adobe2API 归一，NewAPI 透传） |
 | `bad_request` + `URL_REJECTED` | 参考素材链接不可访问 | ✅ |
 | `image_not_processable` | 参考视频损坏或格式不支持 | ✅ |
 | `invalid_stored_request` + private address | 参考链接指向私有地址 | ✅ |

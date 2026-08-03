@@ -118,10 +118,15 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 			out["reference_mode"] = "media"
 		}
 	}
+	sourceCount := 0
 	for _, key := range []string{"reference_videos", "reference_audios"} {
 		if values := collectStringList(raw[key]); len(values) > 0 {
 			out[key] = values
+			sourceCount += len(values)
 		}
+	}
+	if sourceCount > 3 {
+		return nil, fmt.Errorf("reference_videos and reference_audios must contain at most 3 items combined")
 	}
 
 	encoded, err := common.Marshal(out)
@@ -171,7 +176,7 @@ func normalizeAspectRatio(raw string) string {
 	if strings.Contains(raw, "x") {
 		raw = strings.Replace(raw, "x", ":", 1)
 	}
-	if raw == "16:9" || raw == "9:16" {
+	if raw == "21:9" || raw == "16:9" || raw == "4:3" || raw == "1:1" || raw == "3:4" || raw == "9:16" {
 		return raw
 	}
 	return ""
