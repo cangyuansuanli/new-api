@@ -343,7 +343,23 @@ func disabledChannelMonitorModels() (map[string]struct{}, error) {
 	return model.GetDisabledExactModelNames()
 }
 
+func channelMonitorModelCapability(modelName string) (model.ModelMediaCapabilities, bool) {
+	capabilities, err := model.GetExactModelMediaCapabilities([]string{modelName})
+	if err != nil {
+		return model.ModelMediaCapabilities{}, false
+	}
+	capability, found := capabilities[strings.TrimSpace(modelName)]
+	return capability, found && (capability.Image || capability.Video)
+}
+
 func IsBillableMediaMonitorTarget(channelType int, modelName string) bool {
+	if capability, found := channelMonitorModelCapability(modelName); found {
+		return capability.Image || capability.Video
+	}
+	return isBillableMediaMonitorTargetFallback(channelType, modelName)
+}
+
+func isBillableMediaMonitorTargetFallback(channelType int, modelName string) bool {
 	switch channelType {
 	case constant.ChannelTypeMidjourney,
 		constant.ChannelTypeMidjourneyPlus,
@@ -461,6 +477,13 @@ func containsChannelMonitorMarker(value string, markers []string) bool {
 }
 
 func isVideoChannelMonitorTarget(channelType int, modelName string) bool {
+	if capability, found := channelMonitorModelCapability(modelName); found {
+		return capability.Video
+	}
+	return isVideoChannelMonitorTargetFallback(channelType, modelName)
+}
+
+func isVideoChannelMonitorTargetFallback(channelType int, modelName string) bool {
 	switch channelType {
 	case constant.ChannelTypeKling, constant.ChannelTypeJimeng, constant.ChannelTypeDoubaoVideo, constant.ChannelTypeVidu:
 		return true
@@ -543,7 +566,10 @@ func buildPassiveMediaStatFromTasks(channel *model.Channel, modelName string, ta
 }
 
 func buildPassiveMediaStatFromTasksAt(channel *model.Channel, modelName string, tasks []*model.Task, includeTimeline bool, now time.Time) *ChannelMonitorModelStat {
-	isVideo := isVideoChannelMonitorTarget(channel.Type, modelName)
+	return buildPassiveMediaStatFromTasksAtWithCategory(channel, modelName, tasks, includeTimeline, now, isVideoChannelMonitorTarget(channel.Type, modelName))
+}
+
+func buildPassiveMediaStatFromTasksAtWithCategory(channel *model.Channel, modelName string, tasks []*model.Task, includeTimeline bool, now time.Time, isVideo bool) *ChannelMonitorModelStat {
 	bucketSeconds := int64(channelMonitorPublicBucketSize / time.Second)
 	timelineEnd := ((now.Unix() / bucketSeconds) + 1) * bucketSeconds
 	timelineStart := timelineEnd - int64(channelMonitorPublicTimelineLimit)*bucketSeconds
@@ -1024,7 +1050,18 @@ type publicChannelMonitorAggregate struct {
 }
 
 func publicChannelMonitorCategory(channelType int, modelName string) string {
-	if isVideoChannelMonitorTarget(channelType, modelName) {
+	capability, found := channelMonitorModelCapability(modelName)
+	return publicChannelMonitorCategoryWithCapability(channelType, modelName, capability, found)
+}
+
+func publicChannelMonitorCategoryWithCapability(channelType int, modelName string, capability model.ModelMediaCapabilities, found bool) string {
+	if found && capability.Video {
+		return ChannelMonitorCategoryVideo
+	}
+	if found && capability.Image {
+		return ChannelMonitorCategoryImage
+	}
+	if isVideoChannelMonitorTargetFallback(channelType, modelName) {
 		return ChannelMonitorCategoryVideo
 	}
 	if channelType == constant.ChannelTypeSunoAPI {
@@ -1230,18 +1267,33 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 	if err != nil {
 		return nil, err
 	}
-	if discoverTextGroups {
-		enabledChannels, err := model.GetEnabledChannels(false)
-		if err != nil {
-			return nil, err
+	enabledChannels, err := model.GetEnabledChannels(false)
+	if err != nil {
+		return nil, err
+	}
+	listedModelNames := make([]string, 0)
+	for _, channel := range enabledChannels {
+		listedModelNames = append(listedModelNames, channel.GetModels()...)
+	}
+	modelCapabilities, err := model.GetExactModelMediaCapabilities(listedModelNames)
+	if err != nil {
+		return nil, err
+	}
+	mediaCapability := func(channelType int, modelName string) (model.ModelMediaCapabilities, bool) {
+		capability, found := modelCapabilities[strings.TrimSpace(modelName)]
+		if found && (capability.Image || capability.Video) {
+			return capability, true
 		}
+		return model.ModelMediaCapabilities{}, isBillableMediaMonitorTargetFallback(channelType, modelName)
+	}
+	if discoverTextGroups {
 		for _, channel := range enabledChannels {
 			hasTextModel := false
 			for _, modelName := range channel.GetModels() {
 				if _, disabled := disabledModels[strings.TrimSpace(modelName)]; disabled {
 					continue
 				}
-				if !IsBillableMediaMonitorTarget(channel.Type, modelName) {
+				if _, isMedia := mediaCapability(channel.Type, modelName); !isMedia {
 					hasTextModel = true
 					break
 				}
@@ -1288,10 +1340,6 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 			}
 		}
 	}
-	enabledChannels, err := model.GetEnabledChannels(false)
-	if err != nil {
-		return nil, err
-	}
 	for _, channel := range enabledChannels {
 		mediaModels := make([]string, 0)
 		for _, modelName := range channel.GetModels() {
@@ -1299,10 +1347,11 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 			if _, disabled := disabledModels[modelName]; disabled {
 				continue
 			}
-			if !IsBillableMediaMonitorTarget(channel.Type, modelName) {
+			capability, isMedia := mediaCapability(channel.Type, modelName)
+			if !isMedia {
 				continue
 			}
-			category := publicChannelMonitorCategory(channel.Type, modelName)
+			category := publicChannelMonitorCategoryWithCapability(channel.Type, modelName, capability, capability.Image || capability.Video)
 			if category == "" {
 				continue
 			}
@@ -1336,8 +1385,16 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 
 	for _, source := range sources {
 		for _, modelName := range source.mediaModels {
-			category := publicChannelMonitorCategory(source.channel.Type, modelName)
-			stat := buildPassiveMediaStatFromTasks(source.channel, modelName, mediaTasksByChannel[source.channel.Id], true)
+			capability, found := modelCapabilities[strings.TrimSpace(modelName)]
+			category := publicChannelMonitorCategoryWithCapability(source.channel.Type, modelName, capability, found && (capability.Image || capability.Video))
+			stat := buildPassiveMediaStatFromTasksAtWithCategory(
+				source.channel,
+				modelName,
+				mediaTasksByChannel[source.channel.Id],
+				true,
+				time.Now(),
+				category == ChannelMonitorCategoryVideo,
+			)
 			mergePublicChannelMonitorStat(
 				aggregates,
 				ToPublicModelName(modelName),
@@ -1501,11 +1558,24 @@ func ListChannelMonitorTextTargets() ([]*ChannelMonitorTextTarget, error) {
 	if err != nil {
 		return nil, err
 	}
+	listedModelNames := make([]string, 0)
+	for _, channel := range channels {
+		listedModelNames = append(listedModelNames, channel.GetModels()...)
+	}
+	modelCapabilities, err := model.GetExactModelMediaCapabilities(listedModelNames)
+	if err != nil {
+		return nil, err
+	}
 	modelsByGroup := make(map[string]map[string]struct{})
 	for _, channel := range channels {
 		for _, modelName := range channel.GetModels() {
 			modelName = strings.TrimSpace(modelName)
-			if _, isDisabled := disabled[modelName]; isDisabled || IsBillableMediaMonitorTarget(channel.Type, modelName) {
+			capability, found := modelCapabilities[modelName]
+			isMedia := found && (capability.Image || capability.Video)
+			if !isMedia {
+				isMedia = isBillableMediaMonitorTargetFallback(channel.Type, modelName)
+			}
+			if _, isDisabled := disabled[modelName]; isDisabled || isMedia {
 				continue
 			}
 			for _, group := range channel.GetGroups() {

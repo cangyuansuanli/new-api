@@ -47,6 +47,11 @@ type Model struct {
 	MatchedCount  int      `json:"matched_count,omitempty" gorm:"-"`
 }
 
+type ModelMediaCapabilities struct {
+	Image bool
+	Video bool
+}
+
 func (mi *Model) Insert() error {
 	now := common.GetTimestamp()
 	mi.CreatedTime = now
@@ -125,6 +130,33 @@ func GetDisabledExactModelNames() (map[string]struct{}, error) {
 		disabled[strings.TrimSpace(modelName)] = struct{}{}
 	}
 	return disabled, nil
+}
+
+func GetExactModelMediaCapabilities(modelNames []string) (map[string]ModelMediaCapabilities, error) {
+	result := make(map[string]ModelMediaCapabilities)
+	modelNames = normalizeLookupValues(modelNames)
+	if len(modelNames) == 0 {
+		return result, nil
+	}
+
+	var models []Model
+	if err := DB.Model(&Model{}).
+		Select("model_name", "endpoints", "video_profile_id", "image_profile_id").
+		Where("model_name IN ? AND name_rule = ?", modelNames, NameRuleExact).
+		Find(&models).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range models {
+		endpoints := strings.ToLower(strings.TrimSpace(item.Endpoints))
+		result[strings.TrimSpace(item.ModelName)] = ModelMediaCapabilities{
+			Image: strings.TrimSpace(item.ImageProfileId) != "" ||
+				strings.Contains(endpoints, `"openai-image"`) ||
+				strings.Contains(endpoints, `"image-generation"`),
+			Video: strings.TrimSpace(item.VideoProfileId) != "" ||
+				strings.Contains(endpoints, `"openai-video"`),
+		}
+	}
+	return result, nil
 }
 
 func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel, error) {
