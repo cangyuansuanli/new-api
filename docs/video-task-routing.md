@@ -108,6 +108,9 @@ Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonard
 
 JSON 的其他字段和 multipart 文件必须保留；仅模型名与时长别名在 vendor 边界发生转换。
 SD5 Seedance vendor 还会将可选整数 `seed` 原样传给 Adobe2API，包括显式零值；其他
+SD5 出站契约同时保留 `duration`、`aspect_ratio`、`resolution`、`generate_audio`、
+`reference_mode`、参考图、参考视频和参考音频。首尾帧与 media 全能参考互斥，验收必须
+分别使用合法组合，不能把互斥字段拼成一个“全参数”请求。
 Adobe Sora/Veo 模型继续过滤不支持的 seed。
 
 Seedance 2.0 的参考图统一使用 `reference_image_urls`（含单图）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。参考视频和参考音频均为可选且可独立使用；仅传 `prompt` 即为文生视频。Relay 在 registry 层按线路拆为独立 vendor：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`sd5-seedance`（cy-sd5）。各 vendor 不得因 `reference_videos` / `reference_audios` 存在而强制要求参考图。**cy-sd1 / cy-sd2 / cy-sd5** 仍在 NewAPI profile 或 adaptor 侧做数量/大小/互斥等出站校验；**cy-sd4** 业务规则在 leonardo-web2api，见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)。
