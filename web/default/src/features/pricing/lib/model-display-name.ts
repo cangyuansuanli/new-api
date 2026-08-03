@@ -65,6 +65,7 @@ const MODEL_FAMILY_FIRST_SEGMENTS = new Set([
   'abab',
   'minimax',
   'hailuo',
+  'happyhouse',
   'doubao',
   'seedance',
   'seedream',
