@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -49,12 +50,17 @@ type PricingVendor struct {
 	Icon        string `json:"icon,omitempty"`
 }
 
+type clientFacingPricingSnapshot struct {
+	pricing []Pricing
+}
+
 var (
-	pricingMap           []Pricing
-	vendorsList          []PricingVendor
-	supportedEndpointMap map[string]common.EndpointInfo
-	lastGetPricingTime   time.Time
-	updatePricingLock    sync.Mutex
+	pricingMap               []Pricing
+	clientFacingPricingCache atomic.Pointer[clientFacingPricingSnapshot]
+	vendorsList              []PricingVendor
+	supportedEndpointMap     map[string]common.EndpointInfo
+	lastGetPricingTime       time.Time
+	updatePricingLock        sync.Mutex
 
 	// 缓存映射：模型名 -> 启用分组 / 计费类型
 	modelEnableGroups     = make(map[string][]string)
@@ -88,6 +94,17 @@ func InvalidatePricingCache() {
 	pricingMap = nil
 	vendorsList = nil
 	lastGetPricingTime = time.Time{}
+}
+
+// GetClientFacingPricing returns the immutable, client-safe pricing snapshot
+// produced alongside the internal pricing cache.
+func GetClientFacingPricing() []Pricing {
+	GetPricing()
+	snapshot := clientFacingPricingCache.Load()
+	if snapshot == nil {
+		return nil
+	}
+	return snapshot.pricing
 }
 
 // GetVendors 返回当前定价接口使用到的供应商信息
@@ -378,6 +395,9 @@ func updatePricing() {
 	if len(pricingMap) > 0 {
 		pricingMap[0].PricingVersion = "model-api-doc-v1"
 	}
+	clientFacingPricingCache.Store(&clientFacingPricingSnapshot{
+		pricing: buildClientFacingPricingSnapshot(pricingMap),
+	})
 
 	// 刷新缓存映射，供高并发快速查询
 	modelEnableGroupsLock.Lock()

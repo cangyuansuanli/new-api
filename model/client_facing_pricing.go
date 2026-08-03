@@ -1,10 +1,6 @@
-package service
+package model
 
-import (
-	"strings"
-
-	"github.com/QuantumNous/new-api/model"
-)
+import "strings"
 
 var clientFacingCopyReplacements = []struct {
 	old string
@@ -54,49 +50,77 @@ func sanitizeClientFacingCopyString(value string) string {
 	return out
 }
 
-func sanitizeClientFacingCopyMap(value map[string]interface{}) {
+func cloneClientFacingCopyMap(value map[string]interface{}) map[string]interface{} {
 	if value == nil {
-		return
+		return nil
 	}
+	out := make(map[string]interface{}, len(value))
 	for key, raw := range value {
-		switch typed := raw.(type) {
-		case string:
-			value[key] = sanitizeClientFacingCopyString(typed)
-		case map[string]interface{}:
-			sanitizeClientFacingCopyMap(typed)
-		case []interface{}:
-			sanitizeClientFacingCopySlice(typed)
-		}
+		out[key] = cloneClientFacingCopyValue(raw)
 	}
+	return out
 }
 
-func sanitizeClientFacingCopySlice(items []interface{}) {
+func cloneClientFacingCopySlice(items []interface{}) []interface{} {
+	if items == nil {
+		return nil
+	}
+	out := make([]interface{}, len(items))
 	for i, raw := range items {
-		switch typed := raw.(type) {
-		case string:
-			items[i] = sanitizeClientFacingCopyString(typed)
-		case map[string]interface{}:
-			sanitizeClientFacingCopyMap(typed)
-		case []interface{}:
-			sanitizeClientFacingCopySlice(typed)
-		}
+		out[i] = cloneClientFacingCopyValue(raw)
+	}
+	return out
+}
+
+func cloneClientFacingCopyValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case string:
+		return sanitizeClientFacingCopyString(typed)
+	case map[string]interface{}:
+		return cloneClientFacingCopyMap(typed)
+	case []interface{}:
+		return cloneClientFacingCopySlice(typed)
+	default:
+		return value
 	}
 }
 
-// SanitizeClientFacingPricing strips upstream/channel identifiers from pricing payloads
-// served to the model marketplace and API docs.
-func SanitizeClientFacingPricing(pricing *model.Pricing) {
+func cloneClientFacingSlice[T any](items []T) []T {
+	if items == nil {
+		return nil
+	}
+	out := make([]T, len(items))
+	copy(out, items)
+	return out
+}
+
+func cloneClientFacingPointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	out := *value
+	return &out
+}
+
+func buildClientFacingPricingSnapshot(pricing []Pricing) []Pricing {
 	if pricing == nil {
-		return
+		return nil
 	}
-	pricing.Description = sanitizeClientFacingCopyString(pricing.Description)
-	if pricing.ApiDoc != nil {
-		sanitizeClientFacingCopyMap(pricing.ApiDoc)
+
+	snapshot := make([]Pricing, len(pricing))
+	for i, item := range pricing {
+		snapshot[i] = item
+		snapshot[i].Description = sanitizeClientFacingCopyString(item.Description)
+		snapshot[i].EnableGroup = cloneClientFacingSlice(item.EnableGroup)
+		snapshot[i].SupportedEndpointTypes = cloneClientFacingSlice(item.SupportedEndpointTypes)
+		snapshot[i].CacheRatio = cloneClientFacingPointer(item.CacheRatio)
+		snapshot[i].CreateCacheRatio = cloneClientFacingPointer(item.CreateCacheRatio)
+		snapshot[i].ImageRatio = cloneClientFacingPointer(item.ImageRatio)
+		snapshot[i].AudioRatio = cloneClientFacingPointer(item.AudioRatio)
+		snapshot[i].AudioCompletionRatio = cloneClientFacingPointer(item.AudioCompletionRatio)
+		snapshot[i].ApiDoc = cloneClientFacingCopyMap(item.ApiDoc)
+		snapshot[i].VideoUiParams = cloneClientFacingCopyMap(item.VideoUiParams)
+		snapshot[i].ImageUiParams = cloneClientFacingCopyMap(item.ImageUiParams)
 	}
-	if pricing.VideoUiParams != nil {
-		sanitizeClientFacingCopyMap(pricing.VideoUiParams)
-	}
-	if pricing.ImageUiParams != nil {
-		sanitizeClientFacingCopyMap(pricing.ImageUiParams)
-	}
+	return snapshot
 }
