@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate idempotent SQL for the captured Adobe Seedance 2.0 contract."""
+"""Generate provider-neutral public docs for the verified Seedance 2.0 contract."""
 
 import json
 import sys
@@ -16,19 +16,20 @@ def decode_object(raw: object) -> dict:
 
 def update_doc(raw: object) -> dict:
     doc = decode_object(raw)
+    doc = decode_object(json.loads(compact(doc).replace("task_adobe_video_01", "task_seedance_video_01")))
     doc["intro"] = (
         "请求字段约定\n"
         "Seedance 2.0 使用 POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。\n"
         "支持文生视频、成对首尾帧，以及全能参考。全能参考最多 9 张图，视频和音频共享 3 个源素材名额，全部素材合计最多 12 个。\n"
         "支持整数 seed（含显式 0）与 negative_prompt；不支持 n 或 response_format。\n"
-        "参考素材包含可识别真人脸时，Adobe 可能按隐私安全策略拒绝；不存在可绕过的“锁脸”参数。"
+        "参考素材包含可识别真人脸时，当前渠道可能按隐私安全策略拒绝；不存在可绕过的“锁脸”参数。"
     )
     descriptions = {
         "aspect_ratio": f"画幅比例：{RATIOS}；默认 9:16。",
         "reference_mode": "可选 frame 或 media，默认 frame。frame 使用成对首尾帧；media 使用 9 图 + 3 个视频/音频共享源位；两种模式素材不可混用。",
         "reference_videos": "可选公网 HTTPS 视频 URL 数组；与 reference_audios 合计最多 3 项。",
         "reference_audios": "可选公网 HTTPS 音频 URL 数组；与 reference_videos 合计最多 3 项。",
-        "negative_prompt": "可选负面提示词，最多 1200 字符，会透传至 Adobe negativePrompt。",
+        "negative_prompt": "可选负面提示词，最多 1200 字符。",
         "seed": "可选整数随机种子，显式 0 也会透传。",
     }
     params = list(doc.get("params") or [])
@@ -44,6 +45,7 @@ def update_doc(raw: object) -> dict:
         if mode.get("label") == "全能参考":
             mode["notes"] = "最多 9 张参考图；视频与音频合计最多 3 个，全部素材合计最多 12 个；视频/音频至少搭配 1 张参考图；URL 需公网可访问。"
     rewrite_examples(doc)
+    validate_public_doc(doc)
     return doc
 
 
@@ -60,6 +62,13 @@ def rewrite_examples(doc: dict) -> None:
         if "全能参考" in title:
             example["title"] = "9 图 + 3 个视频/音频源素材全能参考"
         rewrite(example.get("request_json"))
+
+
+def validate_public_doc(doc: dict) -> None:
+    public_text = compact(doc).lower()
+    for forbidden in ("adobe", "referenceblobs", "negativeprompt", "ff-video-generate"):
+        if forbidden in public_text:
+            raise ValueError(f"public SD5 api_doc leaks provider detail: {forbidden}")
 
 
 def sql_literal(value: str) -> str:
@@ -96,7 +105,8 @@ def main() -> int:
         for value, label in (("21:9", "超宽屏"), ("16:9", "横屏"), ("4:3", "横向 4:3"), ("1:1", "方形"), ("3:4", "竖向 3:4"), ("9:16", "竖屏"))
     ]
     params.setdefault("frameInputs", {})["hint"] = "首尾帧与 9 图 + 3 个视频/音频素材的全能参考互斥；成对指定 first + last"
-    hint = "Seedance 2.0：支持六种画幅、480p/720p、4–15 秒、negative_prompt 和整数 seed；支持首尾帧或 9 图 + 3 个视频/音频共享源位。真人脸素材可能被 Adobe 安全策略拒绝。"
+    hint = "Seedance 2.0：支持六种画幅、480p/720p、4–15 秒、negative_prompt 和整数 seed；支持首尾帧或 9 图 + 3 个视频/音频共享源位。可识别真人脸素材可能被当前渠道的安全策略拒绝。"
+    validate_public_doc({"hint": hint})
 
     print("BEGIN;")
     for model in source.get("models") or []:
