@@ -99,7 +99,7 @@ export function SensitiveWordsSection({
                     <FormLabel>{t('Local sensitive prompt block')}</FormLabel>
                     <FormDescription>
                       {t(
-                        'When disabled, prompts are forwarded to upstream; upstream content policy failures are charged normally.'
+                        'When disabled, image prompts are forwarded to upstream; upstream content policy failures are charged normally.'
                       )}
                     </FormDescription>
                   </SettingsSwitchContent>
@@ -145,7 +145,7 @@ export function SensitiveWordsSection({
                     <FormLabel>{t('Inspect user prompts')}</FormLabel>
                     <FormDescription>
                       {t(
-                        'When enabled, prompts are scanned before reaching upstream models.'
+                        'When enabled, image prompts are scanned locally before reaching upstream models. Text and video are reviewed by upstream only.'
                       )}
                     </FormDescription>
                   </SettingsSwitchContent>
@@ -175,7 +175,7 @@ export function SensitiveWordsSection({
                 </FormControl>
                 <FormDescription>
                   {t(
-                    'Whitelisted users bypass local keyword blocking; upstream content review failures are charged.'
+                    'Whitelisted users bypass local image keyword blocking; upstream image content review failures are charged.'
                   )}
                 </FormDescription>
                 <FormMessage />

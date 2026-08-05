@@ -143,7 +143,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 
 	meta := request.GetTokenCountMeta()
 	userId := c.GetInt("id")
-	needSensitiveCheck := setting.ShouldCheckPromptSensitiveForUser(userId)
+	needSensitiveCheck := setting.ShouldCheckPromptSensitiveForUser(userId, setting.SensitivePromptScopeImage)
 	if meta != nil {
 		relaycommon.StorePromptInput(c, meta.CombineText)
 		if needSensitiveCheck {

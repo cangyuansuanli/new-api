@@ -19,19 +19,42 @@ func TestShouldCheckPromptSensitiveForUser_WhitelistSkipsLocalBlock(t *testing.T
 	CheckSensitiveOnPromptEnabled = true
 	SensitiveReviewWhitelistUserIds = map[int]struct{}{42: {}}
 
-	if !ShouldCheckPromptSensitiveForUser(1) {
+	if !ShouldCheckPromptSensitiveForUser(1, SensitivePromptScopeImage) {
 		t.Fatal("expected non-whitelist user to be checked when global block enabled")
 	}
-	if ShouldCheckPromptSensitiveForUser(42) {
+	if ShouldCheckPromptSensitiveForUser(42, SensitivePromptScopeImage) {
 		t.Fatal("expected whitelist user to skip local check")
 	}
 
 	LocalSensitivePromptBlockEnabled = false
-	if ShouldCheckPromptSensitiveForUser(1) {
+	if ShouldCheckPromptSensitiveForUser(1, SensitivePromptScopeImage) {
 		t.Fatal("expected non-whitelist user to skip check when global block disabled")
 	}
-	if ShouldCheckPromptSensitiveForUser(42) {
+	if ShouldCheckPromptSensitiveForUser(42, SensitivePromptScopeImage) {
 		t.Fatal("expected whitelist user to skip local check when global block disabled")
+	}
+}
+
+func TestShouldCheckPromptSensitiveForUser_NonImageScopeNeverChecked(t *testing.T) {
+	prevGlobal := LocalSensitivePromptBlockEnabled
+	prevEnabled := CheckSensitiveEnabled
+	prevPrompt := CheckSensitiveOnPromptEnabled
+	prevWhitelist := SensitiveReviewWhitelistUserIds
+	t.Cleanup(func() {
+		LocalSensitivePromptBlockEnabled = prevGlobal
+		CheckSensitiveEnabled = prevEnabled
+		CheckSensitiveOnPromptEnabled = prevPrompt
+		SensitiveReviewWhitelistUserIds = prevWhitelist
+	})
+
+	LocalSensitivePromptBlockEnabled = true
+	CheckSensitiveEnabled = true
+	CheckSensitiveOnPromptEnabled = true
+	SensitiveReviewWhitelistUserIds = map[int]struct{}{}
+
+	// ponytail: 文本/视频等非生图 scope 恒为 false；上游负责审查。
+	if ShouldCheckPromptSensitiveForUser(1, SensitivePromptScope(-1)) {
+		t.Fatal("expected unknown scope to skip local check")
 	}
 }
 
