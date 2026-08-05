@@ -1,10 +1,8 @@
 package model
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
-
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,94 +48,138 @@ type PricingVendor struct {
 	Icon        string `json:"icon,omitempty"`
 }
 
-type clientFacingPricingSnapshot struct {
-	pricing []Pricing
+type pricingSnapshot struct {
+	pricing                   []Pricing
+	clientFacingPricing       []Pricing
+	vendors                   []PricingVendor
+	supportedEndpointMap      map[string]common.EndpointInfo
+	modelSupportEndpointTypes map[string][]constant.EndpointType
+	modelEnableGroups         map[string][]string
+	modelQuotaTypeMap         map[string]int
+	refreshedAt               time.Time
 }
 
-var (
-	pricingMap               []Pricing
-	clientFacingPricingCache atomic.Pointer[clientFacingPricingSnapshot]
-	vendorsList              []PricingVendor
-	supportedEndpointMap     map[string]common.EndpointInfo
-	lastGetPricingTime       time.Time
-	updatePricingLock        sync.Mutex
+const pricingRefreshInterval = time.Minute
 
-	// 缓存映射：模型名 -> 启用分组 / 计费类型
-	modelEnableGroups     = make(map[string][]string)
-	modelQuotaTypeMap     = make(map[string]int)
-	modelEnableGroupsLock = sync.RWMutex{}
-)
+const PricingReadinessMaxAge = 5 * time.Minute
+
+const pricingRefreshRetryInterval = 5 * time.Second
 
 var (
-	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
-	modelSupportEndpointsLock = sync.RWMutex{}
+	currentPricingSnapshot atomic.Pointer[pricingSnapshot]
+	pricingRefreshLock     sync.Mutex
+	pricingCacheInvalid    atomic.Bool
+	lastPricingRefreshTry  atomic.Int64
 )
 
 func GetPricing() []Pricing {
-	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		updatePricingLock.Lock()
-		defer updatePricingLock.Unlock()
-		// Double check after acquiring the lock
-		if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-			modelSupportEndpointsLock.Lock()
-			defer modelSupportEndpointsLock.Unlock()
-			updatePricing()
+	snapshot := currentPricingSnapshot.Load()
+	if snapshot == nil {
+		if err := RefreshPricing(); err != nil {
+			common.SysLog(fmt.Sprintf("initial pricing refresh failed: %v", err))
+			return nil
 		}
+		snapshot = currentPricingSnapshot.Load()
+	} else if pricingSnapshotNeedsRefresh(snapshot) {
+		refreshPricingAsync()
 	}
-	return pricingMap
+	return snapshot.pricing
 }
 
 func InvalidatePricingCache() {
-	updatePricingLock.Lock()
-	defer updatePricingLock.Unlock()
-
-	pricingMap = nil
-	vendorsList = nil
-	lastGetPricingTime = time.Time{}
+	pricingCacheInvalid.Store(true)
+	if currentPricingSnapshot.Load() != nil {
+		refreshPricingAsync()
+	}
 }
 
 // GetClientFacingPricing returns the immutable, client-safe pricing snapshot
 // produced alongside the internal pricing cache.
 func GetClientFacingPricing() []Pricing {
-	GetPricing()
-	snapshot := clientFacingPricingCache.Load()
+	snapshot := loadPricingSnapshot()
 	if snapshot == nil {
 		return nil
 	}
-	return snapshot.pricing
+	return snapshot.clientFacingPricing
 }
 
 // GetVendors 返回当前定价接口使用到的供应商信息
 func GetVendors() []PricingVendor {
-	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		// 保证先刷新一次
-		GetPricing()
+	snapshot := loadPricingSnapshot()
+	if snapshot == nil {
+		return nil
 	}
-	return vendorsList
+	return snapshot.vendors
 }
 
 func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 	if model == "" {
 		return make([]constant.EndpointType, 0)
 	}
-	modelSupportEndpointsLock.RLock()
-	defer modelSupportEndpointsLock.RUnlock()
-	if endpoints, ok := modelSupportEndpointTypes[model]; ok {
+	snapshot := loadPricingSnapshot()
+	if snapshot == nil {
+		return make([]constant.EndpointType, 0)
+	}
+	if endpoints, ok := snapshot.modelSupportEndpointTypes[model]; ok {
 		return endpoints
 	}
 	return make([]constant.EndpointType, 0)
 }
 
-func updatePricing() {
+func loadPricingSnapshot() *pricingSnapshot {
+	GetPricing()
+	return currentPricingSnapshot.Load()
+}
+
+func pricingSnapshotNeedsRefresh(snapshot *pricingSnapshot) bool {
+	return pricingCacheInvalid.Load() || time.Since(snapshot.refreshedAt) > pricingRefreshInterval
+}
+
+func PricingSnapshotReady(maxAge time.Duration) bool {
+	snapshot := currentPricingSnapshot.Load()
+	return snapshot != nil && time.Since(snapshot.refreshedAt) <= maxAge
+}
+
+func refreshPricingAsync() {
+	if !pricingRefreshLock.TryLock() {
+		return
+	}
+	now := time.Now()
+	lastTry := time.Unix(0, lastPricingRefreshTry.Load())
+	if now.Sub(lastTry) < pricingRefreshRetryInterval {
+		pricingRefreshLock.Unlock()
+		return
+	}
+	lastPricingRefreshTry.Store(now.UnixNano())
+	go func() {
+		defer pricingRefreshLock.Unlock()
+		if err := rebuildPricingSnapshot(); err != nil {
+			common.SysLog(fmt.Sprintf("pricing refresh failed, keeping previous snapshot: %v", err))
+		}
+	}()
+}
+
+func rebuildPricingSnapshot() error {
+	snapshot, err := buildPricingSnapshot()
+	if err != nil {
+		return err
+	}
+	currentPricingSnapshot.Store(snapshot)
+	pricingCacheInvalid.Store(false)
+	return nil
+}
+
+func buildPricingSnapshot() (*pricingSnapshot, error) {
 	//modelRatios := common.GetModelRatios()
 	enableAbilities, err := GetAllEnableAbilityWithChannels()
 	if err != nil {
-		common.SysLog(fmt.Sprintf("GetAllEnableAbilityWithChannels error: %v", err))
-		return
+		return nil, fmt.Errorf("load enabled abilities: %w", err)
 	}
 	// 预加载模型元数据与供应商一次，避免循环查询
 	var allMeta []Model
-	_ = DB.Find(&allMeta).Error
+	if err := DB.Find(&allMeta).Error; err != nil {
+		return nil, fmt.Errorf("load model metadata: %w", err)
+	}
 	metaMap := make(map[string]*Model)
 	prefixList := make([]*Model, 0)
 	suffixList := make([]*Model, 0)
@@ -189,7 +231,9 @@ func updatePricing() {
 
 	// 预加载供应商
 	var vendors []Vendor
-	_ = DB.Find(&vendors).Error
+	if err := DB.Find(&vendors).Error; err != nil {
+		return nil, fmt.Errorf("load vendors: %w", err)
+	}
 	vendorMap := make(map[int]*Vendor)
 	for i := range vendors {
 		vendorMap[vendors[i].Id] = &vendors[i]
@@ -199,7 +243,7 @@ func updatePricing() {
 	initDefaultVendorMapping(metaMap, vendorMap, enableAbilities)
 
 	// 构建对前端友好的供应商列表
-	vendorsList = make([]PricingVendor, 0, len(vendorMap))
+	vendorsList := make([]PricingVendor, 0, len(vendorMap))
 	for _, v := range vendorMap {
 		vendorsList = append(vendorsList, PricingVendor{
 			ID:          v.Id,
@@ -250,7 +294,7 @@ func updatePricing() {
 			continue
 		}
 		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
+		if err := common.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
 			endpoints := make([]string, 0, len(raw))
 			for k, v := range raw {
 				switch v.(type) {
@@ -266,7 +310,7 @@ func updatePricing() {
 		}
 	}
 
-	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
+	modelSupportEndpointTypes := make(map[string][]constant.EndpointType)
 	for model, endpoints := range modelSupportEndpointsStr {
 		supportedEndpoints := make([]constant.EndpointType, 0)
 		for _, endpointStr := range endpoints {
@@ -277,7 +321,7 @@ func updatePricing() {
 	}
 
 	// 构建全局 supportedEndpointMap（默认 + 自定义覆盖）
-	supportedEndpointMap = make(map[string]common.EndpointInfo)
+	supportedEndpointMap := make(map[string]common.EndpointInfo)
 	// 1. 默认端点
 	for _, endpoints := range modelSupportEndpointTypes {
 		for _, et := range endpoints {
@@ -294,7 +338,7 @@ func updatePricing() {
 			continue
 		}
 		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
+		if err := common.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
 			for k, v := range raw {
 				switch val := v.(type) {
 				case string:
@@ -315,8 +359,11 @@ func updatePricing() {
 		}
 	}
 
-	pricingMap = make([]Pricing, 0)
-	uiParamCtx, _ := LoadUiParamResolveContext()
+	pricingMap := make([]Pricing, 0)
+	uiParamCtx, err := LoadUiParamResolveContext()
+	if err != nil {
+		return nil, fmt.Errorf("load UI parameter context: %w", err)
+	}
 	for model, groups := range modelGroupsMap {
 		pricing := Pricing{
 			ModelName:              model,
@@ -395,24 +442,30 @@ func updatePricing() {
 	if len(pricingMap) > 0 {
 		pricingMap[0].PricingVersion = "model-api-doc-v1"
 	}
-	clientFacingPricingCache.Store(&clientFacingPricingSnapshot{
-		pricing: buildClientFacingPricingSnapshot(pricingMap),
-	})
-
-	// 刷新缓存映射，供高并发快速查询
-	modelEnableGroupsLock.Lock()
-	modelEnableGroups = make(map[string][]string)
-	modelQuotaTypeMap = make(map[string]int)
+	modelEnableGroups := make(map[string][]string)
+	modelQuotaTypeMap := make(map[string]int)
 	for _, p := range pricingMap {
 		modelEnableGroups[p.ModelName] = p.EnableGroup
 		modelQuotaTypeMap[p.ModelName] = p.QuotaType
 	}
-	modelEnableGroupsLock.Unlock()
 
-	lastGetPricingTime = time.Now()
+	return &pricingSnapshot{
+		pricing:                   pricingMap,
+		clientFacingPricing:       buildClientFacingPricingSnapshot(pricingMap),
+		vendors:                   vendorsList,
+		supportedEndpointMap:      supportedEndpointMap,
+		modelSupportEndpointTypes: modelSupportEndpointTypes,
+		modelEnableGroups:         modelEnableGroups,
+		modelQuotaTypeMap:         modelQuotaTypeMap,
+		refreshedAt:               time.Now(),
+	}, nil
 }
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射
 func GetSupportedEndpointMap() map[string]common.EndpointInfo {
-	return supportedEndpointMap
+	snapshot := loadPricingSnapshot()
+	if snapshot == nil {
+		return nil
+	}
+	return snapshot.supportedEndpointMap
 }

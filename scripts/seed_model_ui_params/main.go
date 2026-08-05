@@ -140,8 +140,7 @@ func seedCapability(capability, path string, force bool) error {
 			return err
 		}
 	}
-	model.RefreshPricing()
-	return nil
+	return model.RefreshPricing()
 }
 
 func profileDocToRow(capability string, doc map[string]interface{}) (*model.ModelUiParamProfile, []string, error) {

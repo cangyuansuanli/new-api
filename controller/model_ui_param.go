@@ -50,7 +50,7 @@ func UpdateModelUiParamRegistrySettings(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, item)
 }
 
@@ -96,7 +96,7 @@ func CreateModelUiParamProfile(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, item)
 }
 
@@ -132,7 +132,7 @@ func UpdateModelUiParamProfile(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, item)
 }
 
@@ -155,6 +155,6 @@ func DeleteModelUiParamProfile(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, nil)
 }

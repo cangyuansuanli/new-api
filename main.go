@@ -321,7 +321,10 @@ func InitResources() error {
 	common.CleanupOldCacheFiles()
 
 	// 初始化模型
-	model.GetPricing()
+	err = model.RefreshPricing()
+	if err != nil {
+		return fmt.Errorf("failed to initialize pricing: %w", err)
+	}
 
 	// Initialize SQL Database
 	err = model.InitLogDB()
