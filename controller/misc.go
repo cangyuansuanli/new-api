@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -37,6 +39,31 @@ func TestStatus(c *gin.Context) {
 		"http_stats": httpStats,
 	})
 	return
+}
+
+func GetReady(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := model.PingDBContext(ctx); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "service is not ready",
+		})
+		return
+	}
+	if !model.PricingSnapshotReady(model.PricingReadinessMaxAge) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "service is not ready",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "service is ready",
+	})
 }
 
 func GetStatus(c *gin.Context) {

@@ -112,7 +112,7 @@ func CreateModelMeta(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, &m)
 }
 
@@ -151,7 +151,7 @@ func UpdateModelMeta(c *gin.Context) {
 			return
 		}
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, &m)
 }
 
@@ -167,7 +167,7 @@ func DeleteModelMeta(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RefreshPricing()
+	refreshPricingAfterMutation()
 	common.ApiSuccess(c, nil)
 }
 

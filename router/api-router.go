@@ -12,6 +12,8 @@ import (
 )
 
 func SetApiRouter(router *gin.Engine) {
+	router.GET("/api/ready", controller.GetReady)
+
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.CORS())
 	apiRouter.Use(middleware.RouteTag("api"))
