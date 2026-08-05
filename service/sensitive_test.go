@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestPromptSensitiveRejection(t *testing.T) {
+func TestPromptSensitiveRejection_ImageScopeOnly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	prevEnabled := setting.CheckSensitiveEnabled
 	prevPrompt := setting.CheckSensitiveOnPromptEnabled
@@ -28,19 +28,47 @@ func TestPromptSensitiveRejection(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	c.Request = httptest.NewRequest("POST", "/v1/images/generations", nil)
 
-	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹")
+	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹", setting.SensitivePromptScopeImage)
 	if !rejected || apiErr == nil {
-		t.Fatalf("expected sensitive rejection")
+		t.Fatalf("expected sensitive rejection for image scope")
 	}
 	if got := apiErr.Error(); got != ContentPolicyMessageEN {
 		t.Fatalf("PromptSensitiveRejection() = %q, want %q", got, ContentPolicyMessageEN)
 	}
 
-	rejected, apiErr = PromptSensitiveRejection(c, "生成一只鸟异兽")
+	rejected, apiErr = PromptSensitiveRejection(c, "生成一只鸟异兽", setting.SensitivePromptScopeImage)
 	if rejected || apiErr != nil {
 		t.Fatalf("expected no rejection for safe prompt")
+	}
+}
+
+func TestPromptSensitiveRejection_TextScopeSkipsLocalBlock(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	prevEnabled := setting.CheckSensitiveEnabled
+	prevPrompt := setting.CheckSensitiveOnPromptEnabled
+	prevLocalBlock := setting.LocalSensitivePromptBlockEnabled
+	prevWords := append([]string(nil), setting.SensitiveWords...)
+	t.Cleanup(func() {
+		setting.CheckSensitiveEnabled = prevEnabled
+		setting.CheckSensitiveOnPromptEnabled = prevPrompt
+		setting.LocalSensitivePromptBlockEnabled = prevLocalBlock
+		setting.SensitiveWords = prevWords
+	})
+
+	setting.CheckSensitiveEnabled = true
+	setting.CheckSensitiveOnPromptEnabled = true
+	setting.LocalSensitivePromptBlockEnabled = true
+	setting.SensitiveWords = []string{"雷管炸弹"}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+
+	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹", setting.SensitivePromptScope(-1))
+	if rejected || apiErr != nil {
+		t.Fatal("text/video paths must not be locally blocked; upstream handles review")
 	}
 }
 
@@ -97,7 +125,7 @@ func TestPromptSensitiveRejection_DisabledByLocalBlockSwitch(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹")
+	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹", setting.SensitivePromptScopeImage)
 	if rejected || apiErr != nil {
 		t.Fatalf("expected no local rejection when LocalSensitivePromptBlockEnabled=false")
 	}
@@ -126,11 +154,11 @@ func TestPromptSensitiveRejection_WhitelistSkipsLocalBlock(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	c.Request = httptest.NewRequest("POST", "/v1/images/generations", nil)
 	c.Set("id", 7)
 
-	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹")
+	rejected, apiErr := PromptSensitiveRejection(c, "生成圆柱体雷管炸弹", setting.SensitivePromptScopeImage)
 	if rejected || apiErr != nil {
-		t.Fatal("expected whitelist user to bypass local sensitive check")
+		t.Fatal("expected whitelist user to bypass local sensitive check for image")
 	}
 }

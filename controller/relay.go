@@ -133,7 +133,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 	}
 
-	needSensitiveCheck := setting.ShouldCheckPromptSensitiveForUser(c.GetInt("id"))
+	needSensitiveCheck := relayFormat == types.RelayFormatOpenAIImage &&
+		setting.ShouldCheckPromptSensitiveForUser(c.GetInt("id"), setting.SensitivePromptScopeImage)
 	needCountToken := constant.CountToken
 	// Avoid building huge CombineText (strings.Join) when token counting and sensitive check are both disabled.
 	var meta *types.TokenCountMeta
@@ -147,7 +148,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	if meta != nil && needSensitiveCheck {
-		if rejected, apiErr := service.PromptSensitiveRejection(c, meta.CombineText); rejected {
+		if rejected, apiErr := service.PromptSensitiveRejection(c, meta.CombineText, setting.SensitivePromptScopeImage); rejected {
 			newAPIError = apiErr
 			return
 		}
