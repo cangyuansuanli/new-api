@@ -19,7 +19,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omnii2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
@@ -68,7 +67,6 @@ type RouterAdaptor struct {
 	manju             delegate
 	omniI2V           delegate
 	omniV2V           delegate
-	sd5               delegate
 	seedanceOairegbox delegate
 	seedanceLeonardo  delegate
 	seedanceHeygen    delegate
@@ -86,7 +84,6 @@ func NewRouterAdaptor() channel.TaskAdaptor {
 		manju:             &manju.TaskAdaptor{},
 		omniI2V:           &omnii2v.TaskAdaptor{},
 		omniV2V:           &omniv2v.TaskAdaptor{},
-		sd5:               &sd5.TaskAdaptor{},
 		seedanceOairegbox: &seedanceoairegbox.TaskAdaptor{},
 		seedanceLeonardo:  &seedanceleonardo.TaskAdaptor{},
 		seedanceHeygen:    &seedanceheygen.TaskAdaptor{},
@@ -122,8 +119,6 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 		return r.omniI2V
 	case registry.VendorOmniV2V:
 		return r.omniV2V
-	case registry.VendorSD5:
-		return r.sd5
 	case registry.VendorSeedanceOairegbox:
 		return r.seedanceOairegbox
 	case registry.VendorSeedanceLeonardo:
@@ -245,7 +240,6 @@ func (r *RouterAdaptor) GetModelList() []string {
 	models = append(models, r.geeknowGrok.GetModelList()...)
 	models = append(models, r.seqnode.GetModelList()...)
 	models = append(models, r.manju.GetModelList()...)
-	models = append(models, r.sd5.GetModelList()...)
 	models = append(models, r.seedanceOairegbox.GetModelList()...)
 	models = append(models, r.seedanceLeonardo.GetModelList()...)
 	models = append(models, r.seedanceHeygen.GetModelList()...)

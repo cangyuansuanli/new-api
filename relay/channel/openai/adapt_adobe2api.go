@@ -32,28 +32,6 @@ var adobe2APIImageModelPrefixes = []string{
 	"firefly-gpt-image",
 }
 
-var adobe2APIVideoModelPrefixes = []string{
-	"sora2",
-	"veo31",
-	"kling3",
-	"kling-o3",
-	"seedance2",
-	"adobe-sora2",
-	"adobe-veo31",
-	"adobe-kling3",
-	"adobe-kling-o3",
-	"adobe-seedance2",
-	"adobe2api-sora2",
-	"adobe2api-veo31",
-	"adobe2api-kling3",
-	"adobe2api-kling-o3",
-	"adobe2api-seedance2",
-	"firefly-sora",
-	"firefly-veo",
-	"firefly-kling",
-	"firefly-seedance",
-}
-
 const (
 	adobe2APIMaxInputImages = 9
 )
@@ -71,7 +49,7 @@ func IsAdobe2APIImageOriginModel(model string) bool {
 }
 
 func IsAdobe2APIVideoChatOriginModel(model string) bool {
-	return hasAdobe2APIPrefix(model, adobe2APIVideoModelPrefixes)
+	return false
 }
 
 func IsAdobe2APIImageRelay(info *relaycommon.RelayInfo) bool {

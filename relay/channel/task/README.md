@@ -36,7 +36,7 @@ oaivideo/
     ├── sd5/         # cy-sd5 Seedance：typed JSON、seed、首尾帧、9 图 + 3 个视频/音频共享源位
     ├── omnii2v/     # cy-sd1 omni-fast*：flat reference_image_urls → 上游 images/image_url
     ├── omniv2v/     # cy-sd1 omni-fast-v2v*：flat reference_videos → 上游 videos/images
-    ├── adobe/       # Adobe2API typed video：/v1/videos/generations
+    ├── adobe/       # Adobe2API typed video（含 cy-sd5 Seedance）：/v1/videos/generations
     └── defaultvideo/ # 兜底：sora-2 等标准 OpenAI Video
 ```
 
