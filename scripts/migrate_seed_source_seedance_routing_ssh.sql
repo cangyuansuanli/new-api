@@ -1,4 +1,4 @@
--- Channel 75 Seedance 2.0: independent internal/public names and 9/3/3 profile.
+-- Channel 75 Seedance 2.0: independent internal/public names, standard upstream mapping and 9/3/3 profile.
 -- Leonardo cy-sd4 models and routing are intentionally untouched.
 
 BEGIN;
@@ -38,8 +38,8 @@ SET models = array_to_string(
             - 'cy-sd5-seedance-2.0'
             - 'cy-sd5-seedance-2.0-fast')
         || jsonb_build_object(
-            'cy-sd5-seedance-2.0', 'cy-sd5-seedance-2.0',
-            'cy-sd5-seedance-2.0-fast', 'cy-sd5-seedance-2.0-fast'
+            'cy-sd5-seedance-2.0', 'seedance-2.0',
+            'cy-sd5-seedance-2.0-fast', 'seedance-2.0-fast'
         )
     )::text
 WHERE id = 75;

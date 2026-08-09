@@ -8,12 +8,12 @@ import (
 
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/registry"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/adobe"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/chatvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
@@ -35,7 +35,7 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		{"cy-sd4-seedance-2.0", "seedance-2.0", "seedance-leonardo"},
 		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", "seedance-heygen"},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", "seedance-leonardo"},
-		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", "sd5"},
+		{"cy-sd5-seedance-2.0-fast", "seedance-2.0-fast", "adobe"},
 		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance-tengda"},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", "chat"},
 		{"cy-gv1-grok-video-1.5", "grok-video-1.5", "grok"},
@@ -85,9 +85,9 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 			if _, ok := d.(*geeknowgrok.TaskAdaptor); !ok {
 				t.Fatalf("%s: expected Geeknow Grok adaptor", tc.origin)
 			}
-		case "sd5":
-			if _, ok := d.(*sd5.TaskAdaptor); !ok {
-				t.Fatalf("%s: expected SD5 adaptor", tc.origin)
+		case "adobe":
+			if _, ok := d.(*adobe.TaskAdaptor); !ok {
+				t.Fatalf("%s: expected Adobe adaptor", tc.origin)
 			}
 		default:
 			if _, ok := d.(*defaultvideo.TaskAdaptor); !ok {

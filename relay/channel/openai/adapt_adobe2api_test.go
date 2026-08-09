@@ -821,16 +821,16 @@ func TestConvertAdobe2APIOpenAIChatRequestPreservesVideoExtensions(t *testing.T)
 }
 
 func TestAdobe2APIVideoRelayMatchesChannel75MappedModels(t *testing.T) {
-	for _, model := range []string{"adobe-sora2", "adobe-sora2-pro", "adobe-veo31", "adobe-veo31-ref", "adobe-veo31-fast"} {
+	for _, model := range []string{"cy-adobe-veo-3.1", "cy-adobe-veo-3.1-fast", "cy-adobe-kling-3.0", "cy-adobe-kling-3.0-omni", "cy-adobe-gemini-omni-flash"} {
 		info := &relaycommon.RelayInfo{
 			OriginModelName: model,
 			ChannelMeta: &relaycommon.ChannelMeta{
 				ChannelId:         75,
-				UpstreamModelName: strings.TrimPrefix(model, "adobe-"),
+				UpstreamModelName: strings.TrimPrefix(model, "cy-adobe-"),
 			},
 		}
-		if !IsAdobe2APIVideoChatRelay(info) {
-			t.Fatalf("channel 75 model %q should use Adobe2API video chat relay", model)
+		if IsAdobe2APIVideoChatRelay(info) {
+			t.Fatalf("channel 75 model %q must use unified video tasks, not chat relay", model)
 		}
 	}
 }

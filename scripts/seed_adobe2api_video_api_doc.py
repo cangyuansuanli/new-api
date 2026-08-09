@@ -10,58 +10,22 @@ import time
 
 
 MODELS = {
-    "adobe-sora2": {
-        "public": "sora-2",
-        "profile": "video-tpl-adobe-sora2-json-async",
-        "description": "Sora2 标准版。支持文生视频、单张帧参考图和负面提示词。",
-        "tags": "video,sora,adobe,firefly",
-        "duration": [4, 8, 12],
-        "resolution": None,
-        "reference_mode": "frame",
-        "max_images": 1,
-        "supports_negative_prompt": True,
-        "variant": "标准版；可选 1 张帧参考图。",
-    },
-    "adobe-sora2-pro": {
-        "public": "sora-2-pro",
-        "profile": "video-tpl-adobe-sora2-json-async",
-        "description": "Sora2 Pro 高阶版。参数与标准版一致，支持单张帧参考图和负面提示词。",
-        "tags": "video,sora,adobe,firefly,pro",
-        "duration": [4, 8, 12],
-        "resolution": None,
-        "reference_mode": "frame",
-        "max_images": 1,
-        "supports_negative_prompt": True,
-        "variant": "Pro 高阶版；可选 1 张帧参考图，参数范围与标准版一致。",
-    },
-    "adobe-veo31": {
-        "public": "veo-3-1",
+    "cy-adobe-veo-3.1": {
+        "public": "veo-3.1",
         "profile": "video-tpl-adobe-veo31-json-async",
-        "description": "Veo 3.1 标准版。支持文生视频与最多 2 张首尾帧参考图。",
+        "description": "Veo 3.1 标准版。支持 3 张普通图像参考，或 2 张首尾帧参考图。",
         "tags": "video,veo,adobe,firefly",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
-        "reference_mode": "frame",
-        "max_images": 2,
-        "supports_negative_prompt": False,
-        "variant": "标准引擎；参考图按首帧、尾帧顺序传入，最多 2 张。",
-    },
-    "adobe-veo31-ref": {
-        "public": "veo-3-1-ref",
-        "profile": "video-tpl-adobe-veo31-ref-json-async",
-        "description": "Veo 3.1 素材参考版。最多 3 张主体或素材参考图。",
-        "tags": "video,veo,adobe,firefly,reference",
-        "duration": [4, 6, 8],
-        "resolution": ["720p", "1080p"],
-        "reference_mode": "image",
+        "reference_mode": "asset 或 frame",
         "max_images": 3,
         "supports_negative_prompt": False,
-        "variant": "素材参考模式；参考图作为主体或素材约束，不表示首尾帧，最多 3 张。",
+        "variant": "标准引擎；普通参考图最多 3 张（asset），首尾帧模式传 2 张（frame）。",
     },
-    "adobe-veo31-fast": {
-        "public": "veo-3-1-fast",
-        "profile": "video-tpl-adobe-veo31-json-async",
-        "description": "Veo 3.1 Fast 快速版。支持文生视频与最多 2 张首尾帧参考图。",
+    "cy-adobe-veo-3.1-fast": {
+        "public": "veo-3.1-fast",
+        "profile": "video-tpl-adobe-veo31-fast-json-async",
+        "description": "Veo 3.1 Fast 快速版。仅支持 2 张首尾帧参考图。",
         "tags": "video,veo,adobe,firefly,fast",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
@@ -70,14 +34,17 @@ MODELS = {
         "supports_negative_prompt": False,
         "variant": "快速引擎；参数与标准版一致，适合低延迟或批量生成。",
     },
+    "cy-adobe-kling-3.0": {"public": "kling-3.0", "profile": "video-tpl-adobe-kling3-json-async", "description": "Kling 3.0 视频生成。", "tags": "video,kling,adobe,firefly", "duration": list(range(3, 16)), "resolution": ["720p", "1080p"], "reference_mode": "frame", "max_images": 2, "supports_negative_prompt": False, "variant": "支持首尾帧参考图。"},
+    "cy-adobe-kling-3.0-omni": {"public": "kling-3.0-omni", "profile": "video-tpl-adobe-kling3-omni-json-async", "description": "Kling 3.0 Omni 多模态视频生成。", "tags": "video,kling,adobe,firefly,omni", "duration": list(range(3, 16)), "resolution": ["720p", "1080p"], "reference_mode": "style", "max_images": 3, "supports_negative_prompt": False, "variant": "支持多模态参考图和首尾帧。"},
+    "cy-adobe-gemini-omni-flash": {"public": "gemini-omni-flash", "profile": "video-tpl-adobe-gemini-omni-json-async", "description": "Gemini Omni Flash 视频生成，支持 3–10 秒。", "tags": "video,gemini,adobe,firefly,omni", "duration": list(range(3, 11)), "resolution": ["720p"], "reference_mode": "style 或 frame", "max_images": 4, "supports_negative_prompt": True, "variant": "支持 16:9/9:16；单张图可作为首帧，参考图组最多 4 张 style 图。"},
 }
 
 PRICE_USD = {
-    "adobe-sora2": 0.70,
-    "adobe-sora2-pro": 0.90,
-    "adobe-veo31": 0.90,
-    "adobe-veo31-ref": 0.90,
-    "adobe-veo31-fast": 0.70,
+    "cy-adobe-veo-3.1": 400,
+    "cy-adobe-veo-3.1-fast": 80,
+    "cy-adobe-kling-3.0": 525,
+    "cy-adobe-kling-3.0-omni": 525,
+    "cy-adobe-gemini-omni-flash": 300,
 }
 
 

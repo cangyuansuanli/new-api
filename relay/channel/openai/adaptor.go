@@ -236,7 +236,7 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 			header.Set("Authorization", "Bearer "+info.ApiKey)
 		}
 	}
-	if IsAdobe2APIImageRelay(info) || IsAdobe2APIVideoChatRelay(info) {
+	if IsAdobe2APIImageRelay(info) {
 		header.Set("X-API-Key", info.ApiKey)
 	}
 	if info.ChannelType == constant.ChannelTypeOpenRouter {
@@ -375,10 +375,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if IsManjuSora2OriginModel(info.OriginModelName) {
 		return convertManjuSora2OpenAIChatRequest(request, info)
 	}
-	if IsAdobe2APIVideoChatRelay(info) {
-		return ConvertAdobe2APIOpenAIChatRequest(c, request, info)
-	}
-
 	return request, nil
 }
 

@@ -15,6 +15,12 @@ func TestIsRelayUsesSD5ModelIdentityWithoutMapping(t *testing.T) {
 	if !IsRelay("cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast") {
 		t.Fatal("SD5 model should select the dedicated vendor without model mapping")
 	}
+	if !IsRelay("cy-sd5-seedance-2.0-fast", "seedance-2.0-fast") {
+		t.Fatal("SD5 model should remain routed after standard upstream mapping")
+	}
+	if IsRelay("cy-sd4-seedance-2.0", "seedance-2.0") {
+		t.Fatal("other Seedance channels must not be captured by SD5")
+	}
 	if IsRelay("adobe-sora2", "sora2") {
 		t.Fatal("Adobe Sora should not select the SD5 vendor")
 	}
@@ -22,7 +28,7 @@ func TestIsRelayUsesSD5ModelIdentityWithoutMapping(t *testing.T) {
 
 func TestBuildRequestBodyPreservesSeedanceNinePlusThreeReferences(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := `{"model":"cy-sd5-seedance-2.0-fast","prompt":"test","duration":4,"aspect_ratio":"21x9","resolution":"480p","seed":0,"generate_audio":false,"negative_prompt":"bad aesthetics","reference_mode":"media","images":["i1"],"reference_videos":["v1","v2"],"reference_audios":["a1"]}`
+	body := `{"model":"sd5-seedance-2.0-fast","prompt":"test","duration":4,"aspect_ratio":"21x9","resolution":"480p","seed":0,"generate_audio":false,"negative_prompt":"bad aesthetics","reference_mode":"media","images":["i1"],"reference_videos":["v1","v2"],"reference_audios":["a1"]}`
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -36,7 +42,7 @@ func TestBuildRequestBodyPreservesSeedanceNinePlusThreeReferences(t *testing.T) 
 	c.Set("task_request", taskRequest)
 
 	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
-		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "cy-sd5-seedance-2.0-fast"},
+		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "seedance-2.0-fast"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +55,7 @@ func TestBuildRequestBodyPreservesSeedanceNinePlusThreeReferences(t *testing.T) 
 	if err := basecommon.Unmarshal(out, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload["model"] != "cy-sd5-seedance-2.0-fast" {
+	if payload["model"] != "seedance-2.0-fast" {
 		t.Fatalf("model name should pass through unchanged: %#v", payload)
 	}
 	if payload["aspect_ratio"] != "21:9" || payload["reference_mode"] != "media" || payload["negative_prompt"] != "bad aesthetics" {
@@ -74,7 +80,7 @@ func TestBuildRequestBodyPreservesSeedanceNinePlusThreeReferences(t *testing.T) 
 
 func TestBuildRequestBodyRejectsMoreThanThreeCombinedSources(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := `{"model":"cy-sd5-seedance-2.0-fast","prompt":"test","images":["i1"],"reference_videos":["v1","v2"],"reference_audios":["a1","a2"]}`
+	body := `{"model":"sd5-seedance-2.0-fast","prompt":"test","images":["i1"],"reference_videos":["v1","v2"],"reference_audios":["a1","a2"]}`
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -84,7 +90,7 @@ func TestBuildRequestBodyRejectsMoreThanThreeCombinedSources(t *testing.T) {
 	}
 	c.Set("task_request", taskRequest)
 
-	_, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "cy-sd5-seedance-2.0-fast"}})
+	_, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "seedance-2.0-fast"}})
 	if err == nil || !strings.Contains(err.Error(), "at most 3 items combined") {
 		t.Fatalf("error = %v", err)
 	}

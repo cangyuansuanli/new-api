@@ -18,8 +18,8 @@ func TestResolve(t *testing.T) {
 		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", VendorSeedanceHeygen},
 		{"cy-sd6-seedance-2.0-1080p", "seedance-2.0", VendorSeedanceHeygen},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", VendorSeedanceLeonardo},
-		{"cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", VendorSD5},
-		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", VendorSD5},
+		{"cy-sd5-seedance-2.0", "seedance-2.0", VendorAdobe},
+		{"cy-sd5-seedance-2.0-fast", "seedance-2.0-fast", VendorAdobe},
 		{"cy-sd2-seedance-2.0", "manxue-2.0", VendorSeedanceTengda},
 		{"tengd-seedance-2.0", "manxue-2.0", VendorSeedanceTengda},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", VendorChat},
@@ -110,10 +110,10 @@ func TestResolveTaskDoesNotInferWhenPersistedVendorIsInvalid(t *testing.T) {
 }
 
 func TestResolveSubmissionKeepsSD5SeparateFromAdobe(t *testing.T) {
-	if got := ResolveSubmission("cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", 86, "http://45.67.221.45:6002"); got != VendorSD5 {
-		t.Fatalf("SD5 route = %q, want %q", got, VendorSD5)
+	if got := ResolveSubmission("cy-sd5-seedance-2.0", "seedance-2.0", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
+		t.Fatalf("SD5 route = %q, want %q", got, VendorAdobe)
 	}
-	if got := ResolveSubmission("adobe-sora2", "sora2", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
+	if got := ResolveSubmission("cy-adobe-veo-3.1", "veo-3.1", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
 		t.Fatalf("Adobe route = %q, want %q", got, VendorAdobe)
 	}
 }

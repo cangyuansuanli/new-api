@@ -13,13 +13,11 @@ func IsRelay(originModel, upstreamModel string, channelID int, baseURL string) b
 	}
 	for _, model := range []string{originModel, upstreamModel} {
 		name := strings.ToLower(strings.TrimSpace(model))
-		for _, prefix := range []string{
-			"adobe-", "adobe/", "adobe2api-", "adobe2api/",
-			"firefly-sora", "firefly-veo", "firefly-kling", "firefly-seedance",
-		} {
-			if strings.HasPrefix(name, prefix) {
-				return true
-			}
+		if strings.HasPrefix(name, "cy-adobe-veo-") ||
+			strings.HasPrefix(name, "cy-adobe-kling-") ||
+			strings.HasPrefix(name, "cy-adobe-gemini-omni-flash") ||
+			strings.HasPrefix(name, "cy-sd5-seedance-") {
+			return true
 		}
 	}
 	return false
