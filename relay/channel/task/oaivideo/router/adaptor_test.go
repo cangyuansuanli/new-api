@@ -1,6 +1,9 @@
 package router
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/model"
@@ -14,7 +17,9 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 )
 
 func TestRouterAdaptor_DelegateFor(t *testing.T) {
@@ -127,5 +132,72 @@ func TestRouterAdaptor_VendorResolveMatchesPick(t *testing.T) {
 	origin := "cy-sd1-seedance-2.0-fast-720p"
 	if registry.Resolve(origin, "") != registry.VendorSeedanceOairegbox {
 		t.Fatal("registry should classify cy-sd1 as seedance-oairegbox")
+	}
+}
+
+func TestRouterAdaptor_PersistedVendorOwnsTaskLifecycle(t *testing.T) {
+	r := NewRouterAdaptor().(*RouterAdaptor)
+	task := &model.Task{
+		ChannelId: 106,
+		Properties: model.Properties{
+			TaskVendor:        string(registry.VendorSeqnode),
+			OriginModelName:   "cy-gv1-grok-video",
+			UpstreamModelName: "grok-imagine-video",
+		},
+	}
+	if _, ok := r.delegateForTask(task).(*seqnode.TaskAdaptor); !ok {
+		t.Fatal("persisted seqnode vendor must override conflicting model-family inference")
+	}
+}
+
+func TestRouterAdaptor_ResultSourceDelegatesByPersistedVendor(t *testing.T) {
+	r := NewRouterAdaptor().(*RouterAdaptor)
+	task := &model.Task{
+		Properties:  model.Properties{TaskVendor: string(registry.VendorSeqnode)},
+		PrivateData: model.TaskPrivateData{UpstreamTaskID: "upstream-task"},
+	}
+	source := r.ResolveTaskResultSourceForTask(task, "https://www.seqnode.com/", "test-key")
+	if source == nil || source.URL != "https://www.seqnode.com/v1/videos/upstream-task/content" {
+		t.Fatalf("unexpected result source: %#v", source)
+	}
+	if got := source.Headers.Get("Authorization"); got != "Bearer test-key" {
+		t.Fatalf("unexpected authorization header %q", got)
+	}
+}
+
+func TestTaskVendorPersistsIntoTaskProperties(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		TaskVendor:  string(registry.VendorSeqnode),
+		ChannelMeta: &relaycommon.ChannelMeta{},
+	}
+	task := model.InitTask("", info)
+	if task.Properties.TaskVendor != string(registry.VendorSeqnode) {
+		t.Fatalf("persisted task vendor = %q", task.Properties.TaskVendor)
+	}
+}
+
+func TestRouterAdaptor_FetchTaskUsesPersistedVendorPath(t *testing.T) {
+	service.InitHttpClient()
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		gotPath = req.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"status":"done"}`)
+	}))
+	defer server.Close()
+
+	r := NewRouterAdaptor().(*RouterAdaptor)
+	resp, err := r.FetchTask(server.URL, "test-key", map[string]any{
+		"task_id":        "upstream-task",
+		"task_vendor":    string(registry.VendorSeqnode),
+		"origin_model":   "cy-gv1-grok-video",
+		"upstream_model": "grok-imagine-video",
+	}, "")
+	if err != nil {
+		t.Fatalf("FetchTask() error = %v", err)
+	}
+	defer resp.Body.Close()
+	if gotPath != "/v1/videos/generations/upstream-task" {
+		t.Fatalf("FetchTask() path = %q", gotPath)
 	}
 }

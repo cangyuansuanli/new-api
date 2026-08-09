@@ -51,7 +51,12 @@ type openAIVideoDelegate interface {
 	ConvertToOpenAIVideo(task *model.Task) ([]byte, error)
 }
 
-// RouterAdaptor 按模型路由到独立 vendor，避免上游协议互相污染。
+type taskResultSourceDelegate interface {
+	ResolveTaskResultSource(baseURL, taskID, key string) *relaycommon.TaskResultSource
+}
+
+// RouterAdaptor selects a vendor during submission, then reuses the persisted
+// vendor for the complete task lifecycle.
 type RouterAdaptor struct {
 	native            delegate
 	adobe             delegate
@@ -87,10 +92,17 @@ func NewRouterAdaptor() channel.TaskAdaptor {
 }
 
 func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
-	if r == nil {
+	if r == nil || info == nil {
 		return nil
 	}
-	switch registry.ResolveWithChannel(info.OriginModelName, info.UpstreamModelName, info.ChannelId, info.ChannelBaseUrl) {
+	persisted := strings.TrimSpace(info.TaskVendor)
+	vendor, ok := registry.ParseVendor(persisted)
+	if persisted == "" {
+		vendor = registry.ResolveSubmission(info.OriginModelName, info.UpstreamModelName, info.ChannelId, info.ChannelBaseUrl)
+	} else if !ok {
+		vendor = registry.VendorSora
+	}
+	switch vendor {
 	case registry.VendorAdobe:
 		return r.adobe
 	case registry.VendorChat:
@@ -121,7 +133,19 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 }
 
 func (r *RouterAdaptor) delegateForTask(task *model.Task) delegate {
-	return r.delegateFor(registry.RelayInfoFromTask(task))
+	if task == nil {
+		return nil
+	}
+	info := registry.RelayInfoFromTask(task)
+	info.TaskVendor = string(registry.ResolveTask(task))
+	return r.delegateFor(info)
+}
+
+func (r *RouterAdaptor) ResolveTaskVendor(info *relaycommon.RelayInfo) string {
+	if info == nil {
+		return ""
+	}
+	return string(registry.ResolveSubmission(info.OriginModelName, info.UpstreamModelName, info.ChannelId, info.ChannelBaseUrl))
 }
 
 func (r *RouterAdaptor) Init(info *relaycommon.RelayInfo) {
@@ -229,6 +253,7 @@ func (r *RouterAdaptor) GetChannelName() string {
 func (r *RouterAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: stringFromBody(body, "origin_model"),
+		TaskVendor:      stringFromBody(body, "task_vendor"),
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelId:         intFromBody(body, "channel_id"),
 			ChannelBaseUrl:    baseUrl,
@@ -268,60 +293,29 @@ func (r *RouterAdaptor) ParseTaskResultForTask(task *model.Task, respBody []byte
 	return r.parseTaskResultBody(respBody, task)
 }
 
-func (r *RouterAdaptor) ResolveVideoResultForTask(task *model.Task, baseURL, key string) (string, string) {
+func (r *RouterAdaptor) ResolveTaskResultSourceForTask(task *model.Task, baseURL, key string) *relaycommon.TaskResultSource {
 	if task == nil {
-		return "", ""
+		return nil
 	}
-	info := registry.RelayInfoFromTask(task)
-	upstreamModel := ""
-	if info.ChannelMeta != nil {
-		upstreamModel = info.ChannelMeta.UpstreamModelName
+	d := r.delegateForTask(task)
+	resolver, ok := d.(taskResultSourceDelegate)
+	if !ok {
+		return nil
 	}
-	if registry.ResolveWithChannel(info.OriginModelName, upstreamModel, task.ChannelId, baseURL) != registry.VendorSeqnode {
-		return "", ""
-	}
-	return r.seqnode.(*seqnode.TaskAdaptor).ResolveVideoResult(baseURL, task.GetUpstreamTaskID(), key)
+	return resolver.ResolveTaskResultSource(baseURL, task.GetUpstreamTaskID(), key)
 }
 
 func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (*relaycommon.TaskInfo, error) {
 	if r == nil {
 		return nil, fmt.Errorf("video router adaptor not available")
 	}
+	if task != nil {
+		if d := r.delegateForTask(task); d != nil {
+			return d.ParseTaskResult(respBody)
+		}
+	}
 	if manju.IsResponse(respBody) {
 		return r.manju.ParseTaskResult(respBody)
-	}
-	if task != nil {
-		info := registry.RelayInfoFromTask(task)
-		upstreamModel := ""
-		if info.ChannelMeta != nil {
-			upstreamModel = info.ChannelMeta.UpstreamModelName
-		}
-		switch registry.ResolveWithChannel(info.OriginModelName, upstreamModel, task.ChannelId, "") {
-		case registry.VendorAdobe:
-			return r.adobe.ParseTaskResult(respBody)
-		case registry.VendorChat:
-			return r.chat.ParseTaskResult(respBody)
-		case registry.VendorGrok:
-			return r.grok.ParseTaskResult(respBody)
-		case registry.VendorGeeknowGrok:
-			return r.geeknowGrok.ParseTaskResult(respBody)
-		case registry.VendorSeqnode:
-			return r.seqnode.ParseTaskResult(respBody)
-		case registry.VendorManju:
-			return r.manju.ParseTaskResult(respBody)
-		case registry.VendorOmniI2V:
-			return r.omniI2V.ParseTaskResult(respBody)
-		case registry.VendorOmniV2V:
-			return r.omniV2V.ParseTaskResult(respBody)
-		case registry.VendorSD5:
-			return r.sd5.ParseTaskResult(respBody)
-		case registry.VendorSeedanceOairegbox:
-			return r.seedanceOairegbox.ParseTaskResult(respBody)
-		case registry.VendorSeedanceLeonardo:
-			return r.seedanceLeonardo.ParseTaskResult(respBody)
-		case registry.VendorSeedanceTengda:
-			return r.seedanceTengda.ParseTaskResult(respBody)
-		}
 	}
 	return r.native.ParseTaskResult(respBody)
 }

@@ -83,6 +83,18 @@ type TaskAwareResultParser interface {
 	ParseTaskResultForTask(task *model.Task, respBody []byte) (*relaycommon.TaskInfo, error)
 }
 
+// TaskVendorResolver resolves the outbound protocol after channel distribution
+// and model mapping. The resolved value is persisted with the task.
+type TaskVendorResolver interface {
+	ResolveTaskVendor(info *relaycommon.RelayInfo) string
+}
+
+// TaskResultSourceResolver optionally provides a protected media source for a
+// completed task whose polling response does not contain a result URL.
+type TaskResultSourceResolver interface {
+	ResolveTaskResultSourceForTask(task *model.Task, baseURL, key string) *relaycommon.TaskResultSource
+}
+
 type OpenAIVideoConverter interface {
 	ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error)
 }

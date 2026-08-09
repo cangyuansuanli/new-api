@@ -98,11 +98,18 @@ func (a *TaskAdaptor) FetchTask(base, key string, body map[string]any, proxy str
 	return cl.Do(req)
 }
 
-func (*TaskAdaptor) ResolveVideoResult(baseURL, taskID, key string) (string, string) {
+func (*TaskAdaptor) ResolveTaskResultSource(baseURL, taskID, key string) *relaycommon.TaskResultSource {
 	if strings.TrimSpace(taskID) == "" {
-		return "", ""
+		return nil
 	}
-	return strings.TrimRight(baseURL, "/") + "/v1/videos/" + taskID + "/content", key
+	headers := make(http.Header)
+	if strings.TrimSpace(key) != "" {
+		headers.Set("Authorization", "Bearer "+key)
+	}
+	return &relaycommon.TaskResultSource{
+		URL:     strings.TrimRight(baseURL, "/") + "/v1/videos/" + taskID + "/content",
+		Headers: headers,
+	}
 }
 func (a *TaskAdaptor) ParseTaskResult(b []byte) (*relaycommon.TaskInfo, error) {
 	return a.TaskAdaptor.ParseTaskResult(normalize(b))

@@ -177,7 +177,7 @@ func UploadGeneratedVideoBytes(ctx context.Context, userID int, taskID string, d
 	}, nil
 }
 
-func UploadGeneratedVideoFromURL(ctx context.Context, userID int, taskID, videoURL, authKey string) (*R2UploadResult, error) {
+func UploadGeneratedVideoFromURL(ctx context.Context, userID int, taskID, videoURL string, sourceHeaders http.Header) (*R2UploadResult, error) {
 	videoURL = strings.TrimSpace(videoURL)
 	if videoURL == "" {
 		return nil, fmt.Errorf("empty video url")
@@ -196,8 +196,10 @@ func UploadGeneratedVideoFromURL(ctx context.Context, userID int, taskID, videoU
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(authKey) != "" {
-		req.Header.Set("Authorization", "Bearer "+authKey)
+	for name, values := range sourceHeaders {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -261,11 +263,11 @@ func patchVideoUsageSecondsInTaskData(data []byte, seconds int) ([]byte, error) 
 }
 
 // RehostVideoTaskResult copies upstream video to R2 and returns CDN URL plus patched task data.
-func RehostVideoTaskResult(ctx context.Context, userID int, channelID int, taskID, upstreamURL string, taskData []byte, authKey string) (string, []byte, error) {
+func RehostVideoTaskResult(ctx context.Context, userID int, channelID int, taskID, upstreamURL string, taskData []byte, sourceHeaders http.Header) (string, []byte, error) {
 	if !VideoURLNeedsRehost(upstreamURL) {
 		return upstreamURL, taskData, nil
 	}
-	uploaded, err := UploadGeneratedVideoFromURL(ctx, userID, taskID, upstreamURL, authKey)
+	uploaded, err := UploadGeneratedVideoFromURL(ctx, userID, taskID, upstreamURL, sourceHeaders)
 	if err != nil {
 		return upstreamURL, taskData, err
 	}

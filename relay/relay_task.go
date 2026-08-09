@@ -143,6 +143,9 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 // 控制器负责 defer Refund 和成功后 Settle。
 func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitResult, *dto.TaskError) {
 	info.InitChannelMeta(c)
+	// RelayInfo is reused across channel retries. Protocol identity belongs to
+	// the current distributed channel and must be resolved again per attempt.
+	info.TaskVendor = ""
 
 	// 1. 确定 platform → 创建适配器 → 验证请求
 	platform := constant.TaskPlatform(c.GetString("platform"))
@@ -169,6 +172,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	info.UpstreamModelName = modelName
 	if err := helper.ModelMappedHelper(c, info, nil); err != nil {
 		return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
+	}
+	if resolver, ok := adaptor.(channel.TaskVendorResolver); ok {
+		info.TaskVendor = resolver.ResolveTaskVendor(info)
 	}
 
 	// 3. 预生成公开 task ID（仅首次）

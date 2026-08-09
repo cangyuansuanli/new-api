@@ -16,18 +16,19 @@
 
 ## L2：OpenAI Video 族（`oaivideo/`）
 
-共用对外 API（`POST/GET /v1/videos`），同一渠道类型下按 **模型名** 二级路由：
+共用对外 API（`POST/GET /v1/videos`）。渠道分发与模型映射完成后，registry 一次性确定出站 vendor 并持久化到任务；后续生命周期不再按模型名重新猜协议：
 
 ```
 oaivideo/
 ├── router/          # 门面：GetTaskAdaptor 返回 RouterAdaptor
-├── registry/        # 模型/渠道 → Vendor（manju / grok / seedance-* / adobe / default）
+├── registry/        # 已分发渠道 + internal/upstream 模型 → Vendor
 ├── shared/          # 协议共享：FetchVideoTask、解析、multipart 透传
 └── vendors/
     ├── manju/       # manju-openai-sora*（chat/completions 提交）
     ├── chatvideo/   # 聚合视频线路：统一任务请求 → chat/completions
     ├── grok/        # cy-gv1 + 119337：/v1/video/generations 提交、轮询与响应归一化
     ├── geeknowgrok/ # Geeknow Grok：/v1/videos JSON（grok-imagine-video 系列）
+    ├── seqnode/     # Seqnode Grok：/v1/videos/generations + 鉴权 content 成片
     ├── seedanceoairegbox/ # cy-sd1 → OAIREGBox flat /v1/videos
     ├── seedancetengda/    # cy-sd2 / tengd → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
@@ -55,7 +56,7 @@ Seedance 2.0 支持纯 prompt 文生，也支持参考图、参考视频或参�
 | 场景 | 改哪里 |
 |------|--------|
 | 新上游、新 channel.type | `task/<name>/` + `GetTaskAdaptor` 新 `case` |
-| OpenAI Video 族新厂商 | `oaivideo/vendors/<vendor>/` + `registry.ResolveWithChannel` |
+| OpenAI Video 族新厂商 | `oaivideo/vendors/<vendor>/` + `registry.ResolveSubmission` |
 | 仅改解析/计费 | 对应 `vendors/*` 或 `shared/` |
 
 ## 共享工具
@@ -64,4 +65,5 @@ Seedance 2.0 支持纯 prompt 文生，也支持参考图、参考视频或参�
 - `oaivideo/vendors/adobe/` — Adobe2API 请求规范化和 typed endpoint 路由；生命周期与计费复用标准视频
 - `oaivideo/vendors/grok/` — 119337 Grok generations 路由；将公共 `image_urls` 映射到严格上游 JSON，并归一化 envelope 响应
 - `oaivideo/vendors/geeknowgrok/` — Geeknow Grok 路由；`POST/GET /v1/videos`，`seconds` 字符串化，`image`/`images` 参考图
+- `oaivideo/vendors/seqnode/` — Seqnode Grok 出站；提交、轮询和受保护成片来源均封装在 vendor 内
 - `oaivideo/shared/` 的可选字段转换必须保持 `nil → 空值`；轮询路由读取历史任务时必须允许 `ChannelMeta` 缺失。
