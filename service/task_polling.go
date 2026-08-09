@@ -411,13 +411,8 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
 	var resultSource *relaycommon.TaskResultSource
-	if taskResult.Url == "" {
-		if resolver, ok := adaptor.(TaskResultSourceResolver); ok {
-			resultSource = resolver.ResolveTaskResultSourceForTask(task, baseURL, key)
-			if resultSource != nil {
-				taskResult.Url = resultSource.URL
-			}
-		}
+	if taskResult.Status == model.TaskStatusSuccess {
+		resultSource = resolveVideoTaskResultSource(adaptor, task, taskResult, baseURL, key)
 	}
 
 	task.Data = redactVideoResponseBody(responseBody)
@@ -530,6 +525,21 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	}
 
 	return nil
+}
+
+func resolveVideoTaskResultSource(adaptor TaskPollingAdaptor, task *model.Task, taskResult *relaycommon.TaskInfo, baseURL, key string) *relaycommon.TaskResultSource {
+	if taskResult == nil {
+		return nil
+	}
+	resolver, ok := adaptor.(TaskResultSourceResolver)
+	if !ok {
+		return nil
+	}
+	source := resolver.ResolveTaskResultSourceForTask(task, baseURL, key)
+	if source != nil && strings.TrimSpace(source.URL) != "" {
+		taskResult.Url = source.URL
+	}
+	return source
 }
 
 // parseVideoPollingResult gives the task-aware vendor boundary the first chance

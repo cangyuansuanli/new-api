@@ -89,8 +89,8 @@ type TaskVendorResolver interface {
 	ResolveTaskVendor(info *relaycommon.RelayInfo) string
 }
 
-// TaskResultSourceResolver optionally provides a protected media source for a
-// completed task whose polling response does not contain a result URL.
+// TaskResultSourceResolver optionally provides the canonical media source for
+// a completed task, including transient headers needed for server-side rehost.
 type TaskResultSourceResolver interface {
 	ResolveTaskResultSourceForTask(task *model.Task, baseURL, key string) *relaycommon.TaskResultSource
 }
