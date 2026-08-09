@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
@@ -25,6 +26,22 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		return service.TaskErrorWrapperLocal(fmt.Errorf("Seedance 2.0 requests must use application/json"), "invalid_request", http.StatusBadRequest)
 	}
 	return a.TaskAdaptor.ValidateRequestAndSetAction(c, info)
+}
+
+func (*TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if info == nil || strings.TrimSpace(info.ChannelBaseUrl) == "" {
+		return "", fmt.Errorf("Seedance 2.0 base url is empty")
+	}
+	return strings.TrimRight(info.ChannelBaseUrl, "/") + "/v1/videos", nil
+}
+
+func (*TaskAdaptor) BuildRequestHeader(_ *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
+	if info == nil || strings.TrimSpace(info.ApiKey) == "" {
+		return fmt.Errorf("Seedance 2.0 api key is empty")
+	}
+	req.Header.Set("Authorization", "Bearer "+info.ApiKey)
+	req.Header.Set("Content-Type", "application/json")
+	return nil
 }
 
 func (*TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
@@ -73,6 +90,10 @@ func (*TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo
 	}
 	c.Request.Header.Set("Content-Type", "application/json")
 	return bytes.NewReader(body), nil
+}
+
+func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, body io.Reader) (*http.Response, error) {
+	return channel.DoTaskApiRequest(a, c, info, body)
 }
 
 func (*TaskAdaptor) ResolveTaskResultSource(baseURL, taskID, key string) *relaycommon.TaskResultSource {

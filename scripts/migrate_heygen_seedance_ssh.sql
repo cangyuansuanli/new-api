@@ -6,6 +6,14 @@ INSERT INTO model_channel_prefixes (prefix, note, enabled, sort_order, created_t
 VALUES ('cy-sd6-', '渠道 105 Seedance 2.0 双清晰度产品', TRUE, 130, EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
 ON CONFLICT (prefix) DO UPDATE SET note = EXCLUDED.note, enabled = TRUE, updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT;
 
+INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
+VALUES
+    ('cy-sd6-seedance-2.0-720p', 'sd6-seedance-2.0-720p', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('cy-sd6-seedance-2.0-1080p', 'sd6-seedance-2.0-1080p', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
+ON CONFLICT (internal_name) DO UPDATE SET
+    public_name = EXCLUDED.public_name,
+    updated_time = EXCLUDED.updated_time;
+
 INSERT INTO model_ui_param_profiles (
     capability, profile_id, api_mode, payload_builder, requires_reference_media,
     poll, poll_status, reference_limits, params, option_rules, hints,
