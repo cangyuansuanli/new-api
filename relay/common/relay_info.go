@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -80,6 +81,13 @@ type ChannelMeta struct {
 	SupportStreamOptions bool // 是否支持流式选项
 }
 
+// TaskResultSource describes a vendor-owned media source that the service may
+// download and rehost. Headers are transient and must never be persisted.
+type TaskResultSource struct {
+	URL     string
+	Headers http.Header
+}
+
 type TokenCountMeta struct {
 	//promptTokens int
 	estimatePromptTokens int
@@ -103,6 +111,7 @@ type RelayInfo struct {
 	UsePrice               bool
 	RelayMode              int
 	OriginModelName        string
+	TaskVendor             string
 	ClientModelName        string
 	RequestURLPath         string
 	RequestHeaders         map[string]string

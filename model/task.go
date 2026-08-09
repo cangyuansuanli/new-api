@@ -86,6 +86,7 @@ type Properties struct {
 	Input             string `json:"input"`
 	UpstreamModelName string `json:"upstream_model_name,omitempty"`
 	OriginModelName   string `json:"origin_model_name,omitempty"`
+	TaskVendor        string `json:"task_vendor,omitempty"`
 	ClientModelName   string `json:"client_model_name,omitempty"`
 	TaskKind          string `json:"task_kind,omitempty"`
 }
@@ -210,6 +211,7 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 	if relayInfo.OriginModelName != "" {
 		properties.OriginModelName = relayInfo.OriginModelName
 	}
+	properties.TaskVendor = relayInfo.TaskVendor
 	if relayInfo.ClientModelName != "" {
 		properties.ClientModelName = relayInfo.ClientModelName
 	}

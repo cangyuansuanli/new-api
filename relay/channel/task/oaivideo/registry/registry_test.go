@@ -1,6 +1,10 @@
 package registry
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/QuantumNous/new-api/model"
+)
 
 func TestResolve(t *testing.T) {
 	cases := []struct {
@@ -34,17 +38,52 @@ func TestResolve(t *testing.T) {
 	}
 }
 
-func TestResolveWithChannelPrefersSeqnodeForChannel106(t *testing.T) {
-	if got := ResolveWithChannel("cy-gv2-grok-video", "grok-imagine-video", 106, "https://www.seqnode.com"); got != VendorSeqnode {
-		t.Fatalf("ResolveWithChannel() = %q, want %q", got, VendorSeqnode)
+func TestResolveSubmissionUsesDistributedChannelProtocol(t *testing.T) {
+	if got := ResolveSubmission("cy-gv2-grok-video", "grok-imagine-video", 106, "https://www.seqnode.com"); got != VendorSeqnode {
+		t.Fatalf("channel 106 route = %q, want %q", got, VendorSeqnode)
+	}
+	if got := ResolveSubmission("cy-gv1-grok-video", "grok-imagine-video", 105, "https://example.com"); got != VendorGeeknowGrok {
+		t.Fatalf("other Grok channel route = %q, want %q", got, VendorGeeknowGrok)
 	}
 }
 
-func TestResolveWithChannelKeepsSD5SeparateFromAdobe(t *testing.T) {
-	if got := ResolveWithChannel("cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", 86, "http://45.67.221.45:6002"); got != VendorSD5 {
+func TestResolveTaskUsesPersistedVendor(t *testing.T) {
+	task := &model.Task{
+		ChannelId: 999,
+		Properties: model.Properties{
+			TaskVendor:        string(VendorSeqnode),
+			OriginModelName:   "cy-gv1-grok-video",
+			UpstreamModelName: "grok-imagine-video",
+		},
+	}
+	if got := ResolveTask(task); got != VendorSeqnode {
+		t.Fatalf("ResolveTask() = %q, want persisted %q", got, VendorSeqnode)
+	}
+}
+
+func TestResolveTaskFallsBackForHistoricalTask(t *testing.T) {
+	task := &model.Task{Properties: model.Properties{OriginModelName: "cy-gv1-grok-video", UpstreamModelName: "grok-imagine-video"}}
+	if got := ResolveTask(task); got != VendorGeeknowGrok {
+		t.Fatalf("ResolveTask() = %q, want legacy fallback %q", got, VendorGeeknowGrok)
+	}
+}
+
+func TestResolveTaskDoesNotInferWhenPersistedVendorIsInvalid(t *testing.T) {
+	task := &model.Task{Properties: model.Properties{
+		TaskVendor:        "unknown-vendor",
+		OriginModelName:   "cy-gv1-grok-video",
+		UpstreamModelName: "grok-imagine-video",
+	}}
+	if got := ResolveTask(task); got != VendorSora {
+		t.Fatalf("ResolveTask() = %q, want safe default %q", got, VendorSora)
+	}
+}
+
+func TestResolveSubmissionKeepsSD5SeparateFromAdobe(t *testing.T) {
+	if got := ResolveSubmission("cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", 86, "http://45.67.221.45:6002"); got != VendorSD5 {
 		t.Fatalf("SD5 route = %q, want %q", got, VendorSD5)
 	}
-	if got := ResolveWithChannel("adobe-sora2", "sora2", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
+	if got := ResolveSubmission("adobe-sora2", "sora2", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
 		t.Fatalf("Adobe route = %q, want %q", got, VendorAdobe)
 	}
 }

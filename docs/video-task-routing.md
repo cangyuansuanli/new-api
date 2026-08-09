@@ -1,19 +1,20 @@
 # 视频任务路由与轮询
 
-本文描述 OpenAI Video 渠道族（`oaivideo`）以及 Adobe2API 视频模型的任务生命周期、模型路由与轮询行为。
+本文描述 OpenAI Video 渠道族（`oaivideo`）以及 Adobe2API 视频模型的任务生命周期、渠道协议路由与轮询行为。
 
 ## 目录结构
 
 ```
 relay/channel/task/oaivideo/
 ├── router/           # 门面适配器（OpenAI/Sora/Custom 视频渠道入口）
-├── registry/         # 模型 → Vendor 注册表
+├── registry/         # 已分发渠道 + 模型映射结果 → Vendor 注册表
 ├── shared/           # FetchVideoTask、响应解析、multipart 透传
 └── vendors/
     ├── manju/
     ├── chatvideo/    # 聚合线路 chat 上游，对外仍是统一任务
     ├── grok/         # 119337 generations endpoint + envelope normalization
     ├── geeknowgrok/  # Geeknow grok-imagine-video* via /v1/videos JSON
+    ├── seqnode/      # Seqnode Grok generations + protected content
     ├── seedanceoairegbox/ # cy-sd1 → OAIREGBox flat /v1/videos
     ├── seedancetengda/    # cy-sd2 → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
@@ -28,10 +29,11 @@ relay/channel/task/oaivideo/
 
 所有视频模型共用 [`service/task_polling.go`](../service/task_polling.go) 中的 `TaskPollingLoop`（每 15 秒）：
 
-1. `FetchTask` — Router 使用任务保存的 internal / upstream 模型重新选择 vendor；标准线路与 Geeknow Grok 请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，119337 Grok 请求 `/v1/video/generations/{upstream_task_id}`
+1. `FetchTask` — 新任务使用提交时持久化的 `properties.task_vendor` 选择 vendor；历史任务缺少该字段时，才使用 channel ID + internal/upstream 模型恢复。标准线路与 Geeknow Grok 请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，119337 Grok 请求 `/v1/video/generations/{upstream_task_id}`，Seqnode 请求 `/v1/videos/generations/{upstream_task_id}`
 2. `ParseTaskResultForTask` / `ParseTaskResult` — 优先由任务对应 Vendor 归一化上游 JSON；仅当专用解析未识别状态时才回退通用 `{code,data}` 任务响应解析，避免包裹结构“可反序列化但丢失结果 URL”
-3. 写 DB（CAS `UpdateWithStatus`）
-4. `AdjustBillingOnComplete` — 按 Vendor 结算差额
+3. 成功态如需补齐受保护成片来源，由任务对应 vendor 返回 URL + 临时请求头，通用 R2 服务只负责下载和转存
+4. 写 DB（CAS `UpdateWithStatus`）
+5. `AdjustBillingOnComplete` — 按 Vendor 结算差额
 
 历史任务若曾把自身 `/v1/videos/{id}/content` 错写为 `result_url`，内容代理会仅在检测到该自引用时从原始任务响应恢复真实上游 URL；正常 CDN/上游结果地址不会被覆盖。
 
@@ -121,16 +123,19 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 
 模型广场与 API 文档中的 Adobe 视频元数据必须同步使用 `openai-video` endpoint、`videos-json-async` UI profile 和 `dispatch_mode=async`；旧 `*-chat` profile 与 `/v1/chat/completions` 示例属于迁移前遗留数据，不能继续对客户展示。仅修正文档/profile 而不调整售价时，运行 `python3 scripts/seed_adobe2api_video_api_doc.py --docs-only`。
 
-## 模型 → Vendor 路由表
+## 渠道 → Vendor 路由
 
 注册逻辑：[`relay/channel/task/oaivideo/registry/registry.go`](../relay/channel/task/oaivideo/registry/registry.go)
 
-| internal 模型前缀 | Vendor | 提交差异 | 轮询解析 |
-|-------------------|--------|----------|----------|
+提交阶段在渠道分发和 `model_mapping` 完成后解析一次 vendor，并写入 `tasks.properties.task_vendor`。轮询、结果解析、成片获取、计费和响应转换都必须使用该持久化值，禁止按模型名重新猜测协议。模型匹配只用于提交时解析和历史任务兼容。
+
+| 渠道 / internal 模型条件 | Vendor | 提交差异 | 轮询解析 |
+|--------------------------|--------|----------|----------|
 | `manju-openai-sora*` | Manju | chat/completions 转换 | Manju 响应形（`platform:sora2` 等） |
 | `cy-vid2-*` / `cy-sd1-grok-video*` | Chat Video | 内部转 chat/completions，读 SSE/JSON 视频 URL | 提交时即归一化为已完成任务 |
 | `cy-gv1-grok-video*` + upstream `grok-image-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
+| channel `106` + `cy-gv2-grok-video*` | Seqnode | JSON → `/v1/videos/generations` | `/v1/videos/generations/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
 | `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
@@ -154,9 +159,9 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 
 ## 新增视频模型 Checklist
 
-1. 在 `registry.ResolveWithChannel` 注册匹配规则（按 Adobe channel/model 进入独立 vendor adaptor，不复制任务生命周期）
+1. 在 `registry.ResolveSubmission` 注册匹配规则；渠道专属协议必须排在通用模型族规则之前
 2. 确认提交阶段：走 Manju / Grok / Seedance / Adobe 转换，还是 default 透传
-3. 确认轮询：`FetchTask` 是否仍为 `/v1/videos/{id}`；若路径不同，必须由任务模型重新选择 vendor
+3. 确认轮询：`FetchTask` 是否仍为 `/v1/videos/{id}`；若路径不同，由提交时持久化的 vendor 选择路径
 4. 确认计费：`AdjustBillingOnComplete` 按秒还是按次
 5. 补充 `registry` / `router` 单测
 6. 源站抽一条任务验收状态推进与 quota

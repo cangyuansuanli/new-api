@@ -43,13 +43,48 @@ func IsOmniVideoModel(originModel, upstreamModel string) bool {
 	return omniv2v.IsRelay(originModel, upstreamModel) || omnii2v.IsRelay(originModel, upstreamModel)
 }
 
-// Resolve 按 internal/upstream 模型名解析 Vendor；供应商专用协议优先于默认 OpenAI Video。
+// Resolve is the model-only compatibility entry used by tests and historical
+// tasks that predate persisted vendor routing.
 func Resolve(originModel, upstreamModel string) Vendor {
-	return ResolveWithChannel(originModel, upstreamModel, 0, "")
+	return ResolveSubmission(originModel, upstreamModel, 0, "")
 }
 
-// ResolveWithChannel resolves vendor-specific request and response behavior.
-func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseURL string) Vendor {
+func ParseVendor(value string) (Vendor, bool) {
+	vendor := Vendor(strings.TrimSpace(value))
+	switch vendor {
+	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorManju, VendorOmniI2V, VendorOmniV2V, VendorSD5, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceTengda:
+		return vendor, true
+	default:
+		return "", false
+	}
+}
+
+func ResolveTask(task *model.Task) Vendor {
+	if task != nil {
+		persisted := strings.TrimSpace(task.Properties.TaskVendor)
+		if persisted != "" {
+			if vendor, ok := ParseVendor(persisted); ok {
+				return vendor
+			}
+			return VendorSora
+		}
+		info := RelayInfoFromTask(task)
+		upstream := ""
+		if info.ChannelMeta != nil {
+			upstream = info.ChannelMeta.UpstreamModelName
+		}
+		return ResolveSubmission(info.OriginModelName, upstream, task.ChannelId, "")
+	}
+	return VendorSora
+}
+
+// ResolveSubmission selects the outbound protocol once, after channel
+// distribution and model mapping. Channel-specific contracts must precede
+// generic model-family matches.
+func ResolveSubmission(originModel, upstreamModel string, channelID int, baseURL string) Vendor {
+	if seqnode.IsRelay(originModel, upstreamModel, channelID) {
+		return VendorSeqnode
+	}
 	if sd5.IsRelay(originModel, upstreamModel) {
 		return VendorSD5
 	}
@@ -58,9 +93,6 @@ func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseUR
 	}
 	if chatvideo.IsRelay(originModel) {
 		return VendorChat
-	}
-	if seqnode.IsRelay(originModel, upstreamModel, channelID) {
-		return VendorSeqnode
 	}
 	if geeknowgrok.IsRelay(originModel, upstreamModel) {
 		return VendorGeeknowGrok
