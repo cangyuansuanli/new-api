@@ -2299,6 +2299,124 @@
             ]
         },
         {
+            "id": "video-tpl-heygen-seedance-720p-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd6-seedance-2.0-720p"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 3,
+                "audios": 1,
+                "total": 12,
+                "audio": {
+                    "maxDurationMs": 15000
+                },
+                "fullReferenceMode": {
+                    "label": "多模态参考",
+                    "descriptionWithImages": "图片、视频与音频参考素材合计最多 12 个"
+                },
+                "validationHint": "固定 720p；最多 9 张图片、3 段视频、1 段不超过 15 秒的音频，三类素材合计最多 12 个。音频不能单独使用；首尾帧必须成对提供，且与多模态参考互斥。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": false,
+                    "fixedLabel": "720p"
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "16:9", "label": "横屏"},
+                        {"value": "9:16", "label": "竖屏"},
+                        {"value": "1:1", "label": "方形"},
+                        {"value": "4:3", "label": "4:3"},
+                        {"value": "3:4", "label": "3:4"}
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [4, 5, 6, 8, 10, 12, 15],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": {"enabled": false},
+                "watermark": {"enabled": false},
+                "seed": {"enabled": false},
+                "widthHeight": {"enabled": false},
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧必须成对提供，并与多模态参考二选一"
+                }
+            },
+            "hints": [
+                {"text": "固定 720p，按条计费；支持 4/5/6/8/10/12/15 秒与五种画幅比例。"},
+                {"text": "支持文生、图生、多模态参考和首尾帧；最多 9 图、3 视频、1 音频，合计最多 12 个。"}
+            ]
+        },
+        {
+            "id": "video-tpl-heygen-seedance-1080p-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd6-seedance-2.0-1080p"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 3,
+                "audios": 1,
+                "total": 12,
+                "audio": {
+                    "maxDurationMs": 15000
+                },
+                "fullReferenceMode": {
+                    "label": "多模态参考",
+                    "descriptionWithImages": "图片、视频与音频参考素材合计最多 12 个"
+                },
+                "validationHint": "固定 1080p；最多 9 张图片、3 段视频、1 段不超过 15 秒的音频，三类素材合计最多 12 个。音频不能单独使用；首尾帧必须成对提供，且与多模态参考互斥。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": false,
+                    "fixedLabel": "1080p"
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "16:9", "label": "横屏"},
+                        {"value": "9:16", "label": "竖屏"},
+                        {"value": "1:1", "label": "方形"},
+                        {"value": "4:3", "label": "4:3"},
+                        {"value": "3:4", "label": "3:4"}
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [4, 5, 6, 8, 10, 12, 15],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": {"enabled": false},
+                "watermark": {"enabled": false},
+                "seed": {"enabled": false},
+                "widthHeight": {"enabled": false},
+                "frameInputs": {
+                    "enabled": true,
+                    "hint": "首尾帧必须成对提供，并与多模态参考二选一"
+                }
+            },
+            "hints": [
+                {"text": "固定 1080p，按秒计费；支持 4/5/6/8/10/12/15 秒与五种画幅比例。"},
+                {"text": "支持文生、图生、多模态参考和首尾帧；最多 9 图、3 视频、1 音频，合计最多 12 个。"}
+            ]
+        },
+        {
             "id": "video-tpl-seedance-subscription-async",
             "apiMode": "videos-json-async",
             "payloadBuilder": "seedance-flat",

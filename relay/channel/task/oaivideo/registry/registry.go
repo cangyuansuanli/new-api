@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omnii2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/sd5"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
@@ -36,6 +37,7 @@ const (
 	VendorSD5               Vendor = "sd5-seedance"
 	VendorSeedanceOairegbox Vendor = "seedance-oairegbox"
 	VendorSeedanceLeonardo  Vendor = "seedance-leonardo"
+	VendorSeedanceHeygen    Vendor = "seedance-heygen"
 	VendorSeedanceTengda    Vendor = "seedance-tengda"
 )
 
@@ -52,7 +54,7 @@ func Resolve(originModel, upstreamModel string) Vendor {
 func ParseVendor(value string) (Vendor, bool) {
 	vendor := Vendor(strings.TrimSpace(value))
 	switch vendor {
-	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorManju, VendorOmniI2V, VendorOmniV2V, VendorSD5, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceTengda:
+	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorManju, VendorOmniI2V, VendorOmniV2V, VendorSD5, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceHeygen, VendorSeedanceTengda:
 		return vendor, true
 	default:
 		return "", false
@@ -82,6 +84,9 @@ func ResolveTask(task *model.Task) Vendor {
 // distribution and model mapping. Channel-specific contracts must precede
 // generic model-family matches.
 func ResolveSubmission(originModel, upstreamModel string, channelID int, baseURL string) Vendor {
+	if seedanceheygen.IsRelay(originModel, upstreamModel) {
+		return VendorSeedanceHeygen
+	}
 	if seqnode.IsRelay(originModel, upstreamModel, channelID) {
 		return VendorSeqnode
 	}

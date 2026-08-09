@@ -15,6 +15,8 @@ func TestResolve(t *testing.T) {
 		{"manju-openai-sora2", "sora2", VendorManju},
 		{"cy-sd1-seedance-2.0-fast-720p", "Seedance-2.0-720p", VendorSeedanceOairegbox},
 		{"cy-sd4-seedance-2.0", "seedance-2.0", VendorSeedanceLeonardo},
+		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", VendorSeedanceHeygen},
+		{"cy-sd6-seedance-2.0-1080p", "seedance-2.0", VendorSeedanceHeygen},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", VendorSeedanceLeonardo},
 		{"cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", VendorSD5},
 		{"cy-sd5-seedance-2.0-fast", "cy-sd5-seedance-2.0-fast", VendorSD5},
@@ -35,6 +37,18 @@ func TestResolve(t *testing.T) {
 		if got := Resolve(tc.origin, tc.upstream); got != tc.want {
 			t.Fatalf("Resolve(%q,%q)=%q want %q", tc.origin, tc.upstream, got, tc.want)
 		}
+	}
+}
+
+func TestResolveSubmissionRequiresExactHeygenProductPair(t *testing.T) {
+	if got := ResolveSubmission("cy-sd6-seedance-2.0-720p", "seedance-2.0", 999, "https://example.com"); got != VendorSeedanceHeygen {
+		t.Fatalf("exact pair route = %q, want %q", got, VendorSeedanceHeygen)
+	}
+	if got := ResolveSubmission("cy-sd6-seedance-2.0", "seedance-2.0", 105, "https://example.com"); got == VendorSeedanceHeygen {
+		t.Fatal("unsplit model must not use Seedance Heygen vendor")
+	}
+	if got := ResolveSubmission("cy-sd6-seedance-2.0-1080p", "seedance-2.0-fast", 105, "https://example.com"); got == VendorSeedanceHeygen {
+		t.Fatal("mismatched upstream model must not use Seedance Heygen vendor")
 	}
 }
 

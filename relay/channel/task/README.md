@@ -32,6 +32,7 @@ oaivideo/
     ├── seedanceoairegbox/ # cy-sd1 → OAIREGBox flat /v1/videos
     ├── seedancetengda/    # cy-sd2 / tengd → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
+    ├── seedanceheygen/    # cy-sd6 → 固定分辨率双产品 + 鉴权 content
     ├── sd5/         # cy-sd5 Seedance：typed JSON、seed、首尾帧、9 图 + 3 个视频/音频共享源位
     ├── omnii2v/     # cy-sd1 omni-fast*：flat reference_image_urls → 上游 images/image_url
     ├── omniv2v/     # cy-sd1 omni-fast-v2v*：flat reference_videos → 上游 videos/images
@@ -49,7 +50,7 @@ Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`
 
 `seedanceoairegbox` / `seedancetengda` / `seedanceleonardo` 适配器把上游 `queued` / `in_progress`（包括 Leonardo 插件内部的 `delayed`）统一保留为非终态；只有上游明确 `failed` 才结算失败。提交接口应立即返回任务 ID，生成耗时不占用提交请求。
 
-Seedance 2.0 支持纯 prompt 文生，也支持参考图、参考视频或参考音频单独提交；vendor 转换不得将参考图作为视频/音频参考的前置条件。
+Seedance 2.0 支持纯 prompt 文生与多种参考素材。`seedance-heygen` 只精确匹配 `cy-sd6` 的 720p/1080p 双产品，出站强制产品分辨率、仅发送上游白名单字段，并通过带渠道 Bearer 的 `/content` 来源交给通用 R2 转存。该线路的音频不能单独提交，首尾帧与多模态参考互斥，组合规则由上游做最终校验。
 
 ## 新增模型放哪
 
@@ -66,4 +67,5 @@ Seedance 2.0 支持纯 prompt 文生，也支持参考图、参考视频或参�
 - `oaivideo/vendors/grok/` — 119337 Grok generations 路由；将公共 `image_urls` 映射到严格上游 JSON，并归一化 envelope 响应
 - `oaivideo/vendors/geeknowgrok/` — Geeknow Grok 路由；`POST/GET /v1/videos`，`seconds` 字符串化，`image`/`images` 参考图
 - `oaivideo/vendors/seqnode/` — Seqnode Grok 出站；提交、轮询和受保护成片来源均封装在 vendor 内
+- `oaivideo/vendors/seedanceheygen/` — cy-sd6 双 SKU 出站；固定分辨率、素材白名单和受保护成片来源均封装在 vendor 内
 - `oaivideo/shared/` 的可选字段转换必须保持 `nil → 空值`；轮询路由读取历史任务时必须允许 `ChannelMeta` 缺失。
