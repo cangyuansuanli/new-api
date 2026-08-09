@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
+	seqnode "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 
@@ -52,14 +53,15 @@ type openAIVideoDelegate interface {
 
 // RouterAdaptor 按模型路由到独立 vendor，避免上游协议互相污染。
 type RouterAdaptor struct {
-	native   delegate
-	adobe    delegate
-	chat     delegate
-	grok        delegate
-	geeknowGrok delegate
-	manju    delegate
-	omniI2V  delegate
-	omniV2V  delegate
+	native            delegate
+	adobe             delegate
+	chat              delegate
+	grok              delegate
+	geeknowGrok       delegate
+	seqnode           delegate
+	manju             delegate
+	omniI2V           delegate
+	omniV2V           delegate
 	sd5               delegate
 	seedanceOairegbox delegate
 	seedanceLeonardo  delegate
@@ -68,14 +70,15 @@ type RouterAdaptor struct {
 
 func NewRouterAdaptor() channel.TaskAdaptor {
 	return &RouterAdaptor{
-		native:   &defaultvideo.TaskAdaptor{},
-		adobe:    &adobe.TaskAdaptor{},
-		chat:     &chatvideo.TaskAdaptor{},
-		grok:        &grok.TaskAdaptor{},
-		geeknowGrok: &geeknowgrok.TaskAdaptor{},
-		manju:    &manju.TaskAdaptor{},
-		omniI2V:  &omnii2v.TaskAdaptor{},
-		omniV2V:  &omniv2v.TaskAdaptor{},
+		native:            &defaultvideo.TaskAdaptor{},
+		adobe:             &adobe.TaskAdaptor{},
+		chat:              &chatvideo.TaskAdaptor{},
+		grok:              &grok.TaskAdaptor{},
+		geeknowGrok:       &geeknowgrok.TaskAdaptor{},
+		seqnode:           &seqnode.TaskAdaptor{},
+		manju:             &manju.TaskAdaptor{},
+		omniI2V:           &omnii2v.TaskAdaptor{},
+		omniV2V:           &omniv2v.TaskAdaptor{},
 		sd5:               &sd5.TaskAdaptor{},
 		seedanceOairegbox: &seedanceoairegbox.TaskAdaptor{},
 		seedanceLeonardo:  &seedanceleonardo.TaskAdaptor{},
@@ -96,6 +99,8 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 		return r.grok
 	case registry.VendorGeeknowGrok:
 		return r.geeknowGrok
+	case registry.VendorSeqnode:
+		return r.seqnode
 	case registry.VendorManju:
 		return r.manju
 	case registry.VendorOmniI2V:
@@ -209,6 +214,7 @@ func (r *RouterAdaptor) GetModelList() []string {
 	models = append(models, r.chat.GetModelList()...)
 	models = append(models, r.grok.GetModelList()...)
 	models = append(models, r.geeknowGrok.GetModelList()...)
+	models = append(models, r.seqnode.GetModelList()...)
 	models = append(models, r.manju.GetModelList()...)
 	models = append(models, r.sd5.GetModelList()...)
 	models = append(models, r.seedanceOairegbox.GetModelList()...)
@@ -284,6 +290,8 @@ func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (
 			return r.grok.ParseTaskResult(respBody)
 		case registry.VendorGeeknowGrok:
 			return r.geeknowGrok.ParseTaskResult(respBody)
+		case registry.VendorSeqnode:
+			return r.seqnode.ParseTaskResult(respBody)
 		case registry.VendorManju:
 			return r.manju.ParseTaskResult(respBody)
 		case registry.VendorOmniI2V:

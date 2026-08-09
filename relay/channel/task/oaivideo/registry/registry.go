@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
+	seqnode "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
@@ -23,18 +24,19 @@ import (
 type Vendor string
 
 const (
-	VendorSora               Vendor = "sora"
-	VendorAdobe              Vendor = "adobe"
-	VendorChat               Vendor = "chat-video"
-	VendorGrok               Vendor = "grok-generations"
-	VendorGeeknowGrok        Vendor = "geeknow-grok"
-	VendorManju              Vendor = "manju"
-	VendorOmniI2V            Vendor = "omni-i2v"
-	VendorOmniV2V            Vendor = "omni-v2v"
-	VendorSD5                Vendor = "sd5-seedance"
-	VendorSeedanceOairegbox  Vendor = "seedance-oairegbox"
-	VendorSeedanceLeonardo   Vendor = "seedance-leonardo"
-	VendorSeedanceTengda     Vendor = "seedance-tengda"
+	VendorSora              Vendor = "sora"
+	VendorAdobe             Vendor = "adobe"
+	VendorChat              Vendor = "chat-video"
+	VendorGrok              Vendor = "grok-generations"
+	VendorGeeknowGrok       Vendor = "geeknow-grok"
+	VendorSeqnode           Vendor = "seqnode"
+	VendorManju             Vendor = "manju"
+	VendorOmniI2V           Vendor = "omni-i2v"
+	VendorOmniV2V           Vendor = "omni-v2v"
+	VendorSD5               Vendor = "sd5-seedance"
+	VendorSeedanceOairegbox Vendor = "seedance-oairegbox"
+	VendorSeedanceLeonardo  Vendor = "seedance-leonardo"
+	VendorSeedanceTengda    Vendor = "seedance-tengda"
 )
 
 func IsOmniVideoModel(originModel, upstreamModel string) bool {
@@ -59,6 +61,9 @@ func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseUR
 	}
 	if geeknowgrok.IsRelay(originModel, upstreamModel) {
 		return VendorGeeknowGrok
+	}
+	if seqnode.IsRelay(originModel, upstreamModel, channelID) {
+		return VendorSeqnode
 	}
 	if grok.IsRelay(originModel, upstreamModel) {
 		return VendorGrok
