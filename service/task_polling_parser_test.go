@@ -10,6 +10,7 @@ import (
 
 type taskAwarePollingAdaptorStub struct {
 	result *relaycommon.TaskInfo
+	source *relaycommon.TaskResultSource
 }
 
 func (s *taskAwarePollingAdaptorStub) Init(*relaycommon.RelayInfo) {}
@@ -28,6 +29,10 @@ func (s *taskAwarePollingAdaptorStub) ParseTaskResultForTask(*model.Task, []byte
 
 func (s *taskAwarePollingAdaptorStub) AdjustBillingOnComplete(*model.Task, *relaycommon.TaskInfo) int {
 	return 0
+}
+
+func (s *taskAwarePollingAdaptorStub) ResolveTaskResultSourceForTask(*model.Task, string, string) *relaycommon.TaskResultSource {
+	return s.source
 }
 
 func TestParseVideoPollingResultPrefersVendorNormalization(t *testing.T) {
@@ -59,5 +64,23 @@ func TestParseVideoPollingResultFallsBackToGenericEnvelope(t *testing.T) {
 	}
 	if result.Status != model.TaskStatusSuccess || result.TaskID != "task_upstream" || result.Url != "https://example.com/video.mp4" {
 		t.Fatalf("generic fallback failed: %#v", result)
+	}
+}
+
+func TestResolveVideoTaskResultSourceOverridesProtectedResponseURL(t *testing.T) {
+	headers := make(http.Header)
+	headers.Set("Authorization", "Bearer test-key")
+	adaptor := &taskAwarePollingAdaptorStub{source: &relaycommon.TaskResultSource{
+		URL:     "https://upstream.example/v1/videos/task_upstream/content",
+		Headers: headers,
+	}}
+	result := &relaycommon.TaskInfo{Url: "https://upstream.example/protected-response-url"}
+
+	source := resolveVideoTaskResultSource(adaptor, &model.Task{}, result, "https://upstream.example", "test-key")
+	if source == nil || result.Url != source.URL {
+		t.Fatalf("canonical source did not override response URL: result=%#v source=%#v", result, source)
+	}
+	if got := source.Headers.Get("Authorization"); got != "Bearer test-key" {
+		t.Fatalf("unexpected source authorization %q", got)
 	}
 }
