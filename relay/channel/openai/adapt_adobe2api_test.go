@@ -445,7 +445,7 @@ func TestAdobe2APIImageRelayMatchesChannel75MappedModel(t *testing.T) {
 
 func TestAdobe2APIImageRelayReusesManjuBananaModels(t *testing.T) {
 	info := &relaycommon.RelayInfo{
-		OriginModelName: "manju-gemini-banana-2.0-4k",
+		OriginModelName: "adobe-firefly-nano-banana2-4k",
 		RelayMode:       relayconstant.RelayModeImagesGenerations,
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelId:         75,
@@ -477,7 +477,7 @@ func TestAdobe2APIImageRelayReusesManjuBananaModels(t *testing.T) {
 
 func TestAdobe2APIImageRelayReusesManjuBananaProModel(t *testing.T) {
 	info := &relaycommon.RelayInfo{
-		OriginModelName: "manju-gemini-banana-pro-4k",
+		OriginModelName: "adobe-firefly-nano-banana-pro-4k",
 		RelayMode:       relayconstant.RelayModeImagesGenerations,
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelId:         75,
@@ -497,18 +497,15 @@ func TestAdobe2APIImageRelayReusesManjuBananaProModel(t *testing.T) {
 	assertAdobe2APIField(t, body, "image_size", "4K")
 }
 
-func TestAdobe2APIImageRelayMatchesChannelBaseURLWithoutChannel75(t *testing.T) {
+func TestAdobe2APIImageRelayRequiresImageModelName(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "nano-banana-pro",
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelBaseUrl: "http://45.67.221.45:6001",
 		},
 	}
-	if !IsChatImageModel(info.OriginModelName) {
-		t.Fatal("test sanity: banana model should normally be a chat image model")
-	}
-	if !IsAdobe2APIImageRelay(info) {
-		t.Fatal("Adobe2API base URL should make banana use the image JSON relay")
+	if IsAdobe2APIImageRelay(info) {
+		t.Fatal("Adobe2API image relay must require the internal Adobe image model name")
 	}
 }
 

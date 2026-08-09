@@ -12,17 +12,14 @@ import (
 )
 
 func TestIsRelayUsesChannelIdentityWhenModelIsMapped(t *testing.T) {
-	if !IsRelay("sora2", "sora2", 0, "https://adobe2api.example.test") {
+	if !IsRelay("cy-adobe-veo-3.1", "veo-3.1", 0, "https://adobe2api.example.test") {
 		t.Fatal("Adobe base URL should be recognized")
 	}
 	if IsRelay("sora-2", "sora-2", 0, "https://api.openai.com") {
 		t.Fatal("regular OpenAI Sora should not be recognized as Adobe")
 	}
-	if !IsRelay("cy-sd5-seedance-2.0", "seedance-2.0", 86, "") {
+	if !IsRelay("cy-sd5-seedance-2.0", "seedance-2.0", 0, "") {
 		t.Fatal("channel 86 should use the unified Adobe vendor")
-	}
-	if IsRelay("gpt-image", "gpt-image", 75, "") {
-		t.Fatal("image channel 75 must not be treated as an Adobe video relay")
 	}
 }
 

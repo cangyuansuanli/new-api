@@ -110,10 +110,10 @@ func TestResolveTaskDoesNotInferWhenPersistedVendorIsInvalid(t *testing.T) {
 }
 
 func TestResolveSubmissionKeepsSD5SeparateFromAdobe(t *testing.T) {
-	if got := ResolveSubmission("cy-sd5-seedance-2.0", "seedance-2.0", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
+	if got := ResolveSubmission("cy-sd5-seedance-2.0", "seedance-2.0", 0, ""); got != VendorAdobe {
 		t.Fatalf("SD5 route = %q, want %q", got, VendorAdobe)
 	}
-	if got := ResolveSubmission("cy-adobe-veo-3.1", "veo-3.1", 75, "http://45.67.221.45:6001"); got != VendorAdobe {
+	if got := ResolveSubmission("cy-adobe-veo-3.1", "veo-3.1", 0, ""); got != VendorAdobe {
 		t.Fatalf("Adobe route = %q, want %q", got, VendorAdobe)
 	}
 }

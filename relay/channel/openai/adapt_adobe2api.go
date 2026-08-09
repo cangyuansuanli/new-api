@@ -20,16 +20,9 @@ import (
 )
 
 var adobe2APIImageModelPrefixes = []string{
-	"nano-banana",
-	"gpt-image",
-	"adobe-nano-banana",
-	"adobe-gpt-image",
-	"adobe2api-nano-banana",
-	"adobe2api-gpt-image",
 	"adobe-firefly-nano-banana",
 	"adobe-firefly-gpt-image",
-	"firefly-nano-banana",
-	"firefly-gpt-image",
+	"cy-img2-gpt-image-2",
 }
 
 const (
@@ -56,16 +49,10 @@ func IsAdobe2APIImageRelay(info *relaycommon.RelayInfo) bool {
 	if info == nil {
 		return false
 	}
-	if !isAdobe2APIChannel(info) {
-		return false
-	}
 	if IsAdobe2APIImageOriginModel(info.OriginModelName) {
 		return true
 	}
-	if info.ChannelMeta != nil && IsAdobe2APIImageOriginModel(info.UpstreamModelName) {
-		return true
-	}
-	return false
+	return IsAdobe2APIImageOriginModel(info.OriginModelName)
 }
 
 func IsAdobe2APIVideoChatRelay(info *relaycommon.RelayInfo) bool {
@@ -221,9 +208,6 @@ func isAdobe2APIChannel(info *relaycommon.RelayInfo) bool {
 	}
 	baseURL := ""
 	if info.ChannelMeta != nil {
-		if info.ChannelMeta.ChannelId == 75 {
-			return true
-		}
 		baseURL = info.ChannelMeta.ChannelBaseUrl
 	}
 	baseURL = strings.TrimSpace(strings.ToLower(baseURL))

@@ -7,11 +7,24 @@ import (
 
 // IsRelay identifies Adobe by channel identity first. Model prefixes are a
 // fallback for callers that resolve a vendor before channel metadata exists.
-func IsRelay(originModel, upstreamModel string, channelID int, baseURL string) bool {
-	if channelID == 86 || isAdobeBaseURL(baseURL) {
-		return true
-	}
+func IsRelay(originModel, upstreamModel string, _ int, baseURL string) bool {
 	for _, model := range []string{originModel, upstreamModel} {
+		name := strings.ToLower(strings.TrimSpace(model))
+		if strings.HasPrefix(name, "cy-adobe-veo-") ||
+			strings.HasPrefix(name, "cy-adobe-kling-") ||
+			strings.HasPrefix(name, "cy-adobe-gemini-omni-flash") ||
+			strings.HasPrefix(name, "cy-sd5-seedance-") {
+			return true
+		}
+	}
+	if isAdobeBaseURL(baseURL) {
+		return isAdobeVideoModel(originModel, upstreamModel)
+	}
+	return false
+}
+
+func isAdobeVideoModel(models ...string) bool {
+	for _, model := range models {
 		name := strings.ToLower(strings.TrimSpace(model))
 		if strings.HasPrefix(name, "cy-adobe-veo-") ||
 			strings.HasPrefix(name, "cy-adobe-kling-") ||
