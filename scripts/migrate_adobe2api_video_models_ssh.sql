@@ -1,5 +1,5 @@
--- Adobe2API channel 75: replace retired adobe-* video names with the current
--- provider-neutral internal names and standard public/upstream model names.
+-- Restore channel 75 as the Adobe2API image pool and place all Adobe2API video
+-- models on channel 86 with standard public/upstream model names.
 -- Sora2 is intentionally excluded because it has been retired upstream.
 
 BEGIN;
@@ -62,16 +62,16 @@ FROM (VALUES
 WHERE m.model_name = v.model AND m.deleted_at IS NULL;
 
 UPDATE channels SET
-  name = 'Adobe2API 视频',
-  models = 'cy-adobe-veo-3.1,cy-adobe-veo-3.1-fast,cy-adobe-kling-3.0,cy-adobe-kling-3.0-omni,cy-adobe-gemini-omni-flash,cy-sd5-seedance-2.0,cy-sd5-seedance-2.0-fast',
-  model_mapping = '{"cy-adobe-veo-3.1":"veo-3.1","cy-adobe-veo-3.1-fast":"veo-3.1-fast","cy-adobe-kling-3.0":"kling-3.0","cy-adobe-kling-3.0-omni":"kling-3.0-omni","cy-adobe-gemini-omni-flash":"gemini-omni-flash","cy-sd5-seedance-2.0":"seedance-2.0","cy-sd5-seedance-2.0-fast":"seedance-2.0-fast"}',
+  name = 'Adobe2API 图片',
+  models = 'adobe-firefly-nano-banana-pro-1k,adobe-firefly-nano-banana-pro-2k,adobe-firefly-nano-banana-pro-4k,adobe-firefly-nano-banana-1k,adobe-firefly-nano-banana-2k,adobe-firefly-nano-banana-4k,adobe-firefly-nano-banana2-1k,adobe-firefly-nano-banana2-2k,adobe-firefly-nano-banana2-4k,adobe-firefly-gpt-image-2-1k,adobe-firefly-gpt-image-2-2k,adobe-firefly-gpt-image-2-4k',
+  model_mapping = '{"adobe-firefly-nano-banana-pro-1k":"nano-banana-pro","adobe-firefly-nano-banana-pro-2k":"nano-banana-pro","adobe-firefly-nano-banana-pro-4k":"nano-banana-pro","adobe-firefly-nano-banana-1k":"nano-banana","adobe-firefly-nano-banana-2k":"nano-banana","adobe-firefly-nano-banana-4k":"nano-banana","adobe-firefly-nano-banana2-1k":"nano-banana2","adobe-firefly-nano-banana2-2k":"nano-banana2","adobe-firefly-nano-banana2-4k":"nano-banana2","adobe-firefly-gpt-image-2-1k":"gpt-image","adobe-firefly-gpt-image-2-2k":"gpt-image","adobe-firefly-gpt-image-2-4k":"gpt-image"}',
   status = 1
 WHERE id = 75;
 
 UPDATE channels SET
   name = 'Adobe2API 视频',
-  models = 'cy-sd5-seedance-2.0,cy-sd5-seedance-2.0-fast',
-  model_mapping = '{"cy-sd5-seedance-2.0":"seedance-2.0","cy-sd5-seedance-2.0-fast":"seedance-2.0-fast"}',
+  models = 'cy-adobe-veo-3.1,cy-adobe-veo-3.1-fast,cy-adobe-kling-3.0,cy-adobe-kling-3.0-omni,cy-adobe-gemini-omni-flash,cy-sd5-seedance-2.0,cy-sd5-seedance-2.0-fast',
+  model_mapping = '{"cy-adobe-veo-3.1":"veo-3.1","cy-adobe-veo-3.1-fast":"veo-3.1-fast","cy-adobe-kling-3.0":"kling-3.0","cy-adobe-kling-3.0-omni":"kling-3.0-omni","cy-adobe-gemini-omni-flash":"gemini-omni-flash","cy-sd5-seedance-2.0":"seedance-2.0","cy-sd5-seedance-2.0-fast":"seedance-2.0-fast"}',
   status = 1
 WHERE id = 86;
 
@@ -81,20 +81,19 @@ DELETE FROM abilities WHERE channel_id = 75 AND model IN (
   'cy-adobe-kling-3.0-omni', 'cy-adobe-gemini-omni-flash',
   'cy-sd5-seedance-2.0', 'cy-sd5-seedance-2.0-fast'
 );
+DELETE FROM abilities WHERE channel_id = 86 AND model IN (
+  'adobe-direct-sd5-video', 'cy-adobe-veo-3.1', 'cy-adobe-veo-3.1-fast',
+  'cy-adobe-kling-3.0', 'cy-adobe-kling-3.0-omni', 'cy-adobe-gemini-omni-flash',
+  'cy-sd5-seedance-2.0', 'cy-sd5-seedance-2.0-fast'
+);
 INSERT INTO abilities ("group", model, channel_id, enabled, priority, weight)
-SELECT g.grp, m.model, 75, TRUE, 0, 90
+SELECT g.grp, m.model, 86, TRUE, 0, 90
 FROM (VALUES ('VIDEO'), ('全模型-无claude/gpt'), ('对接专用')) g(grp)
 CROSS JOIN (VALUES
   ('cy-adobe-veo-3.1'), ('cy-adobe-veo-3.1-fast'), ('cy-adobe-kling-3.0'),
   ('cy-adobe-kling-3.0-omni'), ('cy-adobe-gemini-omni-flash'),
   ('cy-sd5-seedance-2.0'), ('cy-sd5-seedance-2.0-fast')
 ) m(model);
-
-DELETE FROM abilities WHERE channel_id = 86 AND model IN ('adobe-direct-sd5-video', 'cy-sd5-seedance-2.0', 'cy-sd5-seedance-2.0-fast');
-INSERT INTO abilities ("group", model, channel_id, enabled, priority, weight)
-SELECT g.grp, m.model, 86, TRUE, 0, 90
-FROM (VALUES ('VIDEO'), ('全模型-无claude/gpt'), ('对接专用')) g(grp)
-CROSS JOIN (VALUES ('cy-sd5-seedance-2.0'), ('cy-sd5-seedance-2.0-fast')) m(model);
 
 UPDATE models SET status = 0
 WHERE model_name IN ('adobe-sora2', 'adobe-sora2-pro', 'adobe-veo31', 'adobe-veo31-ref', 'adobe-veo31-fast')

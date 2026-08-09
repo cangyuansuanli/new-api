@@ -21,6 +21,9 @@ func TestIsRelayUsesChannelIdentityWhenModelIsMapped(t *testing.T) {
 	if !IsRelay("cy-sd5-seedance-2.0", "seedance-2.0", 86, "") {
 		t.Fatal("channel 86 should use the unified Adobe vendor")
 	}
+	if IsRelay("gpt-image", "gpt-image", 75, "") {
+		t.Fatal("image channel 75 must not be treated as an Adobe video relay")
+	}
 }
 
 func TestAdobeModelListUsesCurrentContractNames(t *testing.T) {

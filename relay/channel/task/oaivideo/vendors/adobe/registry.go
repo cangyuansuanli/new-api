@@ -8,7 +8,7 @@ import (
 // IsRelay identifies Adobe by channel identity first. Model prefixes are a
 // fallback for callers that resolve a vendor before channel metadata exists.
 func IsRelay(originModel, upstreamModel string, channelID int, baseURL string) bool {
-	if channelID == 75 || channelID == 86 || isAdobeBaseURL(baseURL) {
+	if channelID == 86 || isAdobeBaseURL(baseURL) {
 		return true
 	}
 	for _, model := range []string{originModel, upstreamModel} {

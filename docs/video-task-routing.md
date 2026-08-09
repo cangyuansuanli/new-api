@@ -143,9 +143,9 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
 | `cy-sd4-seedance*` | seedance-leonardo | flat JSON → Leonardo `/v1/videos` | OpenAI Video 形（校验/错误见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
 | `cy-sd6-seedance-2.0-720p` / `cy-sd6-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-heygen | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；严格 JSON 白名单，按 SKU 强制 720p/1080p | `/v1/videos/{id}` + 鉴权 `/content` 成片转存 |
-| `cy-sd5-seedance*` | Adobe2API Seedance | 渠道 75/86 与 Adobe 视频共用 `adobe` vendor；86 渠道展示名为 `Adobe2API 视频`，不再使用 `adobe-direct-sd5-video`；mapping 使用 `seedance-2.0` / `seedance-2.0-fast` | `video.generation` → OpenAI Video 形 |
+| `cy-sd5-seedance*` | Adobe2API Seedance | 仅渠道 86 与 Adobe 视频共用 `adobe` vendor；mapping 使用 `seedance-2.0` / `seedance-2.0-fast` | `video.generation` → OpenAI Video 形 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | seedance-tengda | Tengda flat → `content[]` JSON | OpenAI Video 形 |
-| `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` / `cy-adobe-gemini-omni-flash` | Adobe2API | 渠道 75 统一使用 Adobe2API 视频出站；严格 JSON → `/v1/videos/generations`；已下架 Sora2 与废弃 `veo31-ref` 不再发布 | `video.generation` → OpenAI Video 形 |
+| `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` / `cy-adobe-gemini-omni-flash` | Adobe2API | 渠道 86 统一使用 Adobe2API 视频出站；渠道 75 仅保留图片池；严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
 | 其他（Sora 等） | default | 标准 OpenAI Video | OpenAI Video 形 |
 
 门面适配器：[`relay/channel/task/oaivideo/router/adaptor.go`](../relay/channel/task/oaivideo/router/adaptor.go)
