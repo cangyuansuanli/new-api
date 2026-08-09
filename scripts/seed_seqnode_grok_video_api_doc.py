@@ -9,8 +9,13 @@ import time
 
 
 MODELS = {
-    "cy-gv2-grok-video": 0.59,
+    "cy-gv2-grok-video": 0.69,
     "cy-gv2-grok-video-1.5": 1.39,
+}
+
+DESCRIPTIONS = {
+    "cy-gv2-grok-video": "Grok 视频 1.0：支持文生/单图，480p/720p，1～15 秒。",
+    "cy-gv2-grok-video-1.5": "Grok 视频 1.5：支持文生/单图/最多 7 图；1080p 仅限文生或单图，1～15 秒。",
 }
 
 ENDPOINTS = [
@@ -126,6 +131,7 @@ DOCS = {
         "dispatch_mode": "async",
         "intro": (
             "Grok 1.5 异步视频统一接口。支持文生、单图和最多 7 张参考图生成视频；"
+            "1080p 仅支持文生或单图模式，多参考图模式最高 720p；"
             "通过 POST /v1/videos 创建，GET /v1/videos/{task_id} 查询，"
             "完成后可从 /v1/videos/{task_id}/content 下载成片。"
         ),
@@ -134,7 +140,7 @@ DOCS = {
         + [
             {
                 "name": "resolution",
-                "description": "清晰度：480p、720p、1080p；多参考图模式最高 720p。",
+                "description": "清晰度：480p、720p、1080p。1080p 仅支持文生或单图模式；2～7 张参考图时最高 720p。",
             },
             {
                 "name": "image_urls",
@@ -171,6 +177,46 @@ DOCS = {
                 "https://example.com/environment.png",
             ],
         },
+        "examples": [
+            {
+                "title": "1080p 文生视频",
+                "description": "不传参考图时可使用 1080p。",
+                "request_json": {
+                    "model": "{{model}}",
+                    "prompt": "A cinematic aerial shot above snow-covered mountains",
+                    "seconds": 8,
+                    "aspect_ratio": "16:9",
+                    "resolution": "1080p",
+                },
+            },
+            {
+                "title": "1080p 单图生视频",
+                "description": "只传 1 张图片时可使用 1080p；不要同时传多图参考。",
+                "request_json": {
+                    "model": "{{model}}",
+                    "prompt": "Animate the subject with a gentle camera orbit",
+                    "seconds": 8,
+                    "aspect_ratio": "16:9",
+                    "resolution": "1080p",
+                    "image_urls": ["https://example.com/reference.png"],
+                },
+            },
+            {
+                "title": "720p 多图参考",
+                "description": "传 2～7 张参考图时 resolution 必须使用 480p 或 720p。",
+                "request_json": {
+                    "model": "{{model}}",
+                    "prompt": "Use the characters and visual style from the references",
+                    "seconds": 8,
+                    "aspect_ratio": "16:9",
+                    "resolution": "720p",
+                    "image_urls": [
+                        "https://example.com/character.png",
+                        "https://example.com/environment.png",
+                    ],
+                },
+            },
+        ],
         "create_response_json": CREATE_RESPONSE,
         "query_response_json": QUERY_RESPONSE,
     },
@@ -233,8 +279,9 @@ def main() -> None:
     now = int(time.time())
     for model_name, doc in DOCS.items():
         payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).replace("'", "''")
+        description = DESCRIPTIONS[model_name].replace("'", "''")
         psql_exec(
-            f"UPDATE models SET api_doc='{payload}', updated_time={now} "
+            f"UPDATE models SET api_doc='{payload}', description='{description}', updated_time={now} "
             f"WHERE model_name='{model_name}' AND deleted_at IS NULL;"
         )
         print(f"updated api_doc: {model_name}")

@@ -39,8 +39,24 @@ func TestResolve(t *testing.T) {
 }
 
 func TestResolveSubmissionUsesDistributedChannelProtocol(t *testing.T) {
-	if got := ResolveSubmission("cy-gv2-grok-video", "grok-imagine-video", 106, "https://www.seqnode.com"); got != VendorSeqnode {
-		t.Fatalf("channel 106 route = %q, want %q", got, VendorSeqnode)
+	cases := []struct {
+		name     string
+		origin   string
+		upstream string
+		channel  int
+		want     Vendor
+	}{
+		{"channel 106 carries 1.0", "cy-gv2-grok-video", "grok-imagine-video", 106, VendorSeqnode},
+		{"channel 107 carries 1.5", "cy-gv2-grok-video-1.5", "grok-imagine-video-1.5", 107, VendorSeqnode},
+		{"future channel also matches exact 1.5 pair", "cy-gv2-grok-video-1.5", "grok-imagine-video-1.5", 999, VendorSeqnode},
+		{"mismatched model pair is rejected", "cy-gv2-grok-video", "grok-imagine-video-1.5", 107, VendorSora},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ResolveSubmission(tc.origin, tc.upstream, tc.channel, "https://www.seqnode.com"); got != tc.want {
+				t.Fatalf("route = %q, want %q", got, tc.want)
+			}
+		})
 	}
 	if got := ResolveSubmission("cy-gv1-grok-video", "grok-imagine-video", 105, "https://example.com"); got != VendorGeeknowGrok {
 		t.Fatalf("other Grok channel route = %q, want %q", got, VendorGeeknowGrok)

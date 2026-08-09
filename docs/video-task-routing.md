@@ -135,7 +135,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-vid2-*` / `cy-sd1-grok-video*` | Chat Video | 内部转 chat/completions，读 SSE/JSON 视频 URL | 提交时即归一化为已完成任务 |
 | `cy-gv1-grok-video*` + upstream `grok-image-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
-| channel `106` + `cy-gv2-grok-video*` | Seqnode | JSON → `/v1/videos/generations` | `/v1/videos/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
+| `cy-gv2-grok-video` → `grok-imagine-video`；`cy-gv2-grok-video-1.5` → `grok-imagine-video-1.5`（当前分别在渠道 106/107） | Seqnode | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；JSON → `/v1/videos/generations` | `/v1/videos/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
 | `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
