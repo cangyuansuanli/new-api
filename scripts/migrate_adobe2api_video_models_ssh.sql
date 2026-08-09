@@ -41,14 +41,25 @@ INSERT INTO models (model_name, description, tags, endpoints, status, sync_offic
 SELECT model, description, tags, '["/v1/videos"]', 1, 0,
   EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT, profile
 FROM wanted
-ON CONFLICT (model_name) DO UPDATE SET
-  description = EXCLUDED.description,
-  tags = EXCLUDED.tags,
-  endpoints = EXCLUDED.endpoints,
+WHERE NOT EXISTS (
+  SELECT 1 FROM models m WHERE m.model_name = wanted.model AND m.deleted_at IS NULL
+);
+
+UPDATE models AS m SET
+  description = v.description,
+  tags = v.tags,
+  endpoints = '["/v1/videos"]',
   status = 1,
-  video_profile_id = EXCLUDED.video_profile_id,
-  deleted_at = NULL,
-  updated_time = EXCLUDED.updated_time;
+  video_profile_id = v.profile,
+  updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
+FROM (VALUES
+  ('cy-adobe-veo-3.1', 'video-tpl-adobe-veo31-json-async', 'Veo 3.1 视频生成，支持 4/6/8 秒、720p/1080p、三张资产参考或首尾帧。', 'video,veo,adobe,firefly'),
+  ('cy-adobe-veo-3.1-fast', 'video-tpl-adobe-veo31-fast-json-async', 'Veo 3.1 Fast 视频生成，仅支持首尾帧，支持 4/6/8 秒与 720p/1080p。', 'video,veo,adobe,firefly,fast'),
+  ('cy-adobe-kling-3.0', 'video-tpl-adobe-kling3-json-async', 'Kling 3.0 视频生成，支持 3–15 秒与 720p/1080p。', 'video,kling,adobe,firefly'),
+  ('cy-adobe-kling-3.0-omni', 'video-tpl-adobe-kling3-omni-json-async', 'Kling 3.0 Omni 多模态视频生成，支持 3–15 秒与 720p/1080p。', 'video,kling,adobe,firefly,omni'),
+  ('cy-adobe-gemini-omni-flash', 'video-tpl-adobe-gemini-omni-json-async', 'Gemini Omni Flash 视频生成，支持 3–10 秒与 720p。', 'video,gemini,adobe,firefly,omni')
+) AS v(model, profile, description, tags)
+WHERE m.model_name = v.model AND m.deleted_at IS NULL;
 
 UPDATE channels SET
   name = 'Adobe2API 视频',
