@@ -18,6 +18,7 @@ relay/channel/task/oaivideo/
     ├── seedanceoairegbox/ # cy-sd1 → OAIREGBox flat /v1/videos
     ├── seedancetengda/    # cy-sd2 → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
+    ├── seedanceheygen/    # cy-sd6 双 SKU → 固定 720p/1080p flat /v1/videos
     ├── sd5/               # cy-sd5 → Adobe2API generations
     ├── omnii2v/         # cy-sd1 omni-fast* flat → upstream images/image_url
     ├── omniv2v/         # cy-sd1 omni-fast-v2v* flat → upstream videos/images
@@ -106,6 +107,7 @@ Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonard
 | Grok generations (119337) | `seconds` (integer) | 上游 `/v1/video/generations`；参考图统一为 `image_urls` 字符串数组 |
 | Geeknow Grok | `seconds` (string) | 上游 `/v1/videos`；单图 `image`，多图 `images`；`resolution` 为 `480P`/`720P` |
 | Seedance | `duration` | OAIREGBox 按秒视频契约 |
+| Seedance HeyGen | `duration` | `cy-sd6` 两个产品分别强制 720p / 1080p，客户参数不能切换档位 |
 | Adobe | `duration` | Adobe typed `/v1/videos/generations` 严格 schema |
 
 JSON 的其他字段和 multipart 文件必须保留；仅模型名与时长别名在 vendor 边界发生转换。
@@ -115,7 +117,7 @@ SD5 出站契约同时保留 `duration`、`aspect_ratio`、`resolution`、`gener
 分别使用合法组合，不能把互斥字段拼成一个“全参数”请求。
 Adobe Sora/Veo 模型继续过滤不支持的 seed。
 
-Seedance 2.0 的参考图统一使用 `reference_image_urls`（含单图）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。参考视频和参考音频均为可选且可独立使用；仅传 `prompt` 即为文生视频。Relay 在 registry 层按线路拆为独立 vendor：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`sd5-seedance`（cy-sd5）。各 vendor 不得因 `reference_videos` / `reference_audios` 存在而强制要求参考图。**cy-sd1 / cy-sd2 / cy-sd5** 仍在 NewAPI profile 或 adaptor 侧做数量/大小/互斥等出站校验；**cy-sd4** 业务规则在 leonardo-web2api，见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)。
+Seedance 2.0 的参考图统一使用 `reference_image_urls`（单图 vendor 可映射为 `image_url`）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。Relay 在 registry 层按线路拆为独立 vendor：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`sd5-seedance`（cy-sd5）、`seedance-heygen`（cy-sd6）。`cy-sd6-seedance-2.0-720p` 与 `cy-sd6-seedance-2.0-1080p` 都映射上游 `seedance-2.0`，但由 vendor 分别强制 `resolution=720p` / `1080p`；不得让客户通过请求字段跨档。cy-sd6 支持最多 9 图、3 视频、1 音频且合计最多 12 个，音频不能单独使用，首尾帧必须成对并与多模态参考互斥。**cy-sd1 / cy-sd2 / cy-sd5** 仍在 NewAPI profile 或 adaptor 侧做数量/大小/互斥等出站校验；**cy-sd4 / cy-sd6** 业务规则分别由对应 web2api 上游校验。
 
 公共图片别名必须在 `relay/common.TaskSubmitReq` 入口合并、去空并去重到 `Images`，vendor 只能消费该标准字段并渲染上游协议，不得再次从原始 JSON body 解析 `image` / `image_url` / `images` / `image_urls` / `reference_images` / `reference_image_urls`。`first_image_url` / `last_image_url` 是独立的首尾帧控制字段，不进入通用参考图归一化。
 
@@ -140,6 +142,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
 | `cy-sd4-seedance*` | seedance-leonardo | flat JSON → Leonardo `/v1/videos` | OpenAI Video 形（校验/错误见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
+| `cy-sd6-seedance-2.0-720p` / `cy-sd6-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-heygen | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；严格 JSON 白名单，按 SKU 强制 720p/1080p | `/v1/videos/{id}` + 鉴权 `/content` 成片转存 |
 | `cy-sd5-seedance*` | SD5 Seedance | 按模型名前缀独立路由，不依赖 Adobe 渠道 ID 或模型映射；seed、negative prompt、首尾帧、9 图 + 3 个视频/音频共享源位（合计最多 12）严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形；失败文案由 Adobe2API 归一，NewAPI 透传 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | seedance-tengda | Tengda flat → `content[]` JSON | OpenAI Video 形 |
 | `adobe-*sora*` / `adobe-*veo*` | Adobe | 严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
