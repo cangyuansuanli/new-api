@@ -64,3 +64,15 @@ func TestResolveTaskResultSourceIncludesBearer(t *testing.T) {
 		t.Fatalf("unexpected auth header %q", source.Headers.Get("Authorization"))
 	}
 }
+
+func TestBuildRequestURLUsesChannelBaseURL(t *testing.T) {
+	url, err := (&TaskAdaptor{}).BuildRequestURL(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://example.com/heygen-api/"},
+	})
+	if err != nil {
+		t.Fatalf("build URL: %v", err)
+	}
+	if url != "https://example.com/heygen-api/v1/videos" {
+		t.Fatalf("unexpected URL %q", url)
+	}
+}
