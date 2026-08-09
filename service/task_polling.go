@@ -36,6 +36,12 @@ type TaskAwareResultParser interface {
 	ParseTaskResultForTask(task *model.Task, respBody []byte) (*relaycommon.TaskInfo, error)
 }
 
+// AuthenticatedVideoResult allows a vendor adaptor to expose a protected
+// completed-media URL and the credential required for server-side rehosting.
+type AuthenticatedVideoResult interface {
+	ResolveVideoResult(baseURL, taskID, key string) (url string, authKey string)
+}
+
 // GetTaskAdaptorFunc 由 main 包注入，用于获取指定平台的任务适配器。
 // 打破 service -> relay -> relay/channel -> service 的循环依赖。
 var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
@@ -403,6 +409,12 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	if err != nil {
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
+	resultAuthKey := ""
+	if taskResult.Url == "" {
+		if resolver, ok := adaptor.(AuthenticatedVideoResult); ok {
+			taskResult.Url, resultAuthKey = resolver.ResolveVideoResult(baseURL, task.GetUpstreamTaskID(), key)
+		}
+	}
 
 	task.Data = redactVideoResponseBody(responseBody)
 
@@ -450,7 +462,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 			// data: URI (e.g. Vertex base64 encoded video) — keep in Data, not in ResultURL
 			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
 		} else if resultURL != "" {
-			rehostedURL, patchedData, rehostErr := RehostVideoTaskResult(ctx, task.UserId, task.ChannelId, task.TaskID, resultURL, task.Data)
+			rehostedURL, patchedData, rehostErr := RehostVideoTaskResult(ctx, task.UserId, task.ChannelId, task.TaskID, resultURL, task.Data, resultAuthKey)
 			if rehostErr != nil {
 				logger.LogError(ctx, fmt.Sprintf("Task %s video rehost failed, keep upstream url: %s", task.TaskID, rehostErr.Error()))
 				task.PrivateData.ResultURL = resultURL
