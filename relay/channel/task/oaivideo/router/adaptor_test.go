@@ -197,7 +197,7 @@ func TestRouterAdaptor_FetchTaskUsesPersistedVendorPath(t *testing.T) {
 		t.Fatalf("FetchTask() error = %v", err)
 	}
 	defer resp.Body.Close()
-	if gotPath != "/v1/videos/generations/upstream-task" {
+	if gotPath != "/v1/videos/upstream-task" {
 		t.Fatalf("FetchTask() path = %q", gotPath)
 	}
 }

@@ -86,7 +86,7 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 }
 func (a *TaskAdaptor) FetchTask(base, key string, body map[string]any, proxy string) (*http.Response, error) {
 	id, _ := body["task_id"].(string)
-	req, e := http.NewRequest(http.MethodGet, strings.TrimRight(base, "/")+"/v1/videos/generations/"+id, nil)
+	req, e := http.NewRequest(http.MethodGet, strings.TrimRight(base, "/")+"/v1/videos/"+id, nil)
 	if e != nil {
 		return nil, e
 	}

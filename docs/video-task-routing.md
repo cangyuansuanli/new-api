@@ -29,7 +29,7 @@ relay/channel/task/oaivideo/
 
 所有视频模型共用 [`service/task_polling.go`](../service/task_polling.go) 中的 `TaskPollingLoop`（每 15 秒）：
 
-1. `FetchTask` — 新任务使用提交时持久化的 `properties.task_vendor` 选择 vendor；历史任务缺少该字段时，才使用 channel ID + internal/upstream 模型恢复。标准线路与 Geeknow Grok 请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，119337 Grok 请求 `/v1/video/generations/{upstream_task_id}`，Seqnode 请求 `/v1/videos/generations/{upstream_task_id}`
+1. `FetchTask` — 新任务使用提交时持久化的 `properties.task_vendor` 选择 vendor；历史任务缺少该字段时，才使用 channel ID + internal/upstream 模型恢复。标准线路、Geeknow Grok 与 Seqnode 请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，119337 Grok 请求 `/v1/video/generations/{upstream_task_id}`
 2. `ParseTaskResultForTask` / `ParseTaskResult` — 优先由任务对应 Vendor 归一化上游 JSON；仅当专用解析未识别状态时才回退通用 `{code,data}` 任务响应解析，避免包裹结构“可反序列化但丢失结果 URL”
 3. 成功态如需补齐受保护成片来源，由任务对应 vendor 返回 URL + 临时请求头，通用 R2 服务只负责下载和转存
 4. 写 DB（CAS `UpdateWithStatus`）
@@ -135,7 +135,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-vid2-*` / `cy-sd1-grok-video*` | Chat Video | 内部转 chat/completions，读 SSE/JSON 视频 URL | 提交时即归一化为已完成任务 |
 | `cy-gv1-grok-video*` + upstream `grok-image-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
-| channel `106` + `cy-gv2-grok-video*` | Seqnode | JSON → `/v1/videos/generations` | `/v1/videos/generations/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
+| channel `106` + `cy-gv2-grok-video*` | Seqnode | JSON → `/v1/videos/generations` | `/v1/videos/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
 | `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
