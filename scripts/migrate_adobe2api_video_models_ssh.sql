@@ -37,6 +37,13 @@ UPDATE channels SET
   status = 1, updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 WHERE id = 75;
 
+UPDATE channels SET
+  name = 'Adobe2API 视频',
+  models = 'cy-sd5-seedance-2.0,cy-sd5-seedance-2.0-fast',
+  model_mapping = '{"cy-sd5-seedance-2.0":"seedance-2.0","cy-sd5-seedance-2.0-fast":"seedance-2.0-fast"}',
+  status = 1, updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
+WHERE id = 86;
+
 DELETE FROM abilities WHERE channel_id = 75 AND model IN (
   'adobe-sora2', 'adobe-sora2-pro', 'adobe-veo31', 'adobe-veo31-ref', 'adobe-veo31-fast',
   'cy-adobe-veo-3.1', 'cy-adobe-veo-3.1-fast', 'cy-adobe-kling-3.0',
@@ -51,6 +58,12 @@ CROSS JOIN (VALUES
   ('cy-adobe-kling-3.0-omni'), ('cy-adobe-gemini-omni-flash'),
   ('cy-sd5-seedance-2.0'), ('cy-sd5-seedance-2.0-fast')
 ) m(model);
+
+DELETE FROM abilities WHERE channel_id = 86 AND model IN ('adobe-direct-sd5-video', 'cy-sd5-seedance-2.0', 'cy-sd5-seedance-2.0-fast');
+INSERT INTO abilities ("group", model, channel_id, enabled, priority, weight)
+SELECT g.grp, m.model, 86, TRUE, 0, 90
+FROM (VALUES ('VIDEO'), ('全模型-无claude/gpt'), ('对接专用')) g(grp)
+CROSS JOIN (VALUES ('cy-sd5-seedance-2.0'), ('cy-sd5-seedance-2.0-fast')) m(model);
 
 UPDATE models SET status = 0, updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 WHERE model_name IN ('adobe-sora2', 'adobe-sora2-pro', 'adobe-veo31', 'adobe-veo31-ref', 'adobe-veo31-fast')

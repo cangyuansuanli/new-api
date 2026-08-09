@@ -18,6 +18,9 @@ func TestIsRelayUsesChannelIdentityWhenModelIsMapped(t *testing.T) {
 	if IsRelay("sora-2", "sora-2", 0, "https://api.openai.com") {
 		t.Fatal("regular OpenAI Sora should not be recognized as Adobe")
 	}
+	if !IsRelay("cy-sd5-seedance-2.0", "seedance-2.0", 86, "") {
+		t.Fatal("channel 86 should use the unified Adobe vendor")
+	}
 }
 
 func TestAdobeModelListUsesCurrentContractNames(t *testing.T) {
