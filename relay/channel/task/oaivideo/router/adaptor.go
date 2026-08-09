@@ -268,6 +268,21 @@ func (r *RouterAdaptor) ParseTaskResultForTask(task *model.Task, respBody []byte
 	return r.parseTaskResultBody(respBody, task)
 }
 
+func (r *RouterAdaptor) ResolveVideoResultForTask(task *model.Task, baseURL, key string) (string, string) {
+	if task == nil {
+		return "", ""
+	}
+	info := registry.RelayInfoFromTask(task)
+	upstreamModel := ""
+	if info.ChannelMeta != nil {
+		upstreamModel = info.ChannelMeta.UpstreamModelName
+	}
+	if registry.ResolveWithChannel(info.OriginModelName, upstreamModel, task.ChannelId, baseURL) != registry.VendorSeqnode {
+		return "", ""
+	}
+	return r.seqnode.(*seqnode.TaskAdaptor).ResolveVideoResult(baseURL, task.GetUpstreamTaskID(), key)
+}
+
 func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (*relaycommon.TaskInfo, error) {
 	if r == nil {
 		return nil, fmt.Errorf("video router adaptor not available")

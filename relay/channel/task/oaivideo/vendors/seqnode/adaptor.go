@@ -95,28 +95,7 @@ func (a *TaskAdaptor) FetchTask(base, key string, body map[string]any, proxy str
 	if e != nil {
 		return nil, e
 	}
-	resp, err := cl.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		resp.Body.Close()
-		return nil, err
-	}
-	resp.Body.Close()
-	var payload map[string]any
-	if common.Unmarshal(data, &payload) == nil {
-		status, _ := payload["status"].(string)
-		if strings.EqualFold(status, "done") || strings.EqualFold(status, "completed") {
-			payload["video_url"] = strings.TrimRight(base, "/") + "/v1/videos/" + id + "/content"
-			if normalized, marshalErr := common.Marshal(payload); marshalErr == nil {
-				data = normalized
-			}
-		}
-	}
-	resp.Body = io.NopCloser(bytes.NewReader(data))
-	return resp, nil
+	return cl.Do(req)
 }
 
 func (*TaskAdaptor) ResolveVideoResult(baseURL, taskID, key string) (string, string) {

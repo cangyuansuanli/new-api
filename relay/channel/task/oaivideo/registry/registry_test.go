@@ -34,6 +34,12 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+func TestResolveWithChannelPrefersSeqnodeForChannel106(t *testing.T) {
+	if got := ResolveWithChannel("cy-gv2-grok-video", "grok-imagine-video", 106, "https://www.seqnode.com"); got != VendorSeqnode {
+		t.Fatalf("ResolveWithChannel() = %q, want %q", got, VendorSeqnode)
+	}
+}
+
 func TestResolveWithChannelKeepsSD5SeparateFromAdobe(t *testing.T) {
 	if got := ResolveWithChannel("cy-sd5-seedance-2.0", "cy-sd5-seedance-2.0", 86, "http://45.67.221.45:6002"); got != VendorSD5 {
 		t.Fatalf("SD5 route = %q, want %q", got, VendorSD5)

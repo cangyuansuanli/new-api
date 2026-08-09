@@ -59,11 +59,11 @@ func ResolveWithChannel(originModel, upstreamModel string, channelID int, baseUR
 	if chatvideo.IsRelay(originModel) {
 		return VendorChat
 	}
-	if geeknowgrok.IsRelay(originModel, upstreamModel) {
-		return VendorGeeknowGrok
-	}
 	if seqnode.IsRelay(originModel, upstreamModel, channelID) {
 		return VendorSeqnode
+	}
+	if geeknowgrok.IsRelay(originModel, upstreamModel) {
+		return VendorGeeknowGrok
 	}
 	if grok.IsRelay(originModel, upstreamModel) {
 		return VendorGrok
