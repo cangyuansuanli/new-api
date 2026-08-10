@@ -33,14 +33,13 @@ oaivideo/
     ├── seedancetengda/    # cy-sd2 / tengd → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
     ├── seedanceheygen/    # cy-sd6 → 固定分辨率双产品 + 鉴权 content
-    ├── sd5/         # cy-sd5 Seedance：typed JSON、seed、首尾帧、9 图 + 3 个视频/音频共享源位
     ├── omnii2v/     # cy-sd1 omni-fast*：flat reference_image_urls → 上游 images/image_url
     ├── omniv2v/     # cy-sd1 omni-fast-v2v*：flat reference_videos → 上游 videos/images
     ├── adobe/       # Adobe2API typed video（含 cy-sd5 Seedance）：/v1/videos/generations
     └── defaultvideo/ # 兜底：sora-2 等标准 OpenAI Video
 ```
 
-Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`，vendor 内部提交到 `/v1/videos/generations`，轮询复用 `/v1/videos/{id}`，不再使用独立 worker 或 chat 包装。
+Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`，vendor 内部提交到 `/v1/videos/generations`，轮询复用 `/v1/videos/{id}`，不再使用独立 worker 或 chat 包装。`cy-sd5` 也由 Adobe vendor 按内部模型契约处理：普通参考素材明确输出 `reference_mode=media`，支持 9 图 + 3 个视频/音频共享源位且全部素材最多 12；仅成对首尾帧输出 `reference_mode=frame`，两种模式互斥。
 
 对外时长参数 `duration` / `seconds` 是同义字段，在 `relay/common` 归一化；上游字段由 vendor 选择：default / Grok 输出 `seconds`，Seedance / Adobe 输出 `duration`。禁止绕过 vendor 边界直接透传两个别名。
 
