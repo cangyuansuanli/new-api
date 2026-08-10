@@ -1,6 +1,6 @@
 # Leonardo 视频模型（cy-sd4）
 
-> 契约：`leonardo-web2api/docs/api.md` · Seedance 规则：`leonardo-web2api/docs/models/seedance-2.0.md` · Hailuo：`leonardo-web2api/docs/models/hailuo-03.md` · 任务路由：[`video-task-routing.md`](video-task-routing.md)
+> 契约：`leonardo-web2api/docs/api.md` · Seedance 2.0/2.5 规则：`leonardo-web2api/docs/models/seedance-2.0.md`、`seedance-2.5.md` · Hailuo：`leonardo-web2api/docs/models/hailuo-03.md` · 任务路由：[`video-task-routing.md`](video-task-routing.md)
 
 ## 分层
 
@@ -27,7 +27,8 @@
 
 | internal 模型前缀 | Vendor | 上游 `model`（渠道 `model_mapping`） |
 | --- | --- | --- |
-| `cy-sd4-seedance*` | `seedance-leonardo` | `seedance-2.0` / `seedance-2.0-fast` / … |
+| `cy-sd4-seedance-2.0*` | `seedance-leonardo` | `seedance-2.0` / `seedance-2.0-fast` / … |
+| `cy-sd4-seedance-2.5-480p` / `-720p` | `seedance-leonardo` | `seedance-2.5`；internal SKU 强制对应清晰度 |
 | `cy-sd4-minimax-h3*` | `seedance-leonardo`（同一 flat 适配器） | H3 模型 |
 | `cy-sd4-happyhouse-*` | `seedance-leonardo`（同一 flat 适配器） | Happy House 1.0 / 1.1 |
 
@@ -39,13 +40,21 @@
 
 [`scripts/seed_data/model_ui_params_video.json`](../scripts/seed_data/model_ui_params_video.json)：
 
-- Seedance：`video-tpl-seedance-subscription-async`（别名映射见 `service/client_facing_pricing.go`）
+- Seedance 2.0：`video-tpl-seedance-subscription-async`（别名映射见 `service/client_facing_pricing.go`）
+- Seedance 2.5：`video-tpl-seedance-2.5-subscription-async`（exact match；最多 10 图，素材时长上限 30.2 秒）
 - MiniMax H3 2K：`video-tpl-minimax-h3-2k-async`（含 **原生音频** `generateAudio` → 请求体 `audio`）
 
 `referenceLimits` 与 leonardo-web2api 模型文档常量表对齐，仅作表单提示。
 Happy House 的素材数量、格式、尺寸、FPS、时长组合和版本能力差异同样由
 leonardo-web2api 在入队与 worker 阶段校验；NewAPI 只负责 flat 请求归一化、
 模型映射、异步轮询和错误透传。
+
+## Seedance 2.5 计费与清晰度
+
+两个 2.5 internal SKU 均按 `ModelPrice × seconds × groupRatio × QuotaPerUnit`
+计费。`EstimateBilling` 只对这两个 exact SKU 写入 `other.seconds`，现有 2.0
+仍保持按次计费。480p SKU 的出站 `resolution` 固定为 `480p`，720p SKU 固定为
+`720p`，客户端传入相反值时由 adaptor 覆盖，避免低价 SKU 请求高价清晰度。
 
 ## 相关代码
 

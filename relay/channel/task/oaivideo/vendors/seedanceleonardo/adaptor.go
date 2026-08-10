@@ -30,10 +30,22 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 }
 
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
-	return nil
+	if _, ok := seedance25Resolution(info.OriginModelName); !ok {
+		return nil
+	}
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return nil
+	}
+	seconds := req.RequestedDurationSeconds()
+	if seconds <= 0 {
+		seconds = 8
+	}
+	return map[string]float64{"seconds": float64(seconds)}
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
+	forcedResolution, forceResolution := seedance25Resolution(info.OriginModelName)
 	contentType := strings.ToLower(c.Request.Header.Get("Content-Type"))
 	if strings.HasPrefix(contentType, "application/json") {
 		bodyMap, err := readJSONBodyMap(c)
@@ -45,12 +57,23 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 			return nil, err
 		}
 		out := buildUpstreamBody(bodyMap, info.UpstreamModelName, req.RequestedDurationSeconds(), req.Images)
+		if forceResolution {
+			out["resolution"] = forcedResolution
+		}
 		newBody, err := common.Marshal(out)
 		if err != nil {
 			return nil, err
 		}
 		c.Request.Header.Set("Content-Type", "application/json")
 		return bytes.NewReader(newBody), nil
+	}
+	if forceResolution {
+		formData, err := common.ParseMultipartFormReusable(c)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse_multipart_video_request_failed")
+		}
+		formData.Value["resolution"] = []string{forcedResolution}
+		c.Request.MultipartForm = formData
 	}
 	return oaivideo.BuildNormalizedRequestBody(c, info.UpstreamModelName, oaivideo.DurationFieldDuration)
 }

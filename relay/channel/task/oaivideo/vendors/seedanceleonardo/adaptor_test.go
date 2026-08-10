@@ -3,6 +3,7 @@ package seedanceleonardo
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"mime/multipart"
 	"net/http/httptest"
 	"testing"
@@ -103,6 +104,95 @@ func TestIsRelay(t *testing.T) {
 	}
 	if IsRelay("cy-sd1-seedance-2.0-720p") {
 		t.Fatal("cy-sd1 must not match leonardo")
+	}
+}
+
+func TestEstimateBilling_Seedance25UsesSecondsOnly(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 4})
+	adaptor := &TaskAdaptor{}
+
+	got := adaptor.EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: seedance25Model480})
+	if got["seconds"] != 4 || len(got) != 1 {
+		t.Fatalf("unexpected 2.5 billing ratios: %#v", got)
+	}
+	if got := adaptor.EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: "cy-sd4-seedance-2.0"}); got != nil {
+		t.Fatalf("2.0 billing must remain unchanged, got %#v", got)
+	}
+}
+
+func TestEstimateBilling_Seedance25DefaultsToEightSeconds(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set("task_request", relaycommon.TaskSubmitReq{})
+	got := (&TaskAdaptor{}).EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: seedance25Model720})
+	if got["seconds"] != 8 {
+		t.Fatalf("default seconds = %v, want 8", got["seconds"])
+	}
+}
+
+func TestBuildRequestBody_Seedance25ForcesJSONResolution(t *testing.T) {
+	for _, tc := range []struct {
+		model      string
+		requested  string
+		resolution string
+	}{
+		{seedance25Model480, "720p", "480p"},
+		{seedance25Model720, "480p", "720p"},
+	} {
+		t.Run(tc.model, func(t *testing.T) {
+			body := []byte(`{"model":"ignored","prompt":"test","duration":4,"resolution":"` + tc.requested + `"}`)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", "/v1/videos", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 4, Resolution: tc.requested})
+
+			reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
+				OriginModelName: tc.model,
+				ChannelMeta: &relaycommon.ChannelMeta{
+					UpstreamModelName: "seedance-2.5",
+				},
+			})
+			if err != nil {
+				t.Fatalf("build body: %v", err)
+			}
+			raw, err := io.ReadAll(reader)
+			if err != nil {
+				t.Fatalf("read body: %v", err)
+			}
+			var got map[string]interface{}
+			if err := json.Unmarshal(raw, &got); err != nil {
+				t.Fatalf("unmarshal body: %v", err)
+			}
+			if got["resolution"] != tc.resolution {
+				t.Fatalf("resolution = %v, want %s", got["resolution"], tc.resolution)
+			}
+		})
+	}
+}
+
+func TestBuildRequestBody_Seedance25ForcesMultipartResolution(t *testing.T) {
+	c := multipartContextWithFields(t, "4", map[string][]string{"resolution": {"720p"}})
+	c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 4, Resolution: "720p"})
+	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
+		OriginModelName: seedance25Model480,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "seedance-2.5",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	raw, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	req := httptest.NewRequest("POST", "/v1/videos", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	if err := req.ParseMultipartForm(1 << 20); err != nil {
+		t.Fatalf("parse output: %v", err)
+	}
+	if got := req.FormValue("resolution"); got != "480p" {
+		t.Fatalf("resolution = %q, want 480p", got)
 	}
 }
 
