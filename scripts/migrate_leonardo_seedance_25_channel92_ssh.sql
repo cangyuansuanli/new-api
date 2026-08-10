@@ -1,5 +1,4 @@
 -- Leonardo Seedance 2.5：仅上架到生产渠道 92。
--- api_doc 与 ModelPrice 由 seed_leonardo_seedance_25_api_doc.py 写入。
 -- cy-origin: docker exec -i newapi-postgres psql -U root -d new-api < migrate_leonardo_seedance_25_channel92_ssh.sql
 
 BEGIN;
@@ -102,5 +101,91 @@ CROSS JOIN (VALUES
     ('cy-sd4-seedance-2.5-480p'),
     ('cy-sd4-seedance-2.5-720p')
 ) AS m(model);
+
+-- API 文档与售价和模型上架保持同一事务。
+UPDATE models AS m SET
+    api_doc = jsonb_build_object(
+        'dispatch_mode', 'async',
+        'intro', format(
+            'Seedance 2.5 固定 %s 视频模型，$%s/秒，支持 4–%s 秒。通过统一 /v1/videos API 创建、轮询并下载成片；模型名决定清晰度。',
+            v.resolution, v.price, v.max_seconds
+        ),
+        'endpoints', jsonb_build_array(
+            jsonb_build_object('method', 'POST', 'path', '{{base}}/videos', 'description', '创建异步视频任务。'),
+            jsonb_build_object('method', 'GET', 'path', '{{base}}/videos/{task_id}', 'description', '查询任务状态和成片地址。'),
+            jsonb_build_object('method', 'GET', 'path', '{{base}}/videos/{task_id}/content', 'description', '下载已完成任务的成片。')
+        ),
+        'params', jsonb_build_array(
+            jsonb_build_object('name', 'model', 'description', format('必填，当前固定 %s 的模型名称。', v.resolution)),
+            jsonb_build_object('name', 'prompt', 'description', '必填，视频内容描述，最多 5000 个 Unicode 字符。'),
+            jsonb_build_object('name', 'duration / seconds', 'description', format('整数 4–%s 秒，默认 8；两个字段是兼容别名。', v.max_seconds)),
+            jsonb_build_object('name', 'aspect_ratio', 'description', '21:9、16:9、4:3、1:1、3:4 或 9:16。'),
+            jsonb_build_object('name', 'generate_audio', 'description', '是否生成原生音频，布尔值，默认 true。'),
+            jsonb_build_object('name', 'reference_image_urls', 'description', '参考图 URL 数组，最多 10 张。'),
+            jsonb_build_object('name', 'reference_videos', 'description', '参考视频 URL 数组，最多 3 条，单条和合计均不超过 30.2 秒。'),
+            jsonb_build_object('name', 'reference_audios', 'description', '参考音频 URL 数组，最多 1 条，不超过 30.2 秒。'),
+            jsonb_build_object('name', 'first_image_url / last_image_url', 'description', '首尾帧必须成对提供，并与多模态参考素材互斥。')
+        ),
+        'basic_request_json', jsonb_build_object(
+            'model', '{{model}}',
+            'prompt', 'A calm blue sphere floating in a white studio',
+            'seconds', '4',
+            'aspect_ratio', '16:9',
+            'generate_audio', false
+        ),
+        'request_json', jsonb_build_object(
+            'model', '{{model}}',
+            'prompt', 'Use the subject and visual style from the references',
+            'duration', 8,
+            'aspect_ratio', '9:16',
+            'generate_audio', true,
+            'reference_image_urls', jsonb_build_array('https://example.com/subject.png')
+        ),
+        'create_response_json', jsonb_build_object(
+            'id', 'task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'object', 'video',
+            'model', '{{model}}',
+            'status', 'queued',
+            'progress', 0,
+            'seconds', '4',
+            'size', v.size
+        ),
+        'query_response_json', jsonb_build_object(
+            'id', 'task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            'object', 'video',
+            'model', '{{model}}',
+            'status', 'completed',
+            'progress', 100,
+            'seconds', '4',
+            'size', v.size,
+            'metadata', jsonb_build_object('video_url', '{{base}}/videos/task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/content'),
+            'usage', jsonb_build_object('seconds', 4)
+        )
+    )::text,
+    updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
+FROM (VALUES
+    ('cy-sd4-seedance-2.5-480p', '480p', '854x480', 30, 0.25::numeric),
+    ('cy-sd4-seedance-2.5-720p', '720p', '1280x720', 29, 0.35::numeric)
+) AS v(model_name, resolution, size, max_seconds, price)
+WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
+
+UPDATE options SET value = (
+    COALESCE(NULLIF(value, '')::jsonb, '{}'::jsonb) ||
+    '{"cy-sd4-seedance-2.5-480p":0.25,"cy-sd4-seedance-2.5-720p":0.35}'::jsonb
+)::text
+WHERE key = 'ModelPrice';
+
+UPDATE options SET value = (
+    COALESCE(NULLIF(value, '')::jsonb, '{}'::jsonb) ||
+    '{"cy-sd4-seedance-2.5-480p":"per_second","cy-sd4-seedance-2.5-720p":"per_second"}'::jsonb
+)::text
+WHERE key = 'billing_setting.billing_mode';
+
+UPDATE options SET value = (
+    COALESCE(NULLIF(value, '')::jsonb, '{}'::jsonb)
+      - 'cy-sd4-seedance-2.5-480p'
+      - 'cy-sd4-seedance-2.5-720p'
+)::text
+WHERE key = 'billing_setting.request_unit';
 
 COMMIT;
