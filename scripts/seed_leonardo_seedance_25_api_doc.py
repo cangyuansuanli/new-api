@@ -14,13 +14,13 @@ MODELS = {
         "resolution": "480p",
         "size": "854x480",
         "max_seconds": 30,
-        "price": 0.58,
+        "price": 0.25,
     },
     "cy-sd4-seedance-2.5-720p": {
         "resolution": "720p",
         "size": "1280x720",
         "max_seconds": 29,
-        "price": 0.95,
+        "price": 0.35,
     },
 }
 
@@ -130,7 +130,7 @@ def main() -> None:
     merge_json_option("ModelPrice", {model: config["price"] for model, config in MODELS.items()})
     merge_json_option("billing_setting.billing_mode", {model: "per_second" for model in MODELS})
     merge_json_option("billing_setting.request_unit", {}, set(MODELS))
-    print("updated Seedance 2.5 prices: 480p=$0.58/s, 720p=$0.95/s")
+    print("updated Seedance 2.5 prices: 480p=$0.25/s, 720p=$0.35/s")
 
 
 if __name__ == "__main__":
