@@ -3,6 +3,7 @@ package adobe
 import (
 	"io"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -113,6 +114,111 @@ func TestGeminiOmniAllowsThreeToTenSecondsAndSingleFirstFrame(t *testing.T) {
 	}
 }
 
+func TestSD5DefaultsReferenceImagesToMediaMode(t *testing.T) {
+	images := []string{"i1", "i2", "i3", "i4", "i5", "i6", "i7", "i8", "i9"}
+	payload, err := buildAdobeTestPayload(t, `{"model":"seedance-2.0","prompt":"test","duration":4,"images":["i1","i2","i3","i4","i5","i6","i7","i8","i9"]}`, relaycommon.TaskSubmitReq{
+		Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: images,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload["reference_mode"] != "media" {
+		t.Fatalf("reference_mode = %#v", payload["reference_mode"])
+	}
+	if got := stringListFromPayload(t, payload["images"]); !reflect.DeepEqual(got, images) {
+		t.Fatalf("images = %#v", got)
+	}
+}
+
+func TestSD5AllowsNineImagesAndThreeSourceMedia(t *testing.T) {
+	images := []string{"i1", "i2", "i3", "i4", "i5", "i6", "i7", "i8", "i9"}
+	for _, testCase := range []struct {
+		name   string
+		videos []string
+		audios []string
+	}{
+		{name: "three videos", videos: []string{"v1", "v2", "v3"}},
+		{name: "three audios", audios: []string{"a1", "a2", "a3"}},
+		{name: "mixed sources", videos: []string{"v1", "v2"}, audios: []string{"a1"}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			payload, err := buildAdobeTestPayload(t, `{"model":"seedance-2.0-fast","prompt":"test","duration":4,"images":["i1","i2","i3","i4","i5","i6","i7","i8","i9"]}`, relaycommon.TaskSubmitReq{
+				Model: "seedance-2.0-fast", Prompt: "test", Duration: 4, Images: images,
+				ReferenceVideos: testCase.videos, ReferenceAudios: testCase.audios,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if payload["reference_mode"] != "media" {
+				t.Fatalf("reference_mode = %#v", payload["reference_mode"])
+			}
+		})
+	}
+}
+
+func TestSD5ReferenceLimits(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		request relaycommon.TaskSubmitReq
+		want    string
+	}{
+		{
+			name:    "ten images",
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","images":["1","2","3","4","5","6","7","8","9","10"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}},
+			want:    "at most 9 reference images",
+		},
+		{
+			name:    "four source items",
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","images":["i"],"reference_videos":["v1","v2"],"reference_audios":["a1","a2"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"i"}, ReferenceVideos: []string{"v1", "v2"}, ReferenceAudios: []string{"a1", "a2"}},
+			want:    "at most 3 items combined",
+		},
+		{
+			name:    "thirteen total assets",
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","images":["1","2","3","4","5","6","7","8","9"],"reference_videos":["v1","v2","v3"],"reference_audios":["a1"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, ReferenceVideos: []string{"v1", "v2", "v3"}, ReferenceAudios: []string{"a1"}},
+			want:    "at most 12 total reference assets",
+		},
+		{
+			name:    "media without image",
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","reference_videos":["v1"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceVideos: []string{"v1"}},
+			want:    "require at least one image",
+		},
+		{
+			name:    "frame mixed with source media",
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"frame","images":["first","last"],"reference_videos":["v1"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"first", "last"}, ReferenceVideos: []string{"v1"}},
+			want:    "cannot be combined",
+		},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := buildAdobeTestPayload(t, testCase.body, testCase.request)
+			if err == nil || !strings.Contains(err.Error(), testCase.want) {
+				t.Fatalf("error = %v, want containing %q", err, testCase.want)
+			}
+		})
+	}
+}
+
+func TestSD5FrameModeUsesFirstAndLastFrames(t *testing.T) {
+	payload, err := buildAdobeTestPayload(t, `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"frame","images":["first","last"]}`, relaycommon.TaskSubmitReq{
+		Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"first", "last"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload["reference_mode"] != "frame" || payload["first_image_url"] != "first" || payload["last_image_url"] != "last" {
+		t.Fatalf("frame payload = %#v", payload)
+	}
+	if _, exists := payload["images"]; exists {
+		t.Fatalf("frame images leaked into payload: %#v", payload)
+	}
+}
+
 func TestAdobeUsesTypedSubmitAndSucceededResponse(t *testing.T) {
 	url, err := (&TaskAdaptor{}).BuildRequestURL(&relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://adobe.example.test/"},
@@ -130,4 +236,44 @@ func TestAdobeUsesTypedSubmitAndSucceededResponse(t *testing.T) {
 	if result.Status != "SUCCESS" || result.Url != "https://example.test/out.mp4" {
 		t.Fatalf("unexpected succeeded result: %+v", result)
 	}
+}
+
+func buildAdobeTestPayload(t *testing.T, body string, request relaycommon.TaskSubmitReq) (map[string]any, error) {
+	t.Helper()
+	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("task_request", request)
+	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: request.Model},
+	})
+	if err != nil {
+		return nil, err
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := map[string]any{}
+	if err := basecommon.Unmarshal(out, &payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload, nil
+}
+
+func stringListFromPayload(t *testing.T, value any) []string {
+	t.Helper()
+	raw, ok := value.([]any)
+	if !ok {
+		t.Fatalf("value is not a list: %#v", value)
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		text, ok := item.(string)
+		if !ok {
+			t.Fatalf("list item is not a string: %#v", item)
+		}
+		out = append(out, text)
+	}
+	return out
 }

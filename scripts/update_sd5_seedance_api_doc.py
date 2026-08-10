@@ -26,7 +26,7 @@ def update_doc(raw: object) -> dict:
     )
     descriptions = {
         "aspect_ratio": f"画幅比例：{RATIOS}；默认 9:16。",
-        "reference_mode": "可选 frame 或 media，默认 frame。frame 使用成对首尾帧；media 使用 9 图 + 3 个视频/音频共享源位；两种模式素材不可混用。",
+        "reference_mode": "可选 frame 或 media。省略时，普通参考素材自动使用 media，成对 first_image_url + last_image_url 自动使用 frame；media 支持 9 图 + 3 个视频/音频共享源位，两种模式素材不可混用。",
         "reference_videos": "可选公网 HTTPS 视频 URL 数组；与 reference_audios 合计最多 3 项。",
         "reference_audios": "可选公网 HTTPS 音频 URL 数组；与 reference_videos 合计最多 3 项。",
         "negative_prompt": "可选负面提示词，最多 1200 字符。",

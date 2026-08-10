@@ -34,26 +34,31 @@ var ModelList = []string{
 	"cy-sd5-seedance-2.0-fast",
 }
 
-var modelContracts = map[string]struct {
+type modelContract struct {
 	maxImages        int
+	maxSourceMedia   int
+	maxTotalMedia    int
 	minDuration      int
 	maxDuration      int
 	allowSeed        bool
 	allowAudio       bool
 	allowVideoAudio  bool
+	allowMedia       bool
 	allowAssets      bool
 	allowStyles      bool
 	allowFrames      bool
 	allowSingleFrame bool
 	maxWidth         int
-}{
+}
+
+var modelContracts = map[string]modelContract{
 	"veo-3.1":           {maxImages: 3, minDuration: 4, maxDuration: 8, allowSeed: true, allowAudio: true, allowAssets: true, allowFrames: true, maxWidth: 1920},
 	"veo-3.1-fast":      {maxImages: 2, minDuration: 4, maxDuration: 8, allowSeed: true, allowAudio: true, allowFrames: true, maxWidth: 1920},
 	"kling-3.0":         {maxImages: 2, minDuration: 3, maxDuration: 15, allowSeed: true, allowAudio: true, allowFrames: true, maxWidth: 1920},
 	"kling-3.0-omni":    {maxImages: 3, minDuration: 3, maxDuration: 15, allowSeed: true, allowAudio: true, allowStyles: true, allowFrames: true, maxWidth: 1920},
 	"gemini-omni-flash": {maxImages: 4, minDuration: 3, maxDuration: 10, allowStyles: true, allowFrames: true, allowSingleFrame: true, maxWidth: 1280},
-	"seedance-2.0":      {maxImages: 9, minDuration: 4, maxDuration: 15, allowSeed: true, allowAudio: true, allowVideoAudio: true, allowAssets: true, maxWidth: 1280},
-	"seedance-2.0-fast": {maxImages: 9, minDuration: 4, maxDuration: 15, allowSeed: true, allowAudio: true, allowVideoAudio: true, allowAssets: true, maxWidth: 1280},
+	"seedance-2.0":      {maxImages: 9, maxSourceMedia: 3, maxTotalMedia: 12, minDuration: 4, maxDuration: 15, allowSeed: true, allowAudio: true, allowVideoAudio: true, allowMedia: true, allowFrames: true, maxWidth: 1280},
+	"seedance-2.0-fast": {maxImages: 9, maxSourceMedia: 3, maxTotalMedia: 12, minDuration: 4, maxDuration: 15, allowSeed: true, allowAudio: true, allowVideoAudio: true, allowMedia: true, allowFrames: true, maxWidth: 1280},
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
@@ -126,7 +131,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		return nil, fmt.Errorf("unsupported Adobe video model: %s", modelName)
 	}
 	duration := req.RequestedDurationSeconds()
-	images := collectImages(raw, req.Images)
+	images := append([]string(nil), req.Images...)
+	referenceVideos := append([]string(nil), req.ReferenceVideos...)
+	referenceAudios := append([]string(nil), req.ReferenceAudios...)
 	if duration < contract.minDuration || duration > contract.maxDuration {
 		return nil, fmt.Errorf("%s duration must be between %d and %d seconds", modelName, contract.minDuration, contract.maxDuration)
 	}
@@ -140,13 +147,21 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	mode := strings.ToLower(strings.TrimSpace(asString(raw["reference_mode"])))
 	if mode == "" {
-		if firstImage != "" || lastImage != "" || len(images) == 2 {
+		switch {
+		case firstImage != "" || lastImage != "":
 			mode = "frame"
-		} else if len(images) > 0 {
+		case contract.allowMedia && (len(images) > 0 || len(referenceVideos) > 0 || len(referenceAudios) > 0):
+			mode = "media"
+		case len(images) == 2 && contract.allowFrames:
+			mode = "frame"
+		case len(images) > 0:
 			mode = "asset"
 		}
 	}
 	if mode == "frame" {
+		if len(referenceVideos)+len(referenceAudios) > 0 {
+			return nil, fmt.Errorf("%s frame references cannot be combined with video or audio references", modelName)
+		}
 		validPair := firstImage != "" && lastImage != ""
 		validSingle := contract.allowSingleFrame && firstImage != "" && lastImage == ""
 		if len(images) == 2 && firstImage == "" && lastImage == "" {
@@ -157,6 +172,16 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 			return nil, fmt.Errorf("%s requires a first and last frame", modelName)
 		}
 		images = nil
+	} else if mode == "media" {
+		if !contract.allowMedia {
+			return nil, fmt.Errorf("%s does not support media references", modelName)
+		}
+		if firstImage != "" || lastImage != "" {
+			return nil, fmt.Errorf("%s media references cannot be combined with first or last frames", modelName)
+		}
+		if len(referenceVideos)+len(referenceAudios) > 0 && len(images) == 0 {
+			return nil, fmt.Errorf("%s video or audio references require at least one image reference", modelName)
+		}
 	} else if mode == "asset" || mode == "image" || mode == "style" {
 		if mode == "style" && !contract.allowStyles || (mode != "style" && !contract.allowAssets) {
 			return nil, fmt.Errorf("%s does not support %s references", modelName, mode)
@@ -170,8 +195,15 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if len(images) > contract.maxImages {
 		return nil, fmt.Errorf("%s supports at most %d reference images", modelName, contract.maxImages)
 	}
-	if len(req.ReferenceVideos)+len(req.ReferenceAudios) > 0 && !contract.allowVideoAudio {
+	sourceMediaCount := len(referenceVideos) + len(referenceAudios)
+	if sourceMediaCount > 0 && !contract.allowVideoAudio {
 		return nil, fmt.Errorf("%s does not support video or audio references", modelName)
+	}
+	if contract.maxTotalMedia > 0 && len(images)+sourceMediaCount > contract.maxTotalMedia {
+		return nil, fmt.Errorf("%s supports at most %d total reference assets", modelName, contract.maxTotalMedia)
+	}
+	if contract.maxSourceMedia > 0 && sourceMediaCount > contract.maxSourceMedia {
+		return nil, fmt.Errorf("%s reference videos and audios support at most %d items combined", modelName, contract.maxSourceMedia)
 	}
 	if req.Seed != nil && !contract.allowSeed {
 		return nil, fmt.Errorf("%s does not support seed", modelName)
@@ -195,10 +227,13 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	} else if ratio := normalizeAspectRatio(asString(raw["size"])); ratio != "" {
 		out["aspect_ratio"] = ratio
 	}
-	for _, key := range []string{"resolution", "negative_prompt", "reference_mode", "first_image_url", "last_image_url"} {
+	for _, key := range []string{"resolution", "negative_prompt"} {
 		if value := strings.TrimSpace(asString(raw[key])); value != "" {
 			out[key] = value
 		}
+	}
+	if mode != "" {
+		out["reference_mode"] = mode
 	}
 	if value, ok := raw["generate_audio"]; ok {
 		if audio, valid := asBool(value); valid {
@@ -218,10 +253,11 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if lastImage != "" {
 		out["last_image_url"] = lastImage
 	}
-	for _, key := range []string{"reference_videos", "reference_audios"} {
-		if values := collectStringList(raw[key]); len(values) > 0 {
-			out[key] = values
-		}
+	if len(referenceVideos) > 0 {
+		out["reference_videos"] = referenceVideos
+	}
+	if len(referenceAudios) > 0 {
+		out["reference_audios"] = referenceAudios
 	}
 
 	encoded, err := common.Marshal(out)
@@ -297,48 +333,4 @@ func normalizeAspectRatio(raw string) string {
 		return raw
 	}
 	return ""
-}
-
-func collectImages(raw map[string]any, normalized []string) []string {
-	if len(normalized) > 0 {
-		return normalized
-	}
-	for _, key := range []string{"images", "image_urls", "reference_image_urls"} {
-		value, ok := raw[key]
-		if !ok {
-			continue
-		}
-		if single := strings.TrimSpace(asString(value)); single != "" {
-			return []string{single}
-		}
-		if list, ok := value.([]any); ok {
-			images := make([]string, 0, len(list))
-			for _, item := range list {
-				if image := strings.TrimSpace(asString(item)); image != "" {
-					images = append(images, image)
-				}
-			}
-			if len(images) > 0 {
-				return images
-			}
-		}
-	}
-	return nil
-}
-
-func collectStringList(value any) []string {
-	if single := strings.TrimSpace(asString(value)); single != "" {
-		return []string{single}
-	}
-	list, ok := value.([]any)
-	if !ok {
-		return nil
-	}
-	out := make([]string, 0, len(list))
-	for _, item := range list {
-		if entry := strings.TrimSpace(asString(item)); entry != "" {
-			out = append(out, entry)
-		}
-	}
-	return out
 }
