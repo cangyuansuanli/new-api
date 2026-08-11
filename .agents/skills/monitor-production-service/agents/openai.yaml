@@ -1,0 +1,4 @@
+interface:
+  display_name: "监控生产服务"
+  short_description: "建立覆盖入口、应用、队列、备份和业务不变量的监控告警"
+  default_prompt: "使用 -production-service 审计并补齐一个生产服务的监控告警。"
