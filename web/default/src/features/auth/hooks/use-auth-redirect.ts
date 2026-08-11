@@ -27,6 +27,7 @@ import { DEFAULT_CANVAS_BASE_URL } from '@/features/canvas/lib/canvas-config'
 import { getSelf } from '@/lib/api'
 import type { User } from '@/features/users/types'
 import { saveUserId } from '../lib/storage'
+import { resolveAuthRedirectTarget } from '../lib/redirect-path'
 
 function getSavedLanguage(user: User): string | undefined {
   const userData = user as Record<string, unknown>
@@ -91,13 +92,14 @@ export function useAuthRedirect() {
     }
 
     // Navigate to target page
-    const targetPath = redirectTo || '/dashboard'
-    if (redirectTo && isCanvasRedirectUrl(redirectTo, DEFAULT_CANVAS_BASE_URL)) {
-      navigate({ to: '/canvas/open', search: { redirect: redirectTo }, replace: true })
+    const safeRedirect = resolveAuthRedirectTarget(redirectTo)
+    const targetPath = safeRedirect || '/dashboard'
+    if (safeRedirect && isCanvasRedirectUrl(safeRedirect, DEFAULT_CANVAS_BASE_URL)) {
+      navigate({ to: '/canvas/open', search: { redirect: safeRedirect }, replace: true })
       return
     }
-    if (redirectTo && isExternalRedirect(redirectTo)) {
-      window.location.href = redirectTo
+    if (safeRedirect && isExternalRedirect(safeRedirect)) {
+      window.location.href = safeRedirect
       return
     }
     navigate({ to: targetPath, replace: true })
