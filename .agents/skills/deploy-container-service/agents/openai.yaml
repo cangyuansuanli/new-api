@@ -1,0 +1,4 @@
+interface:
+  display_name: "部署容器服务"
+  short_description: "以不可变镜像完成容器服务预检、发布、切流、验收与安全回滚"
+  default_prompt: "使用 -container-service 规划并执行一次带验证和回滚边界的容器服务发布。"

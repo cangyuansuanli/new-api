@@ -1,0 +1,4 @@
+interface:
+  display_name: "管理对象存储与 CDN"
+  short_description: "配置并验收对象存储权限、生命周期、跨域、迁移和 CDN 缓存"
+  default_prompt: "使用 -object-storage-cdn 部署并验收对象存储与 CDN 链路。"

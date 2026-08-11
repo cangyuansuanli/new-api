@@ -1,0 +1,4 @@
+interface:
+  display_name: "管理生产数据变更"
+  short_description: "审计并安全执行生产数据库迁移、配置回填和批量数据修正任务"
+  default_prompt: "使用 $manage-production-data-change 设计、执行并验收一次生产数据变更。"
