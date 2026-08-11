@@ -7,6 +7,8 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 
+import { DEFAULT_CANVAS_BASE_URL } from '@/features/canvas/lib/canvas-config'
+
 /** 将当前路由位置序列化为登录 redirect 参数（仅 pathname + search + hash）。 */
 export function toAuthRedirectParam(location: {
   pathname: string
@@ -28,7 +30,26 @@ export function resolveAuthRedirectTarget(redirect?: string): string | undefined
     return undefined
   }
 
-  const trimmed = redirect.trim()
+  let trimmed = redirect.trim()
+
+  // Reject control characters and collapse the nested values produced by
+  // older clients/proxies.  Without this guard, /sign-in?redirect=/sign-in
+  // can recursively create a phishing-looking URL.
+  if ([...trimmed].some((char) => {
+    const code = char.charCodeAt(0)
+    return code < 0x20 || code === 0x7f
+  })) {
+    return undefined
+  }
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const decoded = decodeURIComponent(trimmed)
+      if (decoded === trimmed) break
+      trimmed = decoded
+    } catch {
+      break
+    }
+  }
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     try {
@@ -36,13 +57,33 @@ export function resolveAuthRedirectTarget(redirect?: string): string | undefined
       if (typeof window !== 'undefined' && url.origin === window.location.origin) {
         return `${url.pathname}${url.search}${url.hash}`
       }
-      return trimmed
+      // The canvas is the only supported cross-origin post-auth destination.
+      // Reject arbitrary external URLs to prevent open redirects and phishing.
+      if (url.origin === new URL(DEFAULT_CANVAS_BASE_URL).origin) {
+        return `${url.origin}${url.pathname}${url.search}${url.hash}`
+      }
+      return undefined
     } catch {
       return undefined
     }
   }
 
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  const internal = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  try {
+    const url = new URL(internal, 'http://localhost')
+    // Never redirect back to an auth entry point. This breaks redirect loops
+    // and prevents nested sign-in URLs from being generated.
+    if (
+      ['/sign-in', '/sign-up', '/forgot-password', '/reset', '/otp'].includes(
+        url.pathname
+      )
+    ) {
+      return undefined
+    }
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return undefined
+  }
 }
 
 export function parseInternalRedirectPath(path: string): {
