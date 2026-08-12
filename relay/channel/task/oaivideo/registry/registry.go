@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancemagica"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	seqnode "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
@@ -36,6 +37,7 @@ const (
 	VendorSeedanceOairegbox Vendor = "seedance-oairegbox"
 	VendorSeedanceLeonardo  Vendor = "seedance-leonardo"
 	VendorSeedanceHeygen    Vendor = "seedance-heygen"
+	VendorSeedanceMagica    Vendor = "seedance-magica"
 	VendorSeedanceTengda    Vendor = "seedance-tengda"
 )
 
@@ -52,7 +54,7 @@ func Resolve(originModel, upstreamModel string) Vendor {
 func ParseVendor(value string) (Vendor, bool) {
 	vendor := Vendor(strings.TrimSpace(value))
 	switch vendor {
-	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorManju, VendorOmniI2V, VendorOmniV2V, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceHeygen, VendorSeedanceTengda:
+	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorManju, VendorOmniI2V, VendorOmniV2V, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceHeygen, VendorSeedanceMagica, VendorSeedanceTengda:
 		return vendor, true
 	default:
 		return "", false
@@ -84,6 +86,9 @@ func ResolveTask(task *model.Task) Vendor {
 func ResolveSubmission(originModel, upstreamModel string, channelID int, baseURL string) Vendor {
 	if seedanceheygen.IsRelay(originModel, upstreamModel) {
 		return VendorSeedanceHeygen
+	}
+	if seedancemagica.IsRelay(originModel, upstreamModel) {
+		return VendorSeedanceMagica
 	}
 	if seqnode.IsRelay(originModel, upstreamModel, channelID) {
 		return VendorSeqnode

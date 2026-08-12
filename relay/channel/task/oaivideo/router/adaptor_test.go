@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancemagica"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
@@ -34,6 +35,8 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		{"manju-openai-sora2", "sora2", "manju"},
 		{"cy-sd4-seedance-2.0", "seedance-2.0", "seedance-leonardo"},
 		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", "seedance-heygen"},
+		{"cy-sd7-seedance-2.0-720p", "seedance-2.0", "seedance-magica"},
+		{"cy-sd7-seedance-2.0-1080p", "seedance-2.0", "seedance-magica"},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", "seedance-leonardo"},
 		{"cy-sd5-seedance-2.0-fast", "seedance-2.0-fast", "adobe"},
 		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance-tengda"},
@@ -68,6 +71,10 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		case "seedance-heygen":
 			if _, ok := d.(*seedanceheygen.TaskAdaptor); !ok {
 				t.Fatalf("%s: expected seedance-heygen adaptor", tc.origin)
+			}
+		case "seedance-magica":
+			if _, ok := d.(*seedancemagica.TaskAdaptor); !ok {
+				t.Fatalf("%s: expected seedance-magica adaptor", tc.origin)
 			}
 		case "seedance-tengda":
 			if _, ok := d.(*seedancetengda.TaskAdaptor); !ok {
