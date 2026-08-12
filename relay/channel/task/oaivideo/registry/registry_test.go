@@ -17,6 +17,8 @@ func TestResolve(t *testing.T) {
 		{"cy-sd4-seedance-2.0", "seedance-2.0", VendorSeedanceLeonardo},
 		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", VendorSeedanceHeygen},
 		{"cy-sd6-seedance-2.0-1080p", "seedance-2.0", VendorSeedanceHeygen},
+		{"cy-sd7-seedance-2.0-720p", "seedance-2.0", VendorSeedanceMagica},
+		{"cy-sd7-seedance-2.0-1080p", "seedance-2.0", VendorSeedanceMagica},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", VendorSeedanceLeonardo},
 		{"cy-sd5-seedance-2.0", "seedance-2.0", VendorAdobe},
 		{"cy-sd5-seedance-2.0-fast", "seedance-2.0-fast", VendorAdobe},

@@ -36,7 +36,7 @@ UI profile 真值：`scripts/seed_data/model_ui_params_{video,image}.json`。
 
 ## 1. 源站调研（SSH contabo）
 
-默认 SSH 别名：`contabo`（见 `pool-admin/scripts/ssh-config.snippet`）。
+默认 SSH 别名：`contabo` 或 `cy-origin`（见各开发机 `~/.ssh/config`）。
 
 ```bash
 # 渠道配置
