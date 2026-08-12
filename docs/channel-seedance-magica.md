@@ -39,8 +39,8 @@
 
 | 模型 | 模式 | 默认价（options.ModelPrice） |
 | --- | --- | --- |
-| `cy-sd7-seedance-2.0-720p` | 按条 | ¥4.6/条 |
-| `cy-sd7-seedance-2.0-1080p` | 按秒 | ¥0.89/秒 |
+| `cy-sd7-seedance-2.0-720p` | 按条 | ¥3.9/条 |
+| `cy-sd7-seedance-2.0-1080p` | 按条 | ¥4.9/条 |
 
 ## 源站执行
 

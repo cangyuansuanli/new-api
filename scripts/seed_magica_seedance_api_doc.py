@@ -10,18 +10,18 @@ import time
 
 MODELS = {
     "cy-sd7-seedance-2.0-720p": {
-        "price": 4.6,
+        "price": 3.9,
         "billing_mode": "per_request",
         "request_unit": "generation",
         "resolution": "720p",
-        "billing_text": "¥4.6/条",
+        "billing_text": "¥3.9/条",
     },
     "cy-sd7-seedance-2.0-1080p": {
-        "price": 0.89,
-        "billing_mode": "per_second",
-        "request_unit": "second",
+        "price": 4.9,
+        "billing_mode": "per_request",
+        "request_unit": "generation",
         "resolution": "1080p",
-        "billing_text": "¥0.89/秒",
+        "billing_text": "¥4.9/条",
     },
 }
 
@@ -128,7 +128,7 @@ def main() -> None:
     merge_json_option("ModelPrice", {model: cfg["price"] for model, cfg in MODELS.items()})
     merge_json_option("billing_setting.billing_mode", {model: cfg["billing_mode"] for model, cfg in MODELS.items()})
     merge_json_option("billing_setting.request_unit", {model: cfg["request_unit"] for model, cfg in MODELS.items()})
-    print("updated prices: 720p per generation, 1080p per second")
+    print("updated prices: 720p ¥3.9/条, 1080p ¥4.9/条")
 
 
 if __name__ == "__main__":
