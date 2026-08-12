@@ -28,6 +28,16 @@ func TestNormalizeClientErrorMessageForLang_AdobePromptUnsafeMessageOnly(t *test
 	}
 }
 
+func TestNormalizeClientErrorMessageForLang_MagicaSensitiveOutput(t *testing.T) {
+	raw := "All providers failed. : Output video has sensitive content. Potential copyright violation.. : Content flagged as potentially sensitive. Please try different prompts or images"
+	if !IsContentPolicyViolation(raw) {
+		t.Fatalf("IsContentPolicyViolation(magica) = false, want true")
+	}
+	if got := NormalizeClientErrorMessageForLang(true, raw); got != ContentPolicyMessageZH {
+		t.Fatalf("NormalizeClientErrorMessageForLang(zh) = %q, want %q", got, ContentPolicyMessageZH)
+	}
+}
+
 func TestIsRealFaceReferenceError_ReferenceImageFaceStillMatches(t *testing.T) {
 	raw := "The reference image contains a real person's face and cannot be used to generate content."
 	if !IsRealFaceReferenceError(raw) {

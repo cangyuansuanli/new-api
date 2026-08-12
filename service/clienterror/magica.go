@@ -29,6 +29,9 @@ func normalizeMagicaPool(preferChinese bool, raw string) (string, bool) {
 	if strings.Contains(strings.ToLower(raw), "no active api key") {
 		return localized(preferChinese, PoolDepletedMessageZH, PoolDepletedMessageEN), true
 	}
+	if IsContentPolicyViolation(raw) {
+		return localized(preferChinese, ContentPolicyMessageZH, ContentPolicyMessageEN), true
+	}
 	if msg, ok := humanizeMagicaPayloadTooLarge(preferChinese, raw); ok {
 		return msg, true
 	}
