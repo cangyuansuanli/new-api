@@ -15,6 +15,7 @@ func init() {
 	RegisterRaw(normalizeCommon)
 	RegisterRaw(normalizeOmni)
 	Register(normalizeLeonardoRelay)
+	Register(normalizeMagicaRelay)
 	RegisterRaw(normalizeAdobe)
 	RegisterRaw(normalizeGrok)
 	RegisterRaw(normalizeManju)
