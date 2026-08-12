@@ -142,7 +142,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
 | `cy-sd4-seedance*` | seedance-leonardo | flat JSON → Leonardo `/v1/videos` | OpenAI Video 形（校验/错误见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
 | `cy-sd6-seedance-2.0-720p` / `cy-sd6-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-heygen | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；严格 JSON 白名单，按 SKU 强制 720p/1080p | `/v1/videos/{id}` + 鉴权 `/content` 成片转存 |
-| `cy-sd7-seedance-2.0-720p` / `cy-sd7-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-magica | 双 SKU 强制分辨率；有参考素材时 adaptor 自动改发 `seedance-2.0-reference`；号池内 480p+upscaler | `/v1/videos/{id}` + 鉴权 `/content` 成片转存（见 [`channel-seedance-magica.md`](channel-seedance-magica.md)） |
+| `cy-sd7-seedance-2.0-720p` / `cy-sd7-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-magica | 双 SKU 强制分辨率；有参考素材时 adaptor 自动改发 `seedance-2.0-reference` | `/v1/videos/{id}` + 鉴权 `/content` 成片转存（见 [`channel-seedance-magica.md`](channel-seedance-magica.md)） |
 | `cy-sd5-seedance*` | Adobe2API Seedance | 与 Adobe 视频共用 `adobe` vendor；按内部模型契约输出 `media` 或 `frame`，支持 9 图 + 3 个视频/音频共享源位、全部素材最多 12；mapping 使用 `seedance-2.0` / `seedance-2.0-fast` | `video.generation` → OpenAI Video 形 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | seedance-tengda | Tengda flat → `content[]` JSON | OpenAI Video 形 |
 | `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` / `cy-adobe-gemini-omni-flash` | Adobe2API | 渠道 86 统一使用 Adobe2API 视频出站；渠道 75 仅保留图片池；严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |

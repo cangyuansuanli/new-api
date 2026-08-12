@@ -28,7 +28,7 @@ describe('Happy House marketplace names', () => {
 })
 
 describe('Seedance public route prefixes', () => {
-  test('keeps sd5 and sd6 in marketplace and API document names', () => {
+  test('keeps sd5, sd6 and sd7 in marketplace and API document names', () => {
     assert.equal(formatModelDisplayName('sd5-seedance-2.0'), 'sd5-seedance-2.0')
     assert.equal(
       formatModelDisplayName('sd6-seedance-2.0-720p'),
@@ -37,6 +37,14 @@ describe('Seedance public route prefixes', () => {
     assert.equal(
       formatModelDisplayName('sd6-seedance-2.0-1080p'),
       'sd6-seedance-2.0-1080p'
+    )
+    assert.equal(
+      formatModelDisplayName('sd7-seedance-2.0-720p'),
+      'sd7-seedance-2.0-720p'
+    )
+    assert.equal(
+      formatModelDisplayName('sd7-seedance-2.0-1080p'),
+      'sd7-seedance-2.0-1080p'
     )
   })
 
