@@ -90,7 +90,7 @@ const MODEL_FAMILY_FIRST_SEGMENTS = new Set([
 ])
 
 /** 需在模型广场与 API 文档中保留的 public 路由前缀。 */
-const PUBLIC_MODEL_PREFIX_FIRST_SEGMENTS = new Set(['sd5', 'sd6'])
+const PUBLIC_MODEL_PREFIX_FIRST_SEGMENTS = new Set(['sd5', 'sd6', 'sd7'])
 
 function getNameFirstSegment(modelName: string): string | null {
   const trimmed = modelName.trim()

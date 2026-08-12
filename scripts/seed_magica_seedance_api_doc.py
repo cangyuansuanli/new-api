@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Magica Seedance 2.0 双产品：同步统一视频 API 文档、价格和计费模式。"""
+"""Seedance 2.0 双产品（Magica / cy-sd7）：同步 API 文档与定价。"""
 
 from __future__ import annotations
 
@@ -32,15 +32,16 @@ ENDPOINTS = [
 ]
 
 COMMON_PARAMS = [
-    {"name": "model", "description": "必填，传当前模型的公开名称（如 sd7-seedance-2.0-720p）；模型决定固定清晰度。"},
-    {"name": "prompt", "description": "必填，视频内容描述；多参时在 prompt 中用 @Image1 或「图片1」引用参考素材。"},
-    {"name": "duration / seconds", "description": "视频时长 4–15 秒；两者同时提供时必须一致。"},
+    {"name": "model", "description": "必填，传模型广场展示名（如 sd7-seedance-2.0-720p）；模型决定固定清晰度。"},
+    {"name": "prompt", "description": "必填，视频内容描述；多参时在 prompt 中用 @Image1 引用参考素材。"},
+    {"name": "duration", "description": "视频时长：4–15 秒。"},
+    {"name": "seconds", "description": "duration 的兼容别名；两者同时提供时必须一致。"},
     {"name": "aspect_ratio", "description": "画幅比例：16:9、9:16、1:1、4:3、3:4、21:9。"},
-    {"name": "image_url", "description": "单张参考图 → 图生视频（走 seedance-2.0）。"},
-    {"name": "reference_image_urls", "description": "多张参考图（≥2 时自动走多参 seedance-2.0-reference），最多 5 张。"},
-    {"name": "reference_videos", "description": "参考视频 URL，最多 3 段；更省积分。"},
-    {"name": "reference_audios", "description": "参考音频 URL，最多 3 段。"},
-    {"name": "generate_audio", "description": "是否生成音频，默认 false。"},
+    {"name": "image_url", "description": "单张参考图 → 图生视频。"},
+    {"name": "reference_image_urls", "description": "参考图 URL 数组，最多 5 张；多张时为多参参考。"},
+    {"name": "reference_videos", "description": "参考视频 URL 数组，最多 3 段。"},
+    {"name": "reference_audios", "description": "参考音频 URL 数组，最多 3 段。"},
+    {"name": "generate_audio", "description": "是否生成音频。"},
 ]
 
 
@@ -49,9 +50,10 @@ def build_doc(model_name: str, config: dict[str, object]) -> dict[str, object]:
     return {
         "dispatch_mode": "async",
         "intro": (
-            f"Seedance 2.0 {resolution}（Magica 线路），{config['billing_text']}。"
-            "固定清晰度；内部默认 480p 生成 + Video Upscaler 交付，省积分。"
-            "支持文生、单图 i2v、多参参考（5 图 / 3 视频 / 3 音频）。"
+            f"Seedance 2.0 {resolution}，{config['billing_text']}。"
+            "固定清晰度，通过统一 /v1/videos API 调用。"
+            "支持文生、图生与多参参考（参考图、参考视频、参考音频）。"
+            "计费以模型广场为准；失败任务通常不计费。"
         ),
         "endpoints": ENDPOINTS,
         "params": COMMON_PARAMS,
@@ -69,20 +71,21 @@ def build_doc(model_name: str, config: dict[str, object]) -> dict[str, object]:
             "reference_image_urls": ["https://example.com/character.png"],
         },
         "create_response_json": {
-            "id": "video_1",
+            "id": "task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             "object": "video",
             "model": "{{model}}",
             "status": "queued",
             "progress": 0,
+            "created_at": 1780000000,
         },
         "query_response_json": {
-            "id": "video_1",
+            "id": "task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             "object": "video",
             "model": "{{model}}",
             "status": "completed",
             "progress": 100,
             "seconds": "8",
-            "video_url": "{{base}}/videos/video_1/content",
+            "metadata": {"video_url": "{{base}}/videos/task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/content"},
         },
     }
 
