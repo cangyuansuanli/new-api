@@ -138,6 +138,10 @@ Each [`Descriptor`](relay/imagevendor/descriptor.go) defines:
 
 **Handler order:** `ModelMappedHelper` → `imagevendor.ApplyRequestPatch` → `image.Helper` / async worker → adaptor `ConvertImageRequest` → `param_override` → upstream.
 
+The canonical image-edit contract is URL JSON: new clients upload references directly to object storage and submit `images` / `mask` HTTPS URLs to `/v1/images/edits`. Keep legacy OpenAI multipart accepted as an inbound compatibility format; both formats must traverse the same model mapping, validation, patching, and channel adaptor chain. A channel adaptor may convert canonical URLs or legacy files to upstream multipart when required. Do not raw-pass through JSON edits or add new client behavior that depends on multipart.
+
+For image, video, and audio customer APIs, the canonical request DTO and unified endpoint contract define the only public schema. Each enabled media model must own a complete `models.api_doc` that selects a supported subset of those canonical fields and states its own ranges and examples; a model document must never add fields outside the unified schema. UI profiles describe controls and capabilities only, so frontend code must not merge profile fields or generated defaults into model documentation. Missing or invalid media `api_doc` means no model document is shown. Compatibility aliases, multipart ingress, data URIs, upstream paths, and vendor fields belong only to normalization/adaptor code and must not appear in new customer-facing model docs.
+
 **Adding a new image vendor (checklist):**
 
 1. Add `relay/imagevendor/vendor_<upstream>.go` with the real upstream name; public/internal neutral naming belongs in `Match`, not the filename.

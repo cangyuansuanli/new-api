@@ -138,28 +138,11 @@ func buildChatImageExtraBody(request dto.ImageRequest) (map[string]any, error) {
 }
 
 func resolveChatImageAspectRatio(size string) string {
-	value := strings.TrimSpace(size)
-	if value == "" || strings.EqualFold(value, "auto") {
-		return ""
-	}
-	if strings.Contains(value, ":") {
-		return value
-	}
-	return ""
+	return imagevendor.CanonicalAspectRatio(size)
 }
 
 func resolveChatImageSize(quality string) string {
-	value := strings.ToLower(strings.TrimSpace(quality))
-	switch value {
-	case "high", "hd", "4k":
-		return "4K"
-	case "medium", "2k":
-		return "2K"
-	case "low", "standard", "1k":
-		return "1K"
-	default:
-		return ""
-	}
+	return imagevendor.CanonicalResolution(quality)
 }
 
 func buildChatImageMessages(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) ([]dto.Message, error) {

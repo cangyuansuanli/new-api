@@ -16,8 +16,8 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
-	"github.com/QuantumNous/new-api/relay/imagevendor"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/gin-gonic/gin"
@@ -96,25 +96,9 @@ func ConvertGeminiBananaImageRequest(c *gin.Context, request dto.ImageRequest) (
 }
 
 func resolveGeminiBananaImageAspectRatio(size string) string {
-	value := strings.TrimSpace(size)
-	if value == "" || strings.EqualFold(value, "auto") {
-		return ""
-	}
-	if strings.Contains(value, ":") {
-		return value
-	}
-	return ""
+	return imagevendor.CanonicalAspectRatio(size)
 }
 
 func resolveGeminiBananaImageSize(quality string) string {
-	switch strings.ToLower(strings.TrimSpace(quality)) {
-	case "high", "hd", "4k":
-		return "4K"
-	case "medium", "2k":
-		return "2K"
-	case "low", "standard", "1k", "auto":
-		return "1K"
-	default:
-		return ""
-	}
+	return imagevendor.CanonicalResolution(quality)
 }

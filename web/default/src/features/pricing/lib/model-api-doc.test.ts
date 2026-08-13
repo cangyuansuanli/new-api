@@ -11,74 +11,81 @@ import { describe, test } from 'node:test'
 import type { PricingModel } from '../types'
 import { buildModelApiDoc } from './model-api-doc'
 
-function videoModel(): PricingModel {
+type MediaKind = 'image' | 'video' | 'audio'
+
+function mediaModel(kind: MediaKind, params: string[]): PricingModel {
+  const endpoint = {
+    image: 'openai-image',
+    video: 'openai-video',
+    audio: 'openai-audio',
+  }[kind]
   return {
     id: 1,
-    model_name: 'grok-video-1.5',
+    model_name: `${kind}-model`,
     quota_type: 1,
     model_ratio: 1,
     completion_ratio: 1,
     enable_groups: ['default'],
-    supported_endpoint_types: ['openai-video'],
-    video_ui_params: {
-      params: {
-        duration: { enabled: true, numericOptions: [4, 8] },
-        ratio: { enabled: true, options: [{ value: '16:9' }] },
-        resolution: { enabled: true, options: [{ value: '720p' }] },
-      },
-      referenceLimits: { images: 1, videos: 0, audios: 0 },
-    },
+    supported_endpoint_types: [endpoint],
     api_doc: {
-      intro: 'model capability',
-      doc_params_json: [
-        { name: 'seconds', description: 'legacy duration alias' },
-        { name: 'images', description: 'legacy image alias' },
-        { name: 'image_url', description: 'legacy image alias' },
-        { name: 'input_reference', description: 'legacy multipart alias' },
-        { name: 'size', description: 'unsupported fallback' },
+      dispatch_mode: kind === 'image' ? 'sync' : 'async',
+      intro: `${kind} model-owned documentation`,
+      endpoints: [
+        {
+          method: 'POST',
+          path: `{{base}}/${kind}/owned-endpoint`,
+          description: 'model-owned endpoint',
+        },
       ],
+      request_json: Object.fromEntries(params.map((name) => [name, 'value'])),
+      params: params.map((name) => ({
+        name,
+        description: `${name} model-owned note`,
+      })),
+      create_response_json: { ok: true },
     },
   }
 }
 
-describe('buildModelApiDoc video contract', () => {
-  test('renders only canonical profile-supported request fields', () => {
-    const doc = buildModelApiDoc(videoModel(), 'https://api.example.com')
-    const variant = doc.variants[0]
+describe('buildModelApiDoc media ownership', () => {
+  for (const [kind, ownParams, forbiddenParams] of [
+    ['image', ['model', 'prompt', 'size'], ['quality', 'images', 'async']],
+    [
+      'video',
+      ['model', 'prompt', 'duration'],
+      ['resolution', 'reference_image_urls'],
+    ],
+    ['audio', ['model', 'prompt'], ['async', 'response_format', 'stream']],
+  ] as const) {
+    test(`${kind} renders only its own api_doc`, () => {
+      const doc = buildModelApiDoc(
+        mediaModel(kind, [...ownParams]),
+        'https://api.example.com'
+      )
+      assert.ok(doc)
+      const variant = doc.variants[0]
 
-    assert.deepEqual(
-      variant.params.map((row) => row.name),
-      [
-        'model',
-        'prompt',
-        'duration',
-        'aspect_ratio',
-        'resolution',
-        'reference_image_urls',
-      ]
-    )
-    assert.deepEqual(Object.keys(JSON.parse(variant.requestJson)), [
-      'model',
-      'prompt',
-      'duration',
-      'aspect_ratio',
-      'resolution',
-      'reference_image_urls',
-    ])
-  })
+      assert.deepEqual(
+        variant.params.map((row) => row.name),
+        ownParams
+      )
+      assert.deepEqual(Object.keys(JSON.parse(variant.requestJson)), ownParams)
+      assert.equal(
+        variant.endpoints[0].path,
+        `https://api.example.com/v1/${kind}/owned-endpoint`
+      )
+      for (const name of forbiddenParams) {
+        assert.equal(
+          variant.params.some((row) => row.name === name),
+          false
+        )
+      }
+    })
 
-  test('does not invent optional parameters when the profile disables them', () => {
-    const model = videoModel()
-    model.video_ui_params = { params: {}, referenceLimits: {} }
-    const variant = buildModelApiDoc(model).variants[0]
-
-    assert.deepEqual(
-      variant.params.map((row) => row.name),
-      ['model', 'prompt']
-    )
-    assert.deepEqual(Object.keys(JSON.parse(variant.requestJson)), [
-      'model',
-      'prompt',
-    ])
-  })
+    test(`${kind} without api_doc has no generated documentation`, () => {
+      const model = mediaModel(kind, [...ownParams])
+      model.api_doc = undefined
+      assert.equal(buildModelApiDoc(model), null)
+    })
+  }
 })

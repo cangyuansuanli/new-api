@@ -1,48 +1,47 @@
 # 统一图像 API 参考
 
-面向外部 API 客户与无限画布共用的 **唯一** 图像契约。各模型差异见模型广场「能力卡片」，本文只描述通用 endpoint 与 canonical 字段。
+面向外部 API 客户与无限画布共用的 **唯一** 图像契约。前端提交 canonical 参数；模型能力校验、精确尺寸映射、上游路径和 vendor 字段均由 NewAPI 负责。
 
 > 内部执行链路见 [`media-request-chain-audit.md`](media-request-chain-audit.md)。
 
-## 端点
+## 公共端点
 
-### 异步（推荐）
-
-| 方法 | 路径 | 用途 |
-|------|------|------|
-| `POST` | `/v1/images/generations` | 文生图 / JSON 图生图（body 含 `async: true`） |
-| `POST` | `/v1/images/edits` | multipart 图生图 / 蒙版编辑（`async: true`） |
-| `GET` | `/v1/images/generations/{task_id}` | 查询 generations 任务 |
-| `GET` | `/v1/images/edits/{task_id}` | 查询 edits 任务 |
-| `GET` | `/v1/images/{task_id}/content` | 下载图片（部分模型） |
-
-### 同步
-
-| 方法 | 路径 | 用途 |
-|------|------|------|
-| `POST` | `/v1/images/generations` | 单次请求直接返回（勿传 `async` 或 `async: false`） |
+| 方法 | 路径 | 请求格式 | 用途 |
+|------|------|----------|------|
+| `POST` | `/v1/images/generations` | JSON | 文生图 |
+| `POST` | `/v1/images/edits` | JSON | 参考图编辑 / 蒙版编辑 |
+| `GET` | `/v1/images/generations/{task_id}` | - | 查询生成任务 |
+| `GET` | `/v1/images/edits/{task_id}` | - | 查询编辑任务 |
+| `GET` | `/v1/images/{task_id}/content` | - | 获取已归档结果 |
 
 鉴权：`Authorization: Bearer sk-xxx`
 
-> 请使用 `/v1/images/edits` 作为统一 edits 入口；旧版 `/v1/edits` 仅为兼容转发，行为可能与异步路径不一致。
+异步请求传 `async: true`；同步请求不传 `async` 或传 `false`。请使用 `/v1/images/edits` 作为统一编辑入口；旧版 `/v1/edits` 仅为兼容转发。
 
-## Canonical 请求字段（JSON 文生 / 图生）
+## Canonical 参数
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `model` | string | 是 | 模型广场 public 名 |
-| `prompt` | string | 是 | 图像描述 |
-| `async` | boolean | 异步必填 | 异步模式传 `true` |
-| `aspect_ratio` | string | 否 | 画幅比例，如 `16:9`、`1:1` |
-| `size` | string | 否 | 像素尺寸或比例 token（依模型 profile） |
-| `output_resolution` | string | 否 | 档位：`1K` / `2K` / `4K`（Banana / Adobe 等） |
-| `quality` | string | 否 | OpenAI 风格别名：`low` / `medium` / `high` |
-| `n` | integer | 否 | 生成张数，默认 1 |
-| `response_format` | string | 同步可选 | `url` 或 `b64_json` |
+生成与编辑共用：`model`、`prompt`、`n`、`size`、`quality`、`background`、`output_format`、`output_compression`、`moderation`、`response_format`、`async`、`stream`。编辑请求额外使用 `images` HTTPS URL 数组和可选的 `mask` HTTPS URL。
 
-JSON 图生图参考字段：`image`、`images`、`reference_images`（URL 或 data URI）。
+新客户端应先通过 Presigned URL 把本地图片直传对象存储，再提交 URL，不应把 Blob、data URI 或文件流量经过业务 API。为避免破坏已上线客户，服务端仍在入站层接受历史文件请求；请求体受限且大表单会写临时文件而非常驻内存。仅当上游渠道要求文件表单时，NewAPI 才在出站边界把 canonical URL 下载并转换为其私有协议。
 
-## JSON 示例（异步文生）
+历史文件请求只是入站迁移层，不是新公共契约。JSON URL 与历史请求都先归一为同一 `ImageRequest` 控制参数并进入相同的模型映射、能力校验和渠道分发链。
+
+`size` 保留客户选择的语义：比例使用 `1:1`、`16:9`、`9:16`，自定义尺寸使用 `1024x1024`。`quality` 使用 `low`、`medium`、`high`。前端不得把比例和质量提前换算为某个供应商的像素尺寸。
+
+以下字段不是新公共契约，不应由新客户端发送：`aspect_ratio`、`image_size`、`output_resolution`、Gemini `extra_body.google.image_config`、chat `messages`。已上线第三方客户携带的扩展字段继续按兼容逻辑解析，但新渠道不能依赖这些字段。
+
+## 出站职责
+
+固定处理顺序：public 模型名映射到 internal 名 → 渠道分发与 `model_mapping` → `imagevendor.ValidateRequest` → `imagevendor.ApplyRequestPatch` → channel adaptor 转换 → `param_override` → 上游。
+
+- `relay/imagevendor/`：按 internal 模型和已选渠道声明能力校验、尺寸档位映射、字段裁剪与 R2 策略。
+- `relay/channel/*`：上游协议、路径、私有请求体与响应转换。
+- `service/image_r2_rehost.go`：只负责结果下载、识别与对象存储归档。
+- 前端 profile：只决定可见参数、选项和数量限制，不选择上游协议或 vendor builder。
+
+新增渠道时优先注册 `imagevendor.Descriptor`；只有上游 body 或 endpoint 不兼容标准 Image API 时才扩展 channel adaptor。禁止在 controller、前端或通用 R2 服务新增模型名前缀分支。
+
+## 示例
 
 ```bash
 curl -X POST "https://newapi.example.com/v1/images/generations" \
@@ -51,36 +50,20 @@ curl -X POST "https://newapi.example.com/v1/images/generations" \
   -d '{
     "model": "gpt-image-2",
     "prompt": "一只橘猫坐在窗台上，午后阳光",
-    "size": "1024x1024",
+    "size": "1:1",
+    "quality": "high",
     "n": 1,
-    "async": true
+    "response_format": "url",
+    "async": true,
+    "stream": false
   }'
 ```
 
-## Multipart 图生 / 编辑
+## 轮询与响应
 
-有本地参考图或蒙版时使用 `POST /v1/images/edits`：
+异步任务查询 `GET /v1/images/generations/{task_id}` 或 `GET /v1/images/edits/{task_id}`。`status` 为 `queued`、`in_progress`、`completed`、`failed`；建议间隔 5–10 秒，总等待时间至少 30 分钟。
 
-| 字段 | 说明 |
-|------|------|
-| `model` | 模型名 |
-| `prompt` | 描述 |
-| `async` | `true` 启用异步 |
-| `image` | 参考图文件（多图时重复字段名 `image`） |
-| `mask` | 可选蒙版文件 |
-
-## 轮询（异步）
-
-```bash
-curl "https://newapi.example.com/v1/images/generations/{task_id}" \
-  -H "Authorization: Bearer sk-xxx"
-```
-
-`status`：`queued` | `in_progress` | `completed` | `failed`
-
-建议轮询间隔 5–10 秒，客户端总等待时间建议 **≥30 分钟**（4K、多图或排队场景可能更长）。
-
-## 同步响应
+同步成功返回标准 `data` 数组：
 
 ```json
 {
@@ -89,8 +72,4 @@ curl "https://newapi.example.com/v1/images/generations/{task_id}" \
 }
 ```
 
-## 模型能力矩阵
-
-各模型支持的参数、同步/异步模式、档位映射见模型广场 API 文档「能力卡片」，由 `image_ui_params` profile 驱动。
-
-运营/避坑补充：[`infinite-canvas/docs/dev/models/`](../infinite-canvas/docs/dev/models/)
+各模型支持的参数、同步/异步模式和档位只由该模型自己的 `models.api_doc` 维护。`image_ui_params` 仅驱动画布控件，不生成、合并或补全 API 文档；缺少有效 `api_doc` 时不展示模型文档。运营补充见 `infinite-canvas/docs/dev/models/`。
