@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/cachex"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/samber/hot"
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
@@ -454,12 +455,15 @@ func classifyMediaTask(task *model.Task) mediaTaskFailureClass {
 
 	channelMarkers := []string{
 		"bad response status 502", "bad response status 503", "bad response status 504",
-		"bad response status code 502", "bad response status code 503", "bad response status code 504",
+		"bad response status code 500", "bad response status code 502", "bad response status code 503", "bad response status code 504",
+		"status code 500", "status code 502", "status code 503", "status code 504",
 		"http 403 unauthorized", "unauthorized", "credential", "refresh unavailable",
-		"upstream timeout", "upstream request failed", "upstream submit failed", "service unavailable",
+		"upstream timeout", "upstream request failed", "upstream submit failed", "upstream returned failed",
+		"service unavailable", "internal server error", "bad gateway", "gateway timeout",
 		"rate limit", "too many requests", "all cookies failed", "unexpected eof",
 		"connection refused", "connection reset", "tls handshake timeout", "context deadline exceeded",
-		"生成超时", "服务不可用", "上游超时", "上游请求失败", "上游提交失败", "凭证不可用",
+		"no output", "no failure detail", "task failed", "generation failed", "submit failed",
+		"生成超时", "服务不可用", "上游超时", "上游请求失败", "上游提交失败", "凭证不可用", "生成失败",
 	}
 	if containsChannelMonitorMarker(reason, channelMarkers) {
 		return mediaTaskChannelFailure
@@ -496,33 +500,86 @@ func isVideoChannelMonitorTargetFallback(channelType int, modelName string) bool
 	})
 }
 
-func passiveMediaStatus(effective []*model.Task, _ bool) string {
-	if len(effective) == 0 {
-		return model.ChannelMonitorStatusUnknown
+func passiveMediaFreshness(isVideo bool) time.Duration {
+	if isVideo {
+		return channelMonitorVideoFreshness
 	}
-	consecutiveFailures := 0
+	return channelMonitorImageFreshness
+}
+
+func filterEffectiveMediaTasksByFreshness(effective []*model.Task, isVideo bool, now time.Time) []*model.Task {
+	cutoff := now.Add(-passiveMediaFreshness(isVideo)).Unix()
+	fresh := make([]*model.Task, 0, len(effective))
 	for _, task := range effective {
+		if task != nil && task.UpdatedAt >= cutoff {
+			fresh = append(fresh, task)
+		}
+	}
+	return fresh
+}
+
+func countConsecutiveChannelFailures(tasks []*model.Task) int {
+	consecutiveFailures := 0
+	for _, task := range tasks {
 		if classifyMediaTask(task) != mediaTaskChannelFailure {
 			break
 		}
 		consecutiveFailures++
 	}
-	if consecutiveFailures >= 3 {
-		return model.ChannelMonitorStatusUnavailable
-	}
+	return consecutiveFailures
+}
+
+func countMediaTaskSuccesses(tasks []*model.Task) int {
 	successes := 0
-	for _, task := range effective {
+	for _, task := range tasks {
 		if classifyMediaTask(task) == mediaTaskSuccess {
 			successes++
 		}
 	}
-	if successes*100 >= len(effective)*80 {
-		return model.ChannelMonitorStatusOperational
+	return successes
+}
+
+func passiveMediaStatus(effective []*model.Task, isVideo bool) string {
+	if len(effective) == 0 {
+		return model.ChannelMonitorStatusUnknown
 	}
+	window := effective
+	if len(window) > 5 {
+		window = window[:5]
+	}
+	consecutiveFailures := countConsecutiveChannelFailures(window)
+	if consecutiveFailures >= 3 {
+		return model.ChannelMonitorStatusUnavailable
+	}
+	if isVideo {
+		if classifyMediaTask(window[0]) == mediaTaskSuccess {
+			return model.ChannelMonitorStatusOperational
+		}
+		if consecutiveFailures >= 1 {
+			return model.ChannelMonitorStatusDegraded
+		}
+		if countMediaTaskSuccesses(window) == 0 {
+			return model.ChannelMonitorStatusUnavailable
+		}
+		return model.ChannelMonitorStatusDegraded
+	}
+	successes := countMediaTaskSuccesses(window)
 	if successes == 0 {
 		return model.ChannelMonitorStatusUnavailable
 	}
+	if classifyMediaTask(window[0]) == mediaTaskSuccess && successes >= 4 {
+		return model.ChannelMonitorStatusOperational
+	}
 	return model.ChannelMonitorStatusDegraded
+}
+
+func isPublicChannelMonitorGroup(group string) bool {
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return false
+	}
+	_, ok := setting.GetUserUsableGroupsCopy()[group]
+	return ok
 }
 
 func taskMatchesChannelMonitorModel(task *model.Task, modelName string) bool {
@@ -586,7 +643,8 @@ func buildPassiveMediaStatFromTasksAtWithCategory(channel *model.Channel, modelN
 	}
 	sort.SliceStable(effective, func(i, j int) bool { return effective[i].UpdatedAt > effective[j].UpdatedAt })
 
-	stat := &ChannelMonitorModelStat{Model: modelName, LatestStatus: passiveMediaStatus(effective, isVideo)}
+	freshEffective := filterEffectiveMediaTasksByFreshness(effective, isVideo, now)
+	stat := &ChannelMonitorModelStat{Model: modelName, LatestStatus: passiveMediaStatus(freshEffective, isVideo)}
 	if len(effective) == 0 {
 		if includeTimeline {
 			stat.Timeline = make([]*ChannelMonitorTimelinePoint, 0, channelMonitorPublicTimelineLimit)
@@ -631,6 +689,18 @@ func buildPassiveMediaStatFromTasksAtWithCategory(channel *model.Channel, modelN
 		})
 	}
 	stat.LatestStatus = stat.Timeline[len(stat.Timeline)-1].Status
+	if len(freshEffective) > 0 {
+		stat.LatestStatus = passiveMediaStatus(freshEffective, isVideo)
+		if len(stat.Timeline) > 0 {
+			lastPoint := stat.Timeline[len(stat.Timeline)-1]
+			if lastPoint.Carried {
+				lastPoint.Status = stat.LatestStatus
+				lastPoint.Carried = false
+			}
+		}
+	} else if len(effective) > 0 {
+		stat.LatestStatus = model.ChannelMonitorStatusUnknown
+	}
 	if stat.Observed > 0 {
 		availability := float64(stat.Operational) * 100 / float64(stat.Observed)
 		stat.Availability = &availability
@@ -708,6 +778,28 @@ func RunChannelMonitor(ctx context.Context, monitorID int64, probe ChannelMonito
 	return runLegacyChannelMonitor(ctx, monitor, channel, probe)
 }
 
+func resolveTextMonitorTargetGroup(monitor *model.ChannelMonitor) string {
+	if monitor == nil {
+		return ""
+	}
+	targetGroup := strings.TrimSpace(monitor.Target)
+	if targetGroup != "" {
+		return targetGroup
+	}
+	if monitor.ChannelID <= 0 {
+		return ""
+	}
+	legacyChannel, err := model.GetChannelById(monitor.ChannelID, false)
+	if err != nil || legacyChannel == nil {
+		return ""
+	}
+	groups := legacyChannel.GetGroups()
+	if len(groups) == 0 {
+		return ""
+	}
+	return groups[0]
+}
+
 func runTextGroupChannelMonitor(ctx context.Context, monitor *model.ChannelMonitor, probe ChannelMonitorProbeFunc) ([]*model.ChannelMonitorResult, error) {
 	if probe == nil {
 		return nil, errors.New("channel monitor probe is not configured")
@@ -716,17 +808,7 @@ func runTextGroupChannelMonitor(ctx context.Context, monitor *model.ChannelMonit
 	if err != nil {
 		return nil, err
 	}
-	targetGroup := strings.TrimSpace(monitor.Target)
-	if targetGroup == "" && monitor.ChannelID > 0 {
-		legacyChannel, legacyErr := model.GetChannelById(monitor.ChannelID, false)
-		if legacyErr != nil {
-			return nil, legacyErr
-		}
-		groups := legacyChannel.GetGroups()
-		if len(groups) > 0 {
-			targetGroup = groups[0]
-		}
-	}
+	targetGroup := resolveTextMonitorTargetGroup(monitor)
 	results := make([]*model.ChannelMonitorResult, 0)
 	roundCheckedAt := time.Now().Unix()
 	for _, channel := range channels {
@@ -909,13 +991,8 @@ func buildChannelMonitorModelStat(modelName string, results []*model.ChannelMoni
 			switch result.Status {
 			case model.ChannelMonitorStatusOperational:
 				successes++
-			case model.ChannelMonitorStatusUnavailable:
+			case model.ChannelMonitorStatusUnavailable, model.ChannelMonitorStatusDegraded:
 				failures++
-			default:
-				if result.Status == model.ChannelMonitorStatusDegraded {
-					successes++
-					failures++
-				}
 			}
 		}
 		status := model.ChannelMonitorStatusUnknown
@@ -1070,6 +1147,19 @@ func publicChannelMonitorCategoryWithCapability(channelType int, modelName strin
 	return ChannelMonitorCategoryImage
 }
 
+func publicStatusWorstRank(status string) int {
+	switch status {
+	case model.ChannelMonitorStatusUnavailable:
+		return 0
+	case model.ChannelMonitorStatusDegraded:
+		return 1
+	case model.ChannelMonitorStatusOperational:
+		return 2
+	default:
+		return 3
+	}
+}
+
 func publicStatusPriority(status string) int {
 	switch status {
 	case model.ChannelMonitorStatusOperational:
@@ -1171,8 +1261,15 @@ func mergePublicChannelMonitorStat(
 		}}
 		aggregates[key] = aggregate
 	}
-	if publicStatusPriority(stat.LatestStatus) > publicStatusPriority(aggregate.item.LatestStatus) {
-		aggregate.item.LatestStatus = stat.LatestStatus
+	switch category {
+	case ChannelMonitorCategoryText:
+		if publicStatusPriority(stat.LatestStatus) > publicStatusPriority(aggregate.item.LatestStatus) {
+			aggregate.item.LatestStatus = stat.LatestStatus
+		}
+	default:
+		if publicStatusWorstRank(stat.LatestStatus) < publicStatusWorstRank(aggregate.item.LatestStatus) {
+			aggregate.item.LatestStatus = stat.LatestStatus
+		}
 	}
 	aggregate.timeline = append(aggregate.timeline, stat.Timeline...)
 	aggregate.observed += stat.Observed
@@ -1209,7 +1306,7 @@ func buildPublicChannelMonitorTimeline(points []*ChannelMonitorTimelinePoint, no
 		index := int((point.CheckedAt - timelineStart) / bucketSeconds)
 		bucket := &buckets[index]
 		if !bucket.set || (bucket.carried && !point.Carried) ||
-			(bucket.carried == point.Carried && publicStatusPriority(point.Status) > publicStatusPriority(bucket.status)) {
+			(bucket.carried == point.Carried && publicStatusWorstRank(point.Status) < publicStatusWorstRank(bucket.status)) {
 			bucket.status = point.Status
 			bucket.carried = point.Carried
 			bucket.set = true
@@ -1302,6 +1399,9 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 				continue
 			}
 			for _, group := range channel.GetGroups() {
+				if !isPublicChannelMonitorGroup(group) {
+					continue
+				}
 				textGroups[group] = struct{}{}
 				mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, &ChannelMonitorModelStat{
 					LatestStatus: model.ChannelMonitorStatusUnknown,
@@ -1325,17 +1425,11 @@ func buildPublicChannelMonitorItems(monitors []*model.ChannelMonitor, windowDays
 			if viewErr != nil {
 				return nil, viewErr
 			}
-			groups := []string{strings.TrimSpace(monitor.Target)}
-			if groups[0] == "" && monitor.ChannelID > 0 {
-				legacyChannel, legacyErr := model.GetChannelById(monitor.ChannelID, false)
-				if legacyErr == nil {
-					groups = legacyChannel.GetGroups()
-				}
-			}
-			for _, group := range groups {
-				_, enabled := textGroups[group]
+			targetGroup := resolveTextMonitorTargetGroup(monitor)
+			if targetGroup != "" && isPublicChannelMonitorGroup(targetGroup) {
+				_, enabled := textGroups[targetGroup]
 				if !discoverTextGroups || enabled {
-					mergePublicChannelMonitorStat(aggregates, group, ChannelMonitorCategoryText, view.Primary)
+					mergePublicChannelMonitorStat(aggregates, targetGroup, ChannelMonitorCategoryText, view.Primary)
 				}
 			}
 		}
@@ -1457,7 +1551,25 @@ func ListPublicChannelMonitorViews(windowDays int) ([]*PublicChannelMonitorItem,
 	} else if cacheErr != nil {
 		common.SysError(fmt.Sprintf("public channel monitor cache get failed: %v", cacheErr))
 	}
-	return []*PublicChannelMonitorItem{}, &PublicChannelMonitorSummary{Enabled: IsChannelMonitorEnabled()}, nil
+	result, err, _ := publicChannelMonitorFlight.Do(cacheKey, func() (any, error) {
+		if item, found, cacheErr := cache.Get(cacheKey); cacheErr == nil && found {
+			return item, nil
+		}
+		items, summary, err := listPublicChannelMonitorViewsUncached(windowDays)
+		if err != nil {
+			return nil, err
+		}
+		item := publicChannelMonitorCacheItem{Items: items, Summary: summary}
+		if cacheErr := cache.SetWithTTL(cacheKey, item, channelMonitorPublicCacheTTL); cacheErr != nil {
+			common.SysError(fmt.Sprintf("public channel monitor cache set failed: %v", cacheErr))
+		}
+		return item, nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	item := result.(publicChannelMonitorCacheItem)
+	return item.Items, item.Summary, nil
 }
 
 func listPublicChannelMonitorViewsUncached(windowDays int) ([]*PublicChannelMonitorItem, *PublicChannelMonitorSummary, error) {
@@ -1579,6 +1691,9 @@ func ListChannelMonitorTextTargets() ([]*ChannelMonitorTextTarget, error) {
 				continue
 			}
 			for _, group := range channel.GetGroups() {
+				if !isPublicChannelMonitorGroup(group) {
+					continue
+				}
 				if modelsByGroup[group] == nil {
 					modelsByGroup[group] = make(map[string]struct{})
 				}

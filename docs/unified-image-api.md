@@ -78,6 +78,8 @@ curl "https://newapi.example.com/v1/images/generations/{task_id}" \
 
 `status`：`queued` | `in_progress` | `completed` | `failed`
 
+建议轮询间隔 5–10 秒，客户端总等待时间建议 **≥30 分钟**（4K、多图或排队场景可能更长）。
+
 ## 同步响应
 
 ```json

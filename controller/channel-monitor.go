@@ -326,14 +326,14 @@ func ProbeChannelMonitor(ctx context.Context, monitor *model.ChannelMonitor, cha
 	latency := int(time.Since(startedAt).Milliseconds())
 	outcome := service.ChannelMonitorProbeOutcome{Status: model.ChannelMonitorStatusOperational, LatencyMs: &latency, HTTPStatus: http.StatusOK}
 	if result.localErr != nil {
-		outcome.Status = model.ChannelMonitorStatusDegraded
+		outcome.Status = model.ChannelMonitorStatusUnavailable
 		outcome.ErrorCode = "local_probe_error"
 		outcome.ErrorMessage = common.MaskSensitiveInfo(result.localErr.Error())
 		outcome.HTTPStatus = 0
 		return outcome
 	}
 	if result.newAPIError != nil {
-		outcome.Status = model.ChannelMonitorStatusDegraded
+		outcome.Status = model.ChannelMonitorStatusUnavailable
 		outcome.ErrorCode = string(result.newAPIError.GetErrorCode())
 		outcome.ErrorMessage = result.newAPIError.MaskSensitiveError()
 		outcome.HTTPStatus = result.newAPIError.StatusCode

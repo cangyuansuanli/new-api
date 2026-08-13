@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +36,13 @@ func setupChannelMonitorTest(t *testing.T) {
 		model.DB.Exec("DELETE FROM channels")
 		model.DB.Exec("DELETE FROM models")
 	})
+}
+
+func setChannelMonitorUserUsableGroups(t *testing.T, groups map[string]string) {
+	t.Helper()
+	payload, err := json.Marshal(groups)
+	require.NoError(t, err)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(string(payload)))
 }
 
 func createMonitorFixture(t *testing.T, channelType int, modelName string) *model.ChannelMonitor {
@@ -442,13 +451,13 @@ func TestPassiveVideoAggregatesCurrentBucketObservations(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, model.ChannelMonitorProbeMediaPassive, view.ProbeKind)
-	assert.Equal(t, model.ChannelMonitorStatusDegraded, view.Primary.LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, view.Primary.LatestStatus)
 	assert.Equal(t, 1, view.Primary.Observed)
-	assert.Zero(t, view.Primary.Operational)
+	assert.Equal(t, 1, view.Primary.Operational)
 	require.NotNil(t, view.Primary.Availability)
-	assert.InDelta(t, 0, *view.Primary.Availability, 0.001)
+	assert.InDelta(t, 100, *view.Primary.Availability, 0.001)
 	require.Len(t, view.Primary.Timeline, channelMonitorPublicTimelineLimit)
-	assert.Equal(t, model.ChannelMonitorStatusDegraded, view.Primary.Timeline[len(view.Primary.Timeline)-1].Status)
+	assert.Equal(t, model.ChannelMonitorStatusOperational, view.Primary.Timeline[len(view.Primary.Timeline)-1].Status)
 }
 
 func TestPassiveVideoThreeRecentChannelFailuresAreUnavailable(t *testing.T) {
@@ -506,7 +515,7 @@ func TestClassifyMediaTaskSeparatesFailureOwnership(t *testing.T) {
 		{name: "configuration", reason: "unsupported endpoint for model", want: mediaTaskConfiguration},
 		{name: "upstream", reason: "bad response status code 504", want: mediaTaskChannelFailure},
 		{name: "credential", reason: "adobe http 403 unauthorized", want: mediaTaskChannelFailure},
-		{name: "unknown", reason: "upstream returned failed with no output and no failure detail", want: mediaTaskUnknown},
+		{name: "unknown", reason: "upstream returned failed with no output and no failure detail", want: mediaTaskChannelFailure},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -629,6 +638,10 @@ func TestPublicChannelMonitorViewsExcludeDisabledChannels(t *testing.T) {
 
 func TestPublicChannelMonitorViewsIncludeEnabledTextGroupsWithoutMonitor(t *testing.T) {
 	setupChannelMonitorTest(t)
+	setChannelMonitorUserUsableGroups(t, map[string]string{
+		"LLM-GPT-快速": "快速分组",
+		"LLM-GPT-plus": "Plus 分组",
+	})
 	channel := &model.Channel{
 		Name: "dynamic-text", Type: constant.ChannelTypeOpenAI, Key: "sensitive-test-key",
 		Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-快速,LLM-GPT-plus",
@@ -668,13 +681,17 @@ func TestPassiveMediaMatchesPublicAliasOfInternalModel(t *testing.T) {
 
 	stat := buildPassiveMediaStatFromTasksAt(channel, "adobe-firefly-nano-banana-1k", tasks, true, now)
 
-	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, stat.LatestStatus)
 	assert.Equal(t, 1, stat.Observed)
-	assert.Equal(t, 1, stat.Operational)
+	assert.Zero(t, stat.Operational)
 }
 
 func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing.T) {
 	setupChannelMonitorTest(t)
+	setChannelMonitorUserUsableGroups(t, map[string]string{
+		"LLM-GPT-pro": "GPT Pro",
+		"shared":      "Shared",
+	})
 	textMonitor := createMonitorFixture(t, constant.ChannelTypeOpenAI, "internal-gpt-primary")
 	textChannel, err := model.GetChannelById(textMonitor.ChannelID, false)
 	require.NoError(t, err)
@@ -726,7 +743,7 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 		byKey[item.Category+":"+item.Name] = item
 	}
 	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].LatestStatus)
-	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:shared"].LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusUnknown, byKey["text:shared"].LatestStatus)
 	require.Len(t, byKey["text:LLM-GPT-pro"].Timeline, channelMonitorPublicTimelineLimit)
 	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["text:LLM-GPT-pro"].Timeline[len(byKey["text:LLM-GPT-pro"].Timeline)-1].Status)
 	assert.Contains(t, byKey, "image:gpt-image-2")
@@ -747,7 +764,7 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 	assert.NotContains(t, string(payload), `"latency_ms":`)
 }
 
-func TestPublicChannelMonitorViewsPreferOperationalFallback(t *testing.T) {
+func TestPublicChannelMonitorViewsPreferWorstMediaStatus(t *testing.T) {
 	aggregates := make(map[string]*publicChannelMonitorAggregate)
 	checkedEarly := int64(100)
 	checkedLate := int64(200)
@@ -763,10 +780,80 @@ func TestPublicChannelMonitorViewsPreferOperationalFallback(t *testing.T) {
 
 	aggregate := aggregates[ChannelMonitorCategoryImage+"\x00gpt-image-2"]
 	require.NotNil(t, aggregate)
-	assert.Equal(t, model.ChannelMonitorStatusOperational, aggregate.item.LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusUnavailable, aggregate.item.LatestStatus)
 	require.Len(t, aggregate.timeline, 2)
 	assert.Equal(t, checkedLate, aggregate.timeline[0].CheckedAt)
 	assert.Equal(t, checkedEarly, aggregate.timeline[1].CheckedAt)
+}
+
+func TestPublicTextGroupsKeepIndependentProbeStatus(t *testing.T) {
+	setupChannelMonitorTest(t)
+	setChannelMonitorUserUsableGroups(t, map[string]string{
+		"LLM-GPT-pro":  "GPT Pro",
+		"LLM-GPT-plus": "GPT Plus",
+	})
+	proChannel := &model.Channel{
+		Name: "pro", Type: constant.ChannelTypeOpenAI, Key: "pro-key",
+		Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro",
+	}
+	plusChannel := &model.Channel{
+		Name: "plus", Type: constant.ChannelTypeOpenAI, Key: "plus-key",
+		Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-plus",
+	}
+	require.NoError(t, model.DB.Create(proChannel).Error)
+	require.NoError(t, model.DB.Create(plusChannel).Error)
+
+	proMonitor := &model.ChannelMonitor{
+		Scope: model.ChannelMonitorScopeText, Target: "LLM-GPT-pro", Name: "GPT pro",
+		PrimaryModel: "gpt-5.6-sol", ExtraModelsJSON: "[]", ProbeKind: model.ChannelMonitorProbeTextActive,
+		IntervalSeconds: 300, Enabled: true, Visible: true,
+	}
+	plusMonitor := &model.ChannelMonitor{
+		Scope: model.ChannelMonitorScopeText, Target: "LLM-GPT-plus", Name: "GPT plus",
+		PrimaryModel: "gpt-5.6-sol", ExtraModelsJSON: "[]", ProbeKind: model.ChannelMonitorProbeTextActive,
+		IntervalSeconds: 300, Enabled: true, Visible: true,
+	}
+	require.NoError(t, model.CreateChannelMonitor(proMonitor))
+	require.NoError(t, model.CreateChannelMonitor(plusMonitor))
+	checkedAt := time.Now().Unix()
+	require.NoError(t, model.CreateChannelMonitorResult(&model.ChannelMonitorResult{
+		MonitorID: proMonitor.ID, Model: proMonitor.PrimaryModel,
+		Status: model.ChannelMonitorStatusOperational, CheckedAt: checkedAt,
+	}))
+	require.NoError(t, model.CreateChannelMonitorResult(&model.ChannelMonitorResult{
+		MonitorID: plusMonitor.ID, Model: plusMonitor.PrimaryModel,
+		Status: model.ChannelMonitorStatusUnavailable, CheckedAt: checkedAt,
+	}))
+
+	items, _, err := listPublicChannelMonitorViewsUncached(7)
+	require.NoError(t, err)
+
+	byKey := make(map[string]*PublicChannelMonitorItem)
+	for _, item := range items {
+		byKey[item.Name] = item
+	}
+	assert.Equal(t, model.ChannelMonitorStatusOperational, byKey["LLM-GPT-pro"].LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusUnavailable, byKey["LLM-GPT-plus"].LatestStatus)
+}
+
+func TestPublicChannelMonitorViewsExcludeInternalGroups(t *testing.T) {
+	setupChannelMonitorTest(t)
+	setChannelMonitorUserUsableGroups(t, map[string]string{
+		"VIDEO": "视频分组",
+	})
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Name: "internal-downstream", Type: constant.ChannelTypeOpenAI, Key: "sensitive-test-key",
+		Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol",
+		Group: "downstream-canghai,VIDEO",
+	}).Error)
+
+	items, summary, err := listPublicChannelMonitorViewsUncached(7)
+
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, 1, summary.Total)
+	assert.Equal(t, "VIDEO", items[0].Name)
+	assert.NotEqual(t, "downstream-canghai", items[0].Name)
 }
 
 func TestBuildPassiveMediaStatFromTasksPreservesFreshnessAndModelBoundaries(t *testing.T) {
@@ -791,9 +878,9 @@ func TestBuildPassiveMediaStatFromTasksPreservesFreshnessAndModelBoundaries(t *t
 
 	stat := buildPassiveMediaStatFromTasks(channel, "gpt-image-2", tasks, true)
 
-	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, stat.LatestStatus)
 	assert.Equal(t, 2, stat.Observed)
-	assert.Equal(t, 1, stat.Operational)
+	assert.Zero(t, stat.Operational)
 	require.Len(t, stat.Timeline, channelMonitorPublicTimelineLimit)
 }
 
@@ -822,15 +909,15 @@ func TestBuildPassiveMediaTimelineUsesFixedBucketsAndCarriesState(t *testing.T) 
 	latest := stat.Timeline[len(stat.Timeline)-1]
 	previous := stat.Timeline[len(stat.Timeline)-2]
 	carried := stat.Timeline[len(stat.Timeline)-3]
-	assert.Equal(t, model.ChannelMonitorStatusOperational, latest.Status)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, latest.Status)
 	assert.False(t, latest.Carried)
 	assert.Equal(t, model.ChannelMonitorStatusDegraded, previous.Status)
 	assert.False(t, previous.Carried)
 	assert.Equal(t, model.ChannelMonitorStatusUnknown, carried.Status)
 	assert.True(t, carried.Carried)
 	assert.Equal(t, 2, stat.Observed)
-	assert.Equal(t, 1, stat.Operational)
-	assert.InDelta(t, 50, *stat.Availability, 0.001)
+	assert.Zero(t, stat.Operational)
+	assert.InDelta(t, 0, *stat.Availability, 0.001)
 }
 
 func TestBuildPublicTextTimelineUsesOneBarPerProbeRound(t *testing.T) {
@@ -886,11 +973,11 @@ func TestBuildPassiveMediaTimelineCarriesLastKnownStatusWithoutCountingBucket(t 
 	stat := buildPassiveMediaStatFromTasksAt(channel, "gpt-image-2", tasks, true, now)
 
 	latest := stat.Timeline[len(stat.Timeline)-1]
-	assert.Equal(t, model.ChannelMonitorStatusOperational, latest.Status)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, latest.Status)
 	assert.True(t, latest.Carried)
-	assert.Equal(t, model.ChannelMonitorStatusOperational, stat.LatestStatus)
+	assert.Equal(t, model.ChannelMonitorStatusUnknown, stat.LatestStatus)
 	assert.Equal(t, 1, stat.Observed)
-	assert.Equal(t, 1, stat.Operational)
+	assert.Zero(t, stat.Operational)
 }
 
 func TestBuildPassiveMediaTimelineUsesPreWindowBaseline(t *testing.T) {
@@ -905,9 +992,10 @@ func TestBuildPassiveMediaTimelineUsesPreWindowBaseline(t *testing.T) {
 
 	require.Len(t, stat.Timeline, channelMonitorPublicTimelineLimit)
 	for _, point := range stat.Timeline {
-		assert.Equal(t, model.ChannelMonitorStatusOperational, point.Status)
+		assert.Equal(t, model.ChannelMonitorStatusDegraded, point.Status)
 		assert.True(t, point.Carried)
 	}
+	assert.Equal(t, model.ChannelMonitorStatusUnknown, stat.LatestStatus)
 	assert.Zero(t, stat.Observed)
 	assert.Nil(t, stat.Availability)
 }

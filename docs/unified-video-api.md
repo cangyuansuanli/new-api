@@ -81,7 +81,7 @@ curl "https://newapi.example.com/v1/videos/{task_id}" \
 
 完成后取片：`data[0].url` 或 `GET /v1/videos/{task_id}/content`
 
-建议轮询间隔 5–10 秒，超时 ≥300 秒。
+建议轮询间隔 5–10 秒，客户端总等待时间建议 **≥30 分钟**（排队或复杂任务可能更长，勿过早判定超时）。
 
 ## 响应对象
 
