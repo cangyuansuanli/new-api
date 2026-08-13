@@ -10,7 +10,6 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 type TaskAdaptor struct {
@@ -26,15 +25,12 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
-	bodyMap, err := readJSONBodyMap(c)
-	if err != nil {
-		return nil, err
-	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil, err
 	}
-	mergeFlatDuration(bodyMap, bodyMap, req.RequestedDurationSeconds())
+	bodyMap := req.CanonicalVideoBody(info.UpstreamModelName)
+	mergeFlatDuration(bodyMap, bodyMap, req.Duration)
 	converted, convErr := convertBody(bodyMap, info.UpstreamModelName, req.Images)
 	if convErr != nil {
 		return nil, convErr
@@ -45,20 +41,4 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	c.Request.Header.Set("Content-Type", "application/json")
 	return bytes.NewReader(newBody), nil
-}
-
-func readJSONBodyMap(c *gin.Context) (map[string]interface{}, error) {
-	storage, err := common.GetBodyStorage(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "get_request_body_failed")
-	}
-	cachedBody, err := storage.Bytes()
-	if err != nil {
-		return nil, errors.Wrap(err, "read_body_bytes_failed")
-	}
-	var bodyMap map[string]interface{}
-	if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
-		return nil, err
-	}
-	return bodyMap, nil
 }

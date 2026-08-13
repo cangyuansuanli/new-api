@@ -148,14 +148,9 @@ func UsageSecondsFromResponseTask(res ResponseTask) int {
 	return ParsePositiveIntString(res.Seconds)
 }
 
-func UsageSecondsFromTaskData(data []byte, manjuFn func([]byte) int) int {
+func UsageSecondsFromTaskData(data []byte) int {
 	if len(data) == 0 {
 		return 0
-	}
-	if manjuFn != nil {
-		if sec := manjuFn(data); sec > 0 {
-			return sec
-		}
 	}
 	var res ResponseTask
 	if err := common.Unmarshal(data, &res); err == nil {

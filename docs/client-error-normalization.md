@@ -15,7 +15,6 @@
 | [`service/clienterror/adobe.go`](../service/clienterror/adobe.go) | Adobe2API / Adobe Direct |
 | [`service/clienterror/sd5.go`](../service/clienterror/sd5.go) | SD5 历史/提交阶段兜底；`cy-sd5-seedance-2.0*` 任务错误透传 Adobe2API 文案 |
 | [`service/clienterror/grok.go`](../service/clienterror/grok.go) | Grok / Geeknow Grok 视频 |
-| [`service/clienterror/manju.go`](../service/clienterror/manju.go) | Manju Sora2 |
 | [`service/clienterror/chatvideo.go`](../service/clienterror/chatvideo.go) | Chat 线路视频 |
 | [`service/clienterror/defaultvideo.go`](../service/clienterror/defaultvideo.go) | 标准 OpenAI Video 聚合 |
 | [`service/clienterror/coverage.md`](../service/clienterror/coverage.md) | **各渠道覆盖表**（缺哪条规则看这里） |

@@ -18,7 +18,6 @@ func init() {
 	Register(normalizeMagicaRelay)
 	RegisterRaw(normalizeAdobe)
 	RegisterRaw(normalizeGrok)
-	RegisterRaw(normalizeManju)
 	RegisterRaw(normalizeChatVideo)
 	RegisterRaw(normalizeDefaultVideo)
 }

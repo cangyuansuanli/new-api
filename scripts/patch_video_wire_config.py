@@ -40,11 +40,6 @@ BUILDER_WIRE: dict[str, dict] = {
         "wireFormat": "json-openai-video",
         "mirrorDurationToSeconds": True,
     },
-    "manju-sora": {
-        "wireFormat": "json-openai-video",
-        "wireVariant": "manju-sora",
-        "mirrorDurationToSeconds": True,
-    },
     "grok-cli": {
         "wireFormat": "json-openai-video",
         "wireVariant": "grok-cli",

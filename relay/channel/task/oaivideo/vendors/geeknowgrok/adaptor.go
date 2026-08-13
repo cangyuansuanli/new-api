@@ -50,7 +50,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		if len(req.Images) > 1 {
 			return service.TaskErrorWrapperLocal(fmt.Errorf("grok-imagine-video-1.5-preview supports at most one reference image"), "invalid_reference", http.StatusBadRequest)
 		}
-		if strings.TrimSpace(req.VideoURL) != "" {
+		if len(req.ReferenceVideos) > 0 {
 			return service.TaskErrorWrapperLocal(fmt.Errorf("grok-imagine-video-1.5-preview does not support video references"), "invalid_reference", http.StatusBadRequest)
 		}
 	}

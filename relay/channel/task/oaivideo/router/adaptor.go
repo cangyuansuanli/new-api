@@ -16,7 +16,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omnii2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
@@ -65,7 +64,6 @@ type RouterAdaptor struct {
 	grok              delegate
 	geeknowGrok       delegate
 	seqnode           delegate
-	manju             delegate
 	omniI2V           delegate
 	omniV2V           delegate
 	seedanceOairegbox delegate
@@ -83,7 +81,6 @@ func NewRouterAdaptor() channel.TaskAdaptor {
 		grok:              &grok.TaskAdaptor{},
 		geeknowGrok:       &geeknowgrok.TaskAdaptor{},
 		seqnode:           &seqnode.TaskAdaptor{},
-		manju:             &manju.TaskAdaptor{},
 		omniI2V:           &omnii2v.TaskAdaptor{},
 		omniV2V:           &omniv2v.TaskAdaptor{},
 		seedanceOairegbox: &seedanceoairegbox.TaskAdaptor{},
@@ -116,8 +113,6 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 		return r.geeknowGrok
 	case registry.VendorSeqnode:
 		return r.seqnode
-	case registry.VendorManju:
-		return r.manju
 	case registry.VendorOmniI2V:
 		return r.omniI2V
 	case registry.VendorOmniV2V:
@@ -244,7 +239,6 @@ func (r *RouterAdaptor) GetModelList() []string {
 	models = append(models, r.grok.GetModelList()...)
 	models = append(models, r.geeknowGrok.GetModelList()...)
 	models = append(models, r.seqnode.GetModelList()...)
-	models = append(models, r.manju.GetModelList()...)
 	models = append(models, r.seedanceOairegbox.GetModelList()...)
 	models = append(models, r.seedanceLeonardo.GetModelList()...)
 	models = append(models, r.seedanceHeygen.GetModelList()...)
@@ -318,9 +312,6 @@ func (r *RouterAdaptor) parseTaskResultBody(respBody []byte, task *model.Task) (
 		if d := r.delegateForTask(task); d != nil {
 			return d.ParseTaskResult(respBody)
 		}
-	}
-	if manju.IsResponse(respBody) {
-		return r.manju.ParseTaskResult(respBody)
 	}
 	return r.native.ParseTaskResult(respBody)
 }

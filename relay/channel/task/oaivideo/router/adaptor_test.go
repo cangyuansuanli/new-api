@@ -13,7 +13,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/defaultvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancemagica"
@@ -32,7 +31,6 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		upstream string
 		want     string
 	}{
-		{"manju-openai-sora2", "sora2", "manju"},
 		{"cy-sd4-seedance-2.0", "seedance-2.0", "seedance-leonardo"},
 		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", "seedance-heygen"},
 		{"cy-sd7-seedance-2.0-720p", "seedance-2.0", "seedance-magica"},
@@ -45,6 +43,7 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		{"cy-gv1-grok-video", "grok-imagine-video", "geeknow-grok"},
 		{"cy-gv1-grok-video-1.5", "grok-imagine-video-1.5-preview", "geeknow-grok"},
 		{"sora-2", "sora-2", "default"},
+		{"manju-openai-sora2", "sora2", "default"},
 		{"cy-sd1-seedance-2.0-mini-480p", "Seedance-2.0-480p", "seedance-oairegbox"},
 	}
 	for _, tc := range cases {
@@ -56,10 +55,6 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		}
 		d := r.delegateFor(info)
 		switch tc.want {
-		case "manju":
-			if _, ok := d.(*manju.TaskAdaptor); !ok {
-				t.Fatalf("%s: expected manju adaptor", tc.origin)
-			}
 		case "seedance-oairegbox":
 			if _, ok := d.(*seedanceoairegbox.TaskAdaptor); !ok {
 				t.Fatalf("%s: expected seedance-oairegbox adaptor", tc.origin)
@@ -101,18 +96,6 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 				t.Fatalf("%s: expected default adaptor", tc.origin)
 			}
 		}
-	}
-}
-
-func TestRouterAdaptor_ParseTaskResult_ManjuBody(t *testing.T) {
-	r := NewRouterAdaptor()
-	body := []byte(`{"id":"sora2-abc","platform":"sora2","status":"failed","message":"审核失败"}`)
-	result, err := r.ParseTaskResult(body)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Reason != "审核失败" {
-		t.Fatalf("expected manju parser, got reason %q", result.Reason)
 	}
 }
 

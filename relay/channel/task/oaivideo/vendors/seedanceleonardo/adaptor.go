@@ -48,15 +48,12 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	forcedResolution, forceResolution := seedance25Resolution(info.OriginModelName)
 	contentType := strings.ToLower(c.Request.Header.Get("Content-Type"))
 	if strings.HasPrefix(contentType, "application/json") {
-		bodyMap, err := readJSONBodyMap(c)
-		if err != nil {
-			return nil, err
-		}
 		req, err := relaycommon.GetTaskRequest(c)
 		if err != nil {
 			return nil, err
 		}
-		out := buildUpstreamBody(bodyMap, info.UpstreamModelName, req.RequestedDurationSeconds(), req.Images)
+		bodyMap := req.CanonicalVideoBody(info.UpstreamModelName)
+		out := buildUpstreamBody(bodyMap, info.UpstreamModelName, req.Duration, req.Images)
 		if forceResolution {
 			out["resolution"] = forcedResolution
 		}
@@ -68,28 +65,12 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		return bytes.NewReader(newBody), nil
 	}
 	if forceResolution {
-		formData, err := common.ParseMultipartFormReusable(c)
+		req, err := relaycommon.GetTaskRequest(c)
 		if err != nil {
-			return nil, errors.Wrap(err, "parse_multipart_video_request_failed")
+			return nil, errors.Wrap(err, "get_normalized_task_request_failed")
 		}
-		formData.Value["resolution"] = []string{forcedResolution}
-		c.Request.MultipartForm = formData
+		req.Resolution = forcedResolution
+		c.Set("task_request", req)
 	}
 	return oaivideo.BuildNormalizedRequestBody(c, info.UpstreamModelName, oaivideo.DurationFieldDuration)
-}
-
-func readJSONBodyMap(c *gin.Context) (map[string]interface{}, error) {
-	storage, err := common.GetBodyStorage(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "get_request_body_failed")
-	}
-	cachedBody, err := storage.Bytes()
-	if err != nil {
-		return nil, errors.Wrap(err, "read_body_bytes_failed")
-	}
-	var bodyMap map[string]interface{}
-	if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
-		return nil, err
-	}
-	return bodyMap, nil
 }

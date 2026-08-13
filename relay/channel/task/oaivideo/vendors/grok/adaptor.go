@@ -52,7 +52,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		if len(req.Images) != 1 {
 			return service.TaskErrorWrapperLocal(fmt.Errorf("grok-video-1.5 requires exactly one reference image"), "invalid_reference", http.StatusBadRequest)
 		}
-		if strings.TrimSpace(req.VideoURL) != "" {
+		if len(req.ReferenceVideos) > 0 {
 			return service.TaskErrorWrapperLocal(fmt.Errorf("grok-video-1.5 does not support video references"), "invalid_reference", http.StatusBadRequest)
 		}
 	}
@@ -91,8 +91,8 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if len(req.Images) > 0 {
 		out["image_urls"] = append([]string(nil), req.Images...)
 	}
-	if req.VideoURL != "" {
-		out["video_url"] = req.VideoURL
+	if len(req.ReferenceVideos) > 0 {
+		out["video_url"] = req.ReferenceVideos[0]
 	}
 	body, err := common.Marshal(out)
 	if err != nil {

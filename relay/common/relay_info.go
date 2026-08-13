@@ -726,6 +726,7 @@ type TaskSubmitReq struct {
 	ReferenceAudios    []string               `json:"reference_audios,omitempty"`
 	FirstImageUrl      string                 `json:"first_image_url,omitempty"`
 	LastImageUrl       string                 `json:"last_image_url,omitempty"`
+	ReferenceMode      string                 `json:"reference_mode,omitempty"`
 	Size               string                 `json:"size,omitempty"`
 	AspectRatio        string                 `json:"aspect_ratio,omitempty"`
 	Resolution         string                 `json:"resolution,omitempty"`
@@ -779,6 +780,79 @@ func normalizeTaskSubmitImages(req *TaskSubmitReq) {
 	add(req.ReferenceImages...)
 	add(req.ReferenceImageUrls...)
 	req.Images = normalized
+}
+
+// Canonicalize collapses public compatibility aliases before the request enters
+// relay business logic. Vendors consume Images, ReferenceVideos and Duration;
+// alias fields exist only for decoding requests from existing clients.
+func (t *TaskSubmitReq) Canonicalize() {
+	if t == nil {
+		return
+	}
+	normalizeTaskSubmitImages(t)
+	if videoURL := strings.TrimSpace(t.VideoURL); videoURL != "" {
+		seen := false
+		for _, value := range t.ReferenceVideos {
+			if strings.TrimSpace(value) == videoURL {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			t.ReferenceVideos = append(t.ReferenceVideos, videoURL)
+		}
+	}
+	t.Image = ""
+	t.ImageUrl = ""
+	t.ImageUrls = nil
+	t.ReferenceImages = nil
+	t.ReferenceImageUrls = nil
+	t.InputReference = ""
+	t.VideoURL = ""
+	t.Seconds = ""
+}
+
+// CanonicalVideoBody is the sole normalized input for JSON vendor adapters.
+// It intentionally excludes every public compatibility alias.
+func (t TaskSubmitReq) CanonicalVideoBody(model string) map[string]any {
+	out := map[string]any{
+		"model":  strings.TrimSpace(model),
+		"prompt": strings.TrimSpace(t.Prompt),
+	}
+	if t.Duration > 0 {
+		out["duration"] = t.Duration
+	}
+	if value := strings.TrimSpace(t.AspectRatio); value != "" {
+		out["aspect_ratio"] = value
+	}
+	if value := strings.TrimSpace(t.Resolution); value != "" {
+		out["resolution"] = value
+	}
+	if value := strings.TrimSpace(t.Size); value != "" {
+		out["size"] = value
+	}
+	if t.Seed != nil {
+		out["seed"] = *t.Seed
+	}
+	if t.GenerateAudio != nil {
+		out["generate_audio"] = *t.GenerateAudio
+	}
+	if len(t.Images) > 0 {
+		out["reference_image_urls"] = append([]string(nil), t.Images...)
+	}
+	if len(t.ReferenceVideos) > 0 {
+		out["reference_videos"] = append([]string(nil), t.ReferenceVideos...)
+	}
+	if len(t.ReferenceAudios) > 0 {
+		out["reference_audios"] = append([]string(nil), t.ReferenceAudios...)
+	}
+	if value := strings.TrimSpace(t.FirstImageUrl); value != "" {
+		out["first_image_url"] = value
+	}
+	if value := strings.TrimSpace(t.LastImageUrl); value != "" {
+		out["last_image_url"] = value
+	}
+	return out
 }
 
 func (t *TaskSubmitReq) HasImage() bool {

@@ -58,6 +58,7 @@ func createTaskError(err error, code string, statusCode int, localError bool) *d
 const promptInputContextKey = "prompt_input"
 
 func storeTaskRequest(c *gin.Context, info *RelayInfo, action string, requestObj TaskSubmitReq) {
+	requestObj.Canonicalize()
 	if info.TaskRelayInfo == nil {
 		info.TaskRelayInfo = &TaskRelayInfo{}
 	}
@@ -129,6 +130,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		ReferenceAudios:    append([]string(nil), formData["reference_audios"]...),
 		FirstImageUrl:      formData.Get("first_image_url"),
 		LastImageUrl:       formData.Get("last_image_url"),
+		ReferenceMode:      formData.Get("reference_mode"),
 		ImageUrls:          append([]string(nil), formData["image_urls"]...),
 		ReferenceImages:    append([]string(nil), formData["reference_images"]...),
 		ReferenceImageUrls: append([]string(nil), formData["reference_image_urls"]...),
@@ -218,7 +220,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	if hasInputReference {
 		action = constant.TaskActionGenerate
 	}
-	if strings.HasPrefix(model, "sora-2") || model == "manju-openai-sora2" {
+	if strings.HasPrefix(model, "sora-2") {
 
 		if size == "" {
 			size = "720x1280"
@@ -228,7 +230,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 			seconds = 4
 		}
 
-		if (model == "sora-2" || model == "manju-openai-sora2") && !lo.Contains([]string{"720x1280", "1280x720", "1024x1024"}, size) {
+		if model == "sora-2" && !lo.Contains([]string{"720x1280", "1280x720", "1024x1024"}, size) {
 			return createTaskError(fmt.Errorf("sora-2 size is invalid"), "invalid_size", http.StatusBadRequest, true)
 		}
 		if model == "sora-2-pro" && !lo.Contains([]string{"720x1280", "1280x720", "1792x1024", "1024x1792"}, size) {
@@ -263,6 +265,7 @@ func isKnownTaskField(field string) bool {
 		"reference_audios":     true,
 		"first_image_url":      true,
 		"last_image_url":       true,
+		"reference_mode":       true,
 		"video_url":            true,
 		"input_video":          true,
 		"input_video2":         true,
@@ -293,8 +296,9 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 
 // normalizeTaskSubmitDuration defines the public video duration contract:
 // duration and seconds are aliases for the same integer-second value. Keeping
-// both normalized in the internal request lets each vendor adaptor emit only
-// the field its upstream protocol expects.
+// Duration is the canonical internal value. Seconds remains populated until
+// storeTaskRequest canonicalizes the request so conflict checks retain their
+// original behavior for existing clients.
 func normalizeTaskSubmitDuration(req *TaskSubmitReq) error {
 	if req == nil {
 		return nil

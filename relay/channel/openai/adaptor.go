@@ -376,9 +376,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		}
 	}
 
-	if IsManjuSora2OriginModel(info.OriginModelName) {
-		return convertManjuSora2OpenAIChatRequest(request, info)
-	}
 	return request, nil
 }
 
@@ -822,10 +819,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	case relayconstant.RelayModeResponsesCompact:
 		usage, err = OaiResponsesCompactionHandler(c, resp)
 	default:
-		// Manju Sora2 上游固定 stream:false，返回 JSON task 而非 SSE；走 OaiStreamHandler 会得到空 lastStreamData。
-		if info.IsStream && IsManjuSora2OriginModel(info.OriginModelName) {
-			usage, err = OpenaiHandler(c, info, resp)
-		} else if info.IsStream {
+		if info.IsStream {
 			usage, err = OaiStreamHandler(c, info, resp)
 		} else {
 			usage, err = OpenaiHandler(c, info, resp)

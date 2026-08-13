@@ -8,7 +8,7 @@
 
 | 方法 | 路径 | 用途 |
 |------|------|------|
-| `POST` | `/v1/videos` | 创建视频任务（`application/json` 或 `multipart/form-data`） |
+| `POST` | `/v1/videos` | 创建视频任务（新调用使用 `application/json`） |
 | `GET` | `/v1/videos/{task_id}` | 查询任务状态与结果 |
 | `GET` | `/v1/videos/{task_id}/content` | 下载已完成任务的成片 |
 
@@ -16,14 +16,13 @@
 
 ## Canonical 请求字段（JSON）
 
-默认使用 JSON；仅当模型能力卡片标注「需 multipart」时改用 `multipart/form-data`（见下文）。
+统一视频 API 使用 JSON。浏览器中的本地素材应先直传临时对象存储，再把 HTTPS URL 放入参考字段；不要使用 data URI 承载大文件。
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `model` | string | 是 | 模型广场 public 名 |
 | `prompt` | string | 是 | 视频描述 |
-| `duration` | integer | 否 | 时长（秒）；与 `seconds` 二选一，同时传入须一致 |
-| `seconds` | integer / string | 否 | `duration` 的兼容别名 |
+| `duration` | integer | 否 | 时长（秒）；具体范围由模型能力决定 |
 | `aspect_ratio` | string | 否 | 如 `16:9`、`9:16`、`1:1` |
 | `resolution` | string | 否 | 如 `480p`、`720p`、`1080p` |
 | `size` | string | 否 | 像素画幅，如 `1280x720`（部分 OpenAI Video 族模型） |
@@ -34,13 +33,14 @@
 | `reference_audios` | string[] | 否 | 参考音频 URL |
 | `first_image_url` | string | 否 | 首帧参考图 |
 | `last_image_url` | string | 否 | 末帧参考图 |
-| `video_url` | string | 否 | 单条参考视频（`reference_videos` 的兼容别名） |
 
-### 字段别名（仍接受，服务端归一化）
+### 历史字段兼容
 
-参考图：`image`、`image_url`、`images`、`image_urls` 均等价于 `reference_image_urls`。
+新接入只使用上表 canonical 字段。为保证已上线客户无需改代码，服务端仍接受历史参考图字段 `image`、`image_url`、`images`、`image_urls`、`reference_images` 和 JSON `input_reference`，并在入站统一归一到 `reference_image_urls`；`image` 还兼容 `{ "url": "..." }`。这些别名不会出现在模型请求字段或新示例中。
 
-时长：`duration` 与 `seconds` 在入口合并为同一内部值。
+历史 `seconds` 仍作为 `duration` 的兼容别名；两者同时传入时必须一致。历史 `video_url` 仍作为单条 `reference_videos` 的兼容输入。兼容字段只在入站解析，vendor 出站只能读取归一化值并按各自协议适配。
+
+历史 `reference_mode` 与 `metadata` 仍可被请求解析，但不属于统一视频契约，也不会进入 canonical 出站视图。参考模式由 vendor 根据模型能力和素材字段自动推导：只有 `first_image_url` / `last_image_url` 表示首尾帧，普通参考数组由模型选择全能参考或普通素材模式。
 
 ## JSON 示例
 
@@ -58,9 +58,9 @@ curl -X POST "https://newapi.example.com/v1/videos" \
   }'
 ```
 
-## Multipart 例外
+## Multipart 兼容（已弃用）
 
-仅当模型 profile 声明 `wireFormat: multipart-form`（如画布本地上传参考图文件）时使用 multipart；**Omni V2V 对客户统一走 JSON `reference_videos`**，NewAPI 出站映射上游协议（参见 [docs.oairegbox.cc](https://docs.oairegbox.cc/)）。
+仅为避免破坏已有客户，服务端暂时接受历史 multipart 文件请求；新接入不得使用。新前端必须先将参考素材直传临时对象存储，再通过 JSON canonical URL 字段提交。**Omni V2V 对客户统一走 JSON `reference_videos`**，NewAPI 出站映射上游协议（参见 [docs.oairegbox.cc](https://docs.oairegbox.cc/)）。
 
 | 字段 | 说明 |
 |------|------|
@@ -68,7 +68,7 @@ curl -X POST "https://newapi.example.com/v1/videos" \
 | `prompt` | 描述 |
 | `input_reference` / `input_reference[]` | 画布本地上传参考图文件 |
 
-JSON 能表达的场景优先用 URL 引用（含 V2V 的 `reference_videos`）；multipart 不用于客户侧 Omni V2V。
+multipart 兼容入口后续会在完成调用统计和迁移通知后下线；不得为新模型新增 multipart 能力。JSON URL 方案适用于包括 V2V `reference_videos` 在内的所有新调用。
 
 ## 轮询
 

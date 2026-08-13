@@ -1,10 +1,30 @@
 package registry
 
 import (
+	"os"
 	"testing"
 
 	"github.com/QuantumNous/new-api/model"
 )
+
+func TestVendorDirectoriesAreRegistered(t *testing.T) {
+	registered := map[string]bool{
+		"adobe": true, "chatvideo": true, "defaultvideo": true,
+		"geeknowgrok": true, "grok": true, "omnii2v": true,
+		"omniv2v": true, "seedanceheygen": true, "seedanceleonardo": true,
+		"seedancemagica": true, "seedanceoairegbox": true,
+		"seedancetengda": true, "seqnode": true,
+	}
+	entries, err := os.ReadDir("../vendors")
+	if err != nil {
+		t.Fatalf("read vendor directories: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() && !registered[entry.Name()] {
+			t.Fatalf("unregistered video vendor directory %q", entry.Name())
+		}
+	}
+}
 
 func TestResolve(t *testing.T) {
 	cases := []struct {
@@ -12,7 +32,6 @@ func TestResolve(t *testing.T) {
 		upstream string
 		want     Vendor
 	}{
-		{"manju-openai-sora2", "sora2", VendorManju},
 		{"cy-sd1-seedance-2.0-fast-720p", "Seedance-2.0-720p", VendorSeedanceOairegbox},
 		{"cy-sd4-seedance-2.0", "seedance-2.0", VendorSeedanceLeonardo},
 		{"cy-sd6-seedance-2.0-720p", "seedance-2.0", VendorSeedanceHeygen},
@@ -33,6 +52,7 @@ func TestResolve(t *testing.T) {
 		{"cy-gv1-grok-video", "grok-imagine-video", VendorGeeknowGrok},
 		{"cy-gv1-grok-video-1.5", "grok-imagine-video-1.5-preview", VendorGeeknowGrok},
 		{"sora-2", "sora-2", VendorSora},
+		{"manju-openai-sora2", "sora2", VendorSora},
 		{"grok-video", "grok-video", VendorSora},
 	}
 	for _, tc := range cases {

@@ -256,11 +256,15 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	if info.IsModelMapped {
 		upstreamModel = info.UpstreamModelName
 	}
+	imageURL := ""
+	if len(req.Images) > 0 {
+		imageURL = req.Images[0]
+	}
 	aliReq := &AliVideoRequest{
 		Model: upstreamModel,
 		Input: AliVideoInput{
 			Prompt: req.Prompt,
-			ImgURL: req.InputReference,
+			ImgURL: imageURL,
 		},
 		Parameters: &AliVideoParameters{
 			PromptExtend: true, // 默认开启智能改写

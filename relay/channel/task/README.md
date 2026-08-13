@@ -24,8 +24,7 @@ oaivideo/
 ├── registry/        # 已分发渠道 + internal/upstream 模型 → Vendor
 ├── shared/          # 协议共享：FetchVideoTask、解析、multipart 透传
 └── vendors/
-    ├── manju/       # manju-openai-sora*（chat/completions 提交）
-    ├── chatvideo/   # 聚合视频线路：统一任务请求 → chat/completions
+	    ├── chatvideo/   # 聚合视频线路：统一任务请求 → chat/completions
     ├── grok/        # cy-gv1 + 119337：/v1/video/generations 提交、轮询与响应归一化
     ├── geeknowgrok/ # Geeknow Grok：/v1/videos JSON（grok-imagine-video 系列）
     ├── seqnode/     # Seqnode Grok：/v1/videos/generations + 鉴权 content 成片
@@ -41,9 +40,11 @@ oaivideo/
 
 Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`，vendor 内部提交到 `/v1/videos/generations`，轮询复用 `/v1/videos/{id}`，不再使用独立 worker 或 chat 包装。`cy-sd5` 也由 Adobe vendor 按内部模型契约处理：普通参考素材明确输出 `reference_mode=media`，支持 9 图 + 3 个视频/音频共享源位且全部素材最多 12；仅成对首尾帧输出 `reference_mode=frame`，两种模式互斥。
 
-对外时长参数 `duration` / `seconds` 是同义字段，在 `relay/common` 归一化；上游字段由 vendor 选择：default / Grok 输出 `seconds`，Seedance / Adobe 输出 `duration`。禁止绕过 vendor 边界直接透传两个别名。
+对外 canonical 时长字段是 `duration`；历史 `seconds` 仅在 `relay/common` 入站兼容并归一化。业务层统一读取 `TaskSubmitReq.Duration`，上游字段由 vendor 选择：default / Grok 输出 `seconds`，Seedance / Adobe 输出 `duration`。禁止绕过 vendor 边界透传别名。
 
-画布和外部客户只使用 `POST /v1/videos` + `GET /v1/videos/{id}`。`chatvideo` / `manju` 可以在 vendor 内部调用上游 `chat/completions`，但该路径、SSE 解析和视频 URL 提取不得再下放到前端。
+JSON vendor 只能从 `TaskSubmitReq.CanonicalVideoBody` 或结构化字段读取业务参数，不得重新解析客户原始 body。公共字段集合由统一契约定义，模型支持集合由 profile / vendor contract 定义，两者取交集；`models.api_doc` 只能补充能力说明，不能扩张请求 schema。统一视频接口不提供任意 vendor 参数兜底。
+
+画布和外部客户只使用 `POST /v1/videos` + `GET /v1/videos/{id}`。`chatvideo` 可以在 vendor 内部调用上游 `chat/completions`，但该路径、SSE 解析和视频 URL 提取不得再下放到前端。
 
 路由表与轮询行为详见 [`docs/video-task-routing.md`](../../../docs/video-task-routing.md)。Leonardo cy-sd4 出站见 [`docs/channel-seedance-leonardo.md`](../../../docs/channel-seedance-leonardo.md)；worker 模型文档见 [`leonardo-web2api/docs/models/README.md`](../../../../leonardo-web2api/docs/models/README.md)。
 
@@ -63,7 +64,7 @@ Seedance 2.0 支持纯 prompt 文生与多种参考素材。`seedance-heygen` �
 
 - `taskcommon/` — 计费基类等，各 task 适配器复用
 - `oaivideo/vendors/adobe/` — Adobe2API 请求规范化和 typed endpoint 路由；生命周期与计费复用标准视频
-- `oaivideo/vendors/grok/` — 119337 Grok generations 路由；将公共 `image_urls` 映射到严格上游 JSON，并归一化 envelope 响应
+- `oaivideo/vendors/grok/` — 119337 Grok generations 路由；将公共 `reference_image_urls` 映射到上游 `image_urls`，并归一化 envelope 响应
 - `oaivideo/vendors/geeknowgrok/` — Geeknow Grok 路由；`POST/GET /v1/videos`，`seconds` 字符串化，`image`/`images` 参考图
 - `oaivideo/vendors/seqnode/` — Seqnode Grok 出站；提交、轮询和受保护成片来源均封装在 vendor 内
 - `oaivideo/vendors/seedanceheygen/` — cy-sd6 双 SKU 出站；固定分辨率、素材白名单和受保护成片来源均封装在 vendor 内

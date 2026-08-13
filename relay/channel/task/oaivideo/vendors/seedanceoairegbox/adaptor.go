@@ -15,7 +15,6 @@ import (
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 type TaskAdaptor struct {
@@ -58,15 +57,12 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
 	contentType := strings.ToLower(c.Request.Header.Get("Content-Type"))
 	if strings.HasPrefix(contentType, "application/json") {
-		bodyMap, err := readJSONBodyMap(c)
-		if err != nil {
-			return nil, err
-		}
 		req, err := relaycommon.GetTaskRequest(c)
 		if err != nil {
 			return nil, err
 		}
-		out := buildUpstreamBody(bodyMap, info.UpstreamModelName, req.RequestedDurationSeconds(), req.Images)
+		bodyMap := req.CanonicalVideoBody(info.UpstreamModelName)
+		out := buildUpstreamBody(bodyMap, info.UpstreamModelName, req.Duration, req.Images)
 		newBody, err := common.Marshal(out)
 		if err != nil {
 			return nil, err
@@ -75,20 +71,4 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		return bytes.NewReader(newBody), nil
 	}
 	return oaivideo.BuildNormalizedRequestBody(c, info.UpstreamModelName, oaivideo.DurationFieldDuration)
-}
-
-func readJSONBodyMap(c *gin.Context) (map[string]interface{}, error) {
-	storage, err := common.GetBodyStorage(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "get_request_body_failed")
-	}
-	cachedBody, err := storage.Bytes()
-	if err != nil {
-		return nil, errors.Wrap(err, "read_body_bytes_failed")
-	}
-	var bodyMap map[string]interface{}
-	if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
-		return nil, err
-	}
-	return bodyMap, nil
 }

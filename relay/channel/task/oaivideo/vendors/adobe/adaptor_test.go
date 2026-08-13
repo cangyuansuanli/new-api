@@ -41,7 +41,11 @@ func TestBuildRequestBodyUsesAdobeStrictVideoSchema(t *testing.T) {
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "veo-3.1-fast", Prompt: "a cat", Duration: 6})
+	seed := int64(42)
+	c.Set("task_request", relaycommon.TaskSubmitReq{
+		Model: "veo-3.1-fast", Prompt: "a cat", Duration: 6,
+		AspectRatio: "16x9", Resolution: "1080p", GenerateAudio: boolPtr(true), Seed: &seed,
+	})
 
 	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "veo-3.1-fast"},
@@ -63,8 +67,8 @@ func TestBuildRequestBodyUsesAdobeStrictVideoSchema(t *testing.T) {
 	if payload["aspect_ratio"] != "16:9" {
 		t.Fatalf("aspect ratio was not normalized: %#v", payload["aspect_ratio"])
 	}
-	if _, exists := payload["seed"]; exists {
-		t.Fatal("unsupported seed leaked into strict Adobe request")
+	if payload["seed"] != float64(42) {
+		t.Fatalf("supported seed was not adapted: %#v", payload["seed"])
 	}
 	if _, exists := payload["size"]; exists {
 		t.Fatal("UI-only size leaked into strict Adobe request")
@@ -84,21 +88,21 @@ func TestBuildRequestBodyValidatesModelSpecificCapabilities(t *testing.T) {
 	}
 }
 
-func TestVeo31AllowsThreeAssetReferences(t *testing.T) {
+func TestVeo31DerivesAssetReferencesWithoutClientMode(t *testing.T) {
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(`{"model":"veo-3.1","prompt":"test","duration":8,"reference_mode":"asset","images":["a","b","c"]}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "veo-3.1", Prompt: "test", Duration: 8, Images: []string{"a", "b", "c"}})
+	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "veo-3.1", Prompt: "test", Duration: 8, ReferenceMode: "ignored", Images: []string{"a", "b", "c"}})
 	if _, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "veo-3.1"}}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestVeoFastRejectsAssetReferences(t *testing.T) {
+func TestVeoFastRejectsUnsupportedReferencesWithoutClientMode(t *testing.T) {
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(`{"model":"veo-3.1-fast","prompt":"test","duration":8,"reference_mode":"asset","images":["a"]}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "veo-3.1-fast", Prompt: "test", Duration: 8, Images: []string{"a"}})
+	c.Set("task_request", relaycommon.TaskSubmitReq{Model: "veo-3.1-fast", Prompt: "test", Duration: 8, ReferenceMode: "ignored", Images: []string{"a"}})
 	if _, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "veo-3.1-fast"}}); err == nil {
 		t.Fatal("expected asset references to be rejected")
 	}
@@ -166,31 +170,31 @@ func TestSD5ReferenceLimits(t *testing.T) {
 		{
 			name:    "ten images",
 			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","images":["1","2","3","4","5","6","7","8","9","10"]}`,
-			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}},
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceMode: "media", Images: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}},
 			want:    "at most 9 reference images",
 		},
 		{
 			name:    "four source items",
 			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","images":["i"],"reference_videos":["v1","v2"],"reference_audios":["a1","a2"]}`,
-			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"i"}, ReferenceVideos: []string{"v1", "v2"}, ReferenceAudios: []string{"a1", "a2"}},
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceMode: "media", Images: []string{"i"}, ReferenceVideos: []string{"v1", "v2"}, ReferenceAudios: []string{"a1", "a2"}},
 			want:    "at most 3 items combined",
 		},
 		{
 			name:    "thirteen total assets",
 			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","images":["1","2","3","4","5","6","7","8","9"],"reference_videos":["v1","v2","v3"],"reference_audios":["a1"]}`,
-			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, ReferenceVideos: []string{"v1", "v2", "v3"}, ReferenceAudios: []string{"a1"}},
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceMode: "media", Images: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, ReferenceVideos: []string{"v1", "v2", "v3"}, ReferenceAudios: []string{"a1"}},
 			want:    "at most 12 total reference assets",
 		},
 		{
 			name:    "media without image",
 			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","reference_videos":["v1"]}`,
-			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceVideos: []string{"v1"}},
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceMode: "media", ReferenceVideos: []string{"v1"}},
 			want:    "require at least one image",
 		},
 		{
 			name:    "frame mixed with source media",
-			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"frame","images":["first","last"],"reference_videos":["v1"]}`,
-			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"first", "last"}, ReferenceVideos: []string{"v1"}},
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"first_image_url":"first","last_image_url":"last","reference_videos":["v1"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, FirstImageUrl: "first", LastImageUrl: "last", ReferenceVideos: []string{"v1"}},
 			want:    "cannot be combined",
 		},
 	}
@@ -205,8 +209,8 @@ func TestSD5ReferenceLimits(t *testing.T) {
 }
 
 func TestSD5FrameModeUsesFirstAndLastFrames(t *testing.T) {
-	payload, err := buildAdobeTestPayload(t, `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"frame","images":["first","last"]}`, relaycommon.TaskSubmitReq{
-		Model: "seedance-2.0", Prompt: "test", Duration: 4, Images: []string{"first", "last"},
+	payload, err := buildAdobeTestPayload(t, `{"model":"seedance-2.0","prompt":"test","duration":4,"first_image_url":"first","last_image_url":"last"}`, relaycommon.TaskSubmitReq{
+		Model: "seedance-2.0", Prompt: "test", Duration: 4, FirstImageUrl: "first", LastImageUrl: "last",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -277,3 +281,5 @@ func stringListFromPayload(t *testing.T, value any) []string {
 	}
 	return out
 }
+
+func boolPtr(value bool) *bool { return &value }

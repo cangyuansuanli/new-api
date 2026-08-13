@@ -124,3 +124,35 @@ func TestTaskSubmitReqCombinesAndDeduplicatesImageAliases(t *testing.T) {
 		"https://example.com/c.jpg",
 	}, req.Images)
 }
+
+func TestTaskSubmitReqCanonicalVideoBodyPreservesExplicitValues(t *testing.T) {
+	seed := int64(0)
+	generateAudio := false
+	req := TaskSubmitReq{
+		Prompt: " test ", Duration: 8, Seconds: "8", ImageUrl: "https://example.com/a.jpg",
+		ReferenceVideos: []string{"https://example.com/a.mp4"},
+		ReferenceAudios: []string{"https://example.com/a.mp3"},
+		FirstImageUrl:   "first.jpg", LastImageUrl: "last.jpg", ReferenceMode: "legacy-client-value",
+		Metadata:    map[string]interface{}{"vendor_extension": true},
+		AspectRatio: "16:9", Resolution: "720p", Seed: &seed, GenerateAudio: &generateAudio,
+	}
+	req.Canonicalize()
+	body := req.CanonicalVideoBody("upstream-model")
+
+	require.Equal(t, "upstream-model", body["model"])
+	require.Equal(t, "test", body["prompt"])
+	require.Equal(t, 8, body["duration"])
+	require.Equal(t, int64(0), body["seed"])
+	require.Equal(t, false, body["generate_audio"])
+	require.Equal(t, []string{"https://example.com/a.jpg"}, body["reference_image_urls"])
+	require.Equal(t, []string{"https://example.com/a.mp4"}, body["reference_videos"])
+	require.Equal(t, []string{"https://example.com/a.mp3"}, body["reference_audios"])
+	require.Equal(t, "first.jpg", body["first_image_url"])
+	require.Equal(t, "last.jpg", body["last_image_url"])
+	require.NotContains(t, body, "reference_mode")
+	require.NotContains(t, body, "metadata")
+	for _, alias := range []string{"seconds", "image", "image_url", "images", "image_urls", "reference_images", "input_reference", "video_url"} {
+		_, exists := body[alias]
+		require.Falsef(t, exists, "compatibility alias %s leaked into canonical body", alias)
+	}
+}
