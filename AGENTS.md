@@ -142,6 +142,8 @@ The canonical image-edit contract is URL JSON: new clients upload references dir
 
 For image, video, and audio customer APIs, the canonical request DTO and unified endpoint contract define the only public schema. Each enabled media model must own a complete `models.api_doc` that selects a supported subset of those canonical fields and states its own ranges and examples; a model document must never add fields outside the unified schema. UI profiles describe controls and capabilities only, so frontend code must not merge profile fields or generated defaults into model documentation. Missing or invalid media `api_doc` means no model document is shown. Compatibility aliases, multipart ingress, data URIs, upstream paths, and vendor fields belong only to normalization/adaptor code and must not appear in new customer-facing model docs.
 
+Media documentation audits must discover enabled models from both capability profiles and declared public endpoints. A missing `*_profile_id` does not exclude a model when its `endpoints` declares `openai-image`, `image-generation`, `openai-video`, or `openai-audio`.
+
 **Adding a new image vendor (checklist):**
 
 1. Add `relay/imagevendor/vendor_<upstream>.go` with the real upstream name; public/internal neutral naming belongs in `Match`, not the filename.
