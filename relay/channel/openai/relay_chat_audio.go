@@ -11,8 +11,9 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/audiovendor"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -100,6 +101,19 @@ func OpenaiChatAudioHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
 	}
+
+	storeID := ""
+	if info != nil && info.TaskRelayInfo != nil {
+		storeID = strings.TrimSpace(info.TaskRelayInfo.PublicTaskID)
+	}
+	if storeID == "" {
+		storeID = model.GenerateTaskID()
+	}
+	rehostedURL, rehostErr := service.RehostSyncAudioURL(service.RehostDetachedContext(c.Request.Context()), c.GetInt("id"), storeID, audioURL, nil)
+	if rehostErr != nil {
+		return nil, types.NewOpenAIError(rehostErr, types.ErrorCodeBadResponse, http.StatusBadGateway)
+	}
+	audioURL = rehostedURL
 
 	usage := simpleResponse.Usage
 	if usage.TotalTokens == 0 {
