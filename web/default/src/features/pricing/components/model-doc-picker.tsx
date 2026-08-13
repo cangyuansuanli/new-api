@@ -13,6 +13,7 @@ import { getLobeIcon } from '@/lib/lobe-icon'
 import { getPricing } from '../api'
 import {
   enrichPricingModels,
+  isAudioDocModel,
   isImageDocModel,
   isModelDocCandidate,
   isVideoDocModel,
@@ -23,12 +24,12 @@ import { ModelDocDialog } from './model-doc-dialog'
 
 type ModelDocPickerProps = {
   siteOrigin: string
-  /** 仅展示带视频或图像 UI 配置的模型 */
-  capability?: 'video' | 'image' | 'all'
+  /** 仅展示带视频、图像或音频 UI 配置的模型 */
+  capability?: 'video' | 'image' | 'audio' | 'all'
   className?: string
 }
 
-type ModelDocCapability = 'video' | 'image'
+type ModelDocCapability = 'video' | 'image' | 'audio'
 
 type VendorModelGroup = {
   vendorName: string
@@ -45,13 +46,15 @@ function groupModelsByCapabilityAndVendor(
   models: PricingModel[],
   uncategorizedLabel: string
 ): CapabilityModelGroup[] {
-  const capabilities: ModelDocCapability[] = ['video', 'image']
+  const capabilities: ModelDocCapability[] = ['video', 'image', 'audio']
   const result: CapabilityModelGroup[] = []
 
   for (const capability of capabilities) {
-    const filtered = models.filter((model) =>
-      capability === 'video' ? isVideoDocModel(model) : isImageDocModel(model)
-    )
+    const filtered = models.filter((model) => {
+      if (capability === 'video') return isVideoDocModel(model)
+      if (capability === 'image') return isImageDocModel(model)
+      return isAudioDocModel(model)
+    })
     if (filtered.length === 0) continue
 
     const vendorMap = new Map<string, VendorModelGroup>()
@@ -168,7 +171,9 @@ export function ModelDocPicker(props: ModelDocPickerProps) {
             <h4 className='text-foreground text-sm font-semibold'>
               {group.capability === 'video'
                 ? t('modelDoc.sectionVideo')
-                : t('modelDoc.sectionImage')}
+                : group.capability === 'image'
+                  ? t('modelDoc.sectionImage')
+                  : t('modelDoc.sectionAudio')}
             </h4>
             <div className='space-y-4'>
               {group.vendors.map((vendor) => {

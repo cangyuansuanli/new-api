@@ -19,6 +19,7 @@ import { DocsNavLink, DocsShell } from './docs-shell'
 const apiDocsNavItems = [
   { id: 'api-video-api', titleKey: 'apiDocs.nav.videoApi' },
   { id: 'api-image-api', titleKey: 'apiDocs.nav.imageApi' },
+  { id: 'api-audio-api', titleKey: 'apiDocs.nav.audioApi' },
   { id: 'api-model-docs', titleKey: 'apiDocs.nav.modelDocs' },
 ] as const
 
@@ -261,6 +262,61 @@ export function ApiDocsPage() {
             ['计费', '仅成功出图才计费；chat/completions 出图仍兼容但已弃用，响应带 Deprecation 头。'],
           ]}
         />
+      </DocsSection>
+
+      <DocsSection
+        id='api-audio-api'
+        title='音乐 / 音频生成 API'
+        description='统一入口 POST /v1/audio/generations（默认 async）：提交音乐任务 → GET 轮询 → 从 data[0].url 下载。各模型参数见下方弹窗。'
+      >
+        <p className='text-muted-foreground text-sm'>{PRICING_NOTE}</p>
+
+        <p className='text-sm'>
+          鉴权：<code className='text-sm'>Authorization: Bearer sk-你的令牌</code>。模型名与模型广场展示名一致（如 <code className='text-sm'>gemini-music</code>）。
+        </p>
+
+        <h3 className='text-lg font-semibold'>调用流程</h3>
+        <DocsTable
+          headers={['步骤', '方法', '说明']}
+          rows={[
+            ['1. 提交任务', 'POST /v1/audio/generations', '省略 async 即默认异步；仅调试可传 async: false 同步等待'],
+            ['2. 轮询进度', 'GET /v1/audio/generations/{task_id}', 'status: queued / in_progress / completed / failed'],
+            ['3. 下载音频', 'GET data[0].url', '返回 first-party CDN 地址，无需再带 Authorization'],
+          ]}
+        />
+
+        <h3 className='mt-8 text-lg font-semibold'>对外接口</h3>
+        <DocsTable
+          headers={['端点', '说明']}
+          rows={[
+            ['POST /v1/audio/generations', '所有音乐模型统一入口（默认 async=true）'],
+            ['GET /v1/audio/generations/{task_id}', '查询任务状态与结果 URL'],
+          ]}
+        />
+
+        <h3 className='mt-8 text-lg font-semibold'>快速示例</h3>
+        <CodeBlock
+          title='异步音乐生成（推荐）'
+          code={`curl -X POST ${base}/audio/generations \\
+  -H "Authorization: Bearer sk-xxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "gemini-music",
+    "prompt": "创作一首轻快的电子风格 BGM，适合科技产品广告"
+  }'`}
+        />
+        <CodeBlock
+          title='轮询取音频'
+          code={`curl ${base}/audio/generations/{task_id} \\
+  -H "Authorization: Bearer sk-xxx"`}
+        />
+
+        <ul className='list-disc space-y-2 pl-5'>
+          <li>音乐生成通常 30–60 秒，轮询间隔建议 5–10 秒</li>
+          <li>仅成功出片才计费；失败不扣费</li>
+          <li>结果 URL 为平台 CDN，不会暴露上游下载域</li>
+          <li>旧版 POST /v1/chat/completions + gemini-music 仍兼容，但已标记 Deprecation</li>
+        </ul>
       </DocsSection>
 
       <DocsSection
