@@ -6,42 +6,42 @@ func TestInferReferenceMode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		req     TaskSubmitReq
-		explicit string
+		name       string
+		req        TaskSubmitReq
+		explicit   string
 		allowMedia bool
-		want    string
+		want       string
 	}{
 		{
-			name: "explicit mode preserved",
-			req:  TaskSubmitReq{Images: []string{"a"}},
-			explicit: "media",
+			name:       "explicit mode preserved",
+			req:        TaskSubmitReq{Images: []string{"a"}},
+			explicit:   "media",
 			allowMedia: true,
-			want: "media",
+			want:       "media",
 		},
 		{
-			name: "first last frame urls",
-			req:  TaskSubmitReq{FirstImageUrl: "a", LastImageUrl: "b"},
+			name:       "first last frame urls",
+			req:        TaskSubmitReq{FirstImageUrl: "a", LastImageUrl: "b"},
 			allowMedia: true,
-			want: "frame",
+			want:       "frame",
 		},
 		{
-			name: "media refs",
-			req:  TaskSubmitReq{Images: []string{"a"}, ReferenceVideos: []string{"v"}},
+			name:       "media refs",
+			req:        TaskSubmitReq{Images: []string{"a"}, ReferenceVideos: []string{"v"}},
 			allowMedia: true,
-			want: "media",
+			want:       "media",
 		},
 		{
-			name: "two images without frame urls",
-			req:  TaskSubmitReq{Images: []string{"a", "b"}},
+			name:       "two ordinary images stay media references",
+			req:        TaskSubmitReq{Images: []string{"a", "b"}},
 			allowMedia: true,
-			want: "frame",
+			want:       "media",
 		},
 		{
-			name: "single image asset",
-			req:  TaskSubmitReq{Images: []string{"a"}},
+			name:       "single image asset",
+			req:        TaskSubmitReq{Images: []string{"a"}},
 			allowMedia: false,
-			want: "asset",
+			want:       "asset",
 		},
 	}
 

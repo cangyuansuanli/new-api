@@ -827,54 +827,6 @@
             ]
         },
         {
-            "id": "video-tpl-manju-sora-async",
-            "apiMode": "videos-json-async",
-            "payloadBuilder": "manju-sora",
-            "match": [
-                "manju-openai-sora2",
-                "manju-openai-sora"
-            ],
-            "referenceLimits": {
-                "images": 1,
-                "videos": 0,
-                "audios": 0
-            },
-            "params": {
-                "resolution": {
-                    "enabled": false
-                },
-                "ratio": {
-                    "enabled": false
-                },
-                "duration": {
-                    "enabled": false
-                },
-                "generateAudio": {
-                    "enabled": false
-                },
-                "watermark": {
-                    "enabled": false
-                },
-                "seed": {
-                    "enabled": false
-                },
-                "widthHeight": {
-                    "enabled": false
-                },
-                "frameInputs": {
-                    "enabled": false
-                }
-            },
-            "hints": [
-                {
-                    "text": "OpenAI Sora2 异步视频：POST /v1/videos 创建，GET /v1/videos/{id} 轮询取片；支持 1 张参考图。"
-                }
-            ],
-            "wireFormat": "json-openai-video",
-            "wireVariant": "manju-sora",
-            "mirrorDurationToSeconds": true
-        },
-        {
             "id": "video-tpl-chat-no-params",
             "apiMode": "videos-json-async",
             "payloadBuilder": "chat-video",

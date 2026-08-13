@@ -9,7 +9,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/chatvideo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/manju"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omnii2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
@@ -31,7 +30,6 @@ const (
 	VendorGrok              Vendor = "grok-generations"
 	VendorGeeknowGrok       Vendor = "geeknow-grok"
 	VendorSeqnode           Vendor = "seqnode"
-	VendorManju             Vendor = "manju"
 	VendorOmniI2V           Vendor = "omni-i2v"
 	VendorOmniV2V           Vendor = "omni-v2v"
 	VendorSeedanceOairegbox Vendor = "seedance-oairegbox"
@@ -54,7 +52,7 @@ func Resolve(originModel, upstreamModel string) Vendor {
 func ParseVendor(value string) (Vendor, bool) {
 	vendor := Vendor(strings.TrimSpace(value))
 	switch vendor {
-	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorManju, VendorOmniI2V, VendorOmniV2V, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceHeygen, VendorSeedanceMagica, VendorSeedanceTengda:
+	case VendorSora, VendorAdobe, VendorChat, VendorGrok, VendorGeeknowGrok, VendorSeqnode, VendorOmniI2V, VendorOmniV2V, VendorSeedanceOairegbox, VendorSeedanceLeonardo, VendorSeedanceHeygen, VendorSeedanceMagica, VendorSeedanceTengda:
 		return vendor, true
 	default:
 		return "", false
@@ -104,9 +102,6 @@ func ResolveSubmission(originModel, upstreamModel string, channelID int, baseURL
 	}
 	if grok.IsRelay(originModel, upstreamModel) {
 		return VendorGrok
-	}
-	if manju.IsRelay(originModel, upstreamModel) {
-		return VendorManju
 	}
 	if omniv2v.IsRelay(originModel, upstreamModel) {
 		return VendorOmniV2V

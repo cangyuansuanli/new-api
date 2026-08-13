@@ -10,7 +10,6 @@ relay/channel/task/oaivideo/
 ├── registry/         # 已分发渠道 + 模型映射结果 → Vendor 注册表
 ├── shared/           # FetchVideoTask、响应解析、multipart 透传
 └── vendors/
-    ├── manju/
     ├── chatvideo/    # 聚合线路 chat 上游，对外仍是统一任务
     ├── grok/         # 119337 generations endpoint + envelope normalization
     ├── geeknowgrok/  # Geeknow grok-imagine-video* via /v1/videos JSON
@@ -53,7 +52,7 @@ Leonardo `cy-sd4-*` 渠道在插件主轮询窗口结束后仍返回 `in_progres
 
 | 方法 | 路径 | 用途 |
 |------|------|------|
-| `POST` | `/v1/videos` | 创建视频任务，支持 `application/json` 与 `multipart/form-data` |
+| `POST` | `/v1/videos` | 创建视频任务；新调用仅使用 `application/json`，multipart 只保留历史兼容 |
 | `GET` | `/v1/videos/{task_id}` | 查询任务状态与结果 |
 | `GET` | `/v1/videos/{task_id}/content` | 下载已完成任务的成片 |
 
@@ -63,15 +62,19 @@ Leonardo `cy-sd4-*` 渠道在插件主轮询窗口结束后仍返回 `in_progres
 |------|------|------|
 | `model` | string | 必填，模型广场展示的 public 模型名 |
 | `prompt` | string | 必填，视频提示词 |
-| `duration` / `seconds` | integer 或整数字符串 | 可任选其一；同时传入时必须一致 |
+| `duration` | integer | 视频时长（秒） |
 | `aspect_ratio` | string | 如 `16:9`、`9:16`、`1:1` |
 | `resolution` | string | 如 `480p`、`720p`、`1080p` |
 | `seed` | integer | 可复现种子；Veo 3.1、Veo 3.1 Fast、Kling 3.0/Omni、SD5 Seedance 支持，Gemini Omni 不支持 |
 | `generate_audio` | boolean | 是否生成音频，取决于模型能力 |
-| `video_url` | string | 参考视频公网 URL，仅支持已声明视频编辑能力的模型 |
-| `image` / `images` / `image_urls` / `reference_image_urls` | string、string[]；`image` 兼容 `{url}` | JSON 参考图；支持 HTTPS URL，具体数量由模型 profile 决定 |
+| `reference_videos` | string[] | 参考视频公网 URL 数组，仅支持已声明视频编辑能力的模型 |
+| `reference_audios` | string[] | 参考音频公网 URL 数组，仅支持已声明音频参考能力的模型 |
+| `reference_image_urls` | string[] | JSON 参考图 HTTPS URL；具体数量由模型 profile 决定 |
+| `first_image_url` | string | 首帧参考图；只用于模型声明的首尾帧模式 |
+| `last_image_url` | string | 末帧参考图；只用于模型声明的首尾帧模式 |
 | `input_reference` | file 或 file[] | multipart 参考素材 |
-| `metadata` | object | 已登记 vendor 的扩展参数；不得用于选择上游协议或路径 |
+
+`seconds`、`image`、`image_url`、`images`、`image_urls`、`reference_images`、JSON `input_reference` 与 `video_url` 仅为历史客户兼容字段。它们在 `TaskSubmitReq` 入站时归一，不能出现在新客户文档、前端请求构造或 vendor 业务逻辑中。
 
 JSON 示例：
 
@@ -82,7 +85,7 @@ JSON 示例：
   "duration": 6,
   "aspect_ratio": "9:16",
   "resolution": "720p",
-  "image_urls": ["https://example.com/reference.png"]
+  "reference_image_urls": ["https://example.com/reference.png"]
 }
 ```
 
@@ -111,16 +114,18 @@ Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonard
 | Seedance HeyGen | `duration` | `cy-sd6` 两个产品分别强制 720p / 1080p，客户参数不能切换档位 |
 | Adobe | `duration` | Adobe typed `/v1/videos/generations` 严格 schema |
 
-JSON 的其他字段和 multipart 文件必须保留；仅模型名与时长别名在 vendor 边界发生转换。
+JSON 业务字段不得从原始 body 透传。入站先生成 canonical `TaskSubmitReq`，vendor 再按上游白名单映射字段；统一视频接口不接受任意 vendor 扩展字段。历史 multipart 文件仍由共享 serializer 保留文件内容与元数据。
 统一 Adobe vendor 会按模型契约处理 SD5 Seedance，并将可选整数 `seed` 原样传给 Adobe2API，包括显式零值；其他
 SD5 出站契约同时保留 `duration`、`aspect_ratio`、`resolution`、`generate_audio`、
-`reference_mode`、参考图、参考视频和参考音频。普通参考素材自动选择并明确发送 `reference_mode=media`；仅成对首尾帧选择 `frame`。首尾帧与 media 全能参考互斥，验收必须
+参考图、参考视频和参考音频。vendor 根据模型能力自动为普通参考素材选择并发送 `reference_mode=media`；仅显式 `first_image_url` / `last_image_url` 选择 `frame`。首尾帧与 media 全能参考互斥，验收必须
 分别使用合法组合，不能把互斥字段拼成一个“全参数”请求。
 Adobe Sora/Veo 模型继续过滤不支持的 seed。
 
 Seedance 2.0 的参考图统一使用 `reference_image_urls`（单图 vendor 可映射为 `image_url`）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。Relay 在 registry 层按线路拆分：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`adobe`（cy-sd5，与其他 Adobe 视频共用）、`seedance-heygen`（cy-sd6）、`seedance-magica`（cy-sd7）。`cy-sd6-seedance-2.0-720p` 与 `cy-sd6-seedance-2.0-1080p` 都映射上游 `seedance-2.0`，但由 vendor 分别强制 `resolution=720p` / `1080p`；不得让客户通过请求字段跨档。cy-sd6 支持最多 9 图、3 视频、1 音频且合计最多 12 个，音频不能单独使用，首尾帧必须成对并与多模态参考互斥。**cy-sd1 / cy-sd2 / cy-sd5** 仍在 NewAPI profile 或 adaptor 侧做数量/大小/互斥等出站校验；**cy-sd4 / cy-sd6** 业务规则分别由对应 web2api 上游校验。
 
 公共图片别名必须在 `relay/common.TaskSubmitReq` 入口合并、去空并去重到 `Images`，vendor 只能消费该标准字段并渲染上游协议，不得再次从原始 JSON body 解析 `image` / `image_url` / `images` / `image_urls` / `reference_images` / `reference_image_urls`。`first_image_url` / `last_image_url` 是独立的首尾帧控制字段，不进入通用参考图归一化。
+
+完整出站链路固定为：客户 JSON / multipart → `TaskSubmitReq.UnmarshalJSON` 兼容解析 → `Canonicalize` 清除别名 → `CanonicalVideoBody` 标准视图 → registry vendor 白名单映射 → 上游协议。当前 registry 的所有 vendor 都必须从标准 DTO 读取业务字段；新增 vendor 必须补充 canonical 输入到上游字段的测试。
 
 Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/videos` + `GET /v1/videos/{id}`，Adobe vendor 内部将创建请求映射为上游 `POST /v1/videos/generations`，并使用上游 `GET /v1/videos/{id}` 轮询。Adobe 任务直接进入通用任务表和通用轮询，不再创建独立 worker，也不再包装成 chat。
 
@@ -134,7 +139,6 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 
 | 渠道 / internal 模型条件 | Vendor | 提交差异 | 轮询解析 |
 |--------------------------|--------|----------|----------|
-| `manju-openai-sora*` | Manju | chat/completions 转换 | Manju 响应形（`platform:sora2` 等） |
 | `cy-vid2-*` / `cy-sd1-grok-video*` | Chat Video | 内部转 chat/completions，读 SSE/JSON 视频 URL | 提交时即归一化为已完成任务 |
 | `cy-gv1-grok-video*` + upstream `grok-image-video*` | Grok generations | 严格 JSON → `/v1/video/generations` | generations envelope → OpenAI Video 形 |
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
@@ -165,7 +169,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 ## 新增视频模型 Checklist
 
 1. 在 `registry.ResolveSubmission` 注册匹配规则；渠道专属协议必须排在通用模型族规则之前
-2. 确认提交阶段：走 Manju / Grok / Seedance / Adobe 转换，还是 default 透传
+2. 确认提交阶段：走 Grok / Seedance / Adobe 转换，还是 default 透传
 3. 确认轮询：`FetchTask` 是否仍为 `/v1/videos/{id}`；若路径不同，由提交时持久化的 vendor 选择路径
 4. 确认计费：`AdjustBillingOnComplete` 按秒还是按次
 5. 补充 `registry` / `router` 单测
@@ -179,7 +183,7 @@ Adobe 额外检查：确认严格 JSON 只发送上游允许字段；确认提�
 - `docs/client-error-normalization.md` — 错误归一化架构与扩展方式
 - `relay/channel/task/oaivideo/registry/` — 路由注册表
 - `relay/channel/task/oaivideo/shared/` — 共享解析与 `FetchVideoTask`
-- `relay/channel/task/oaivideo/vendors/{manju,seedance,adobe,defaultvideo}/` — 子适配器
+- `relay/channel/task/oaivideo/vendors/` — 各上游子适配器
 - `relay/channel/task/README.md` — task 目录总览（L1/L2 分层）
 - `service/task_polling.go` — 轮询主循环
 

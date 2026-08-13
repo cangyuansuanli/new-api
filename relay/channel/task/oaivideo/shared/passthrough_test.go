@@ -27,7 +27,7 @@ func jsonVideoContext(t *testing.T, body string) *gin.Context {
 }
 
 func TestBuildNormalizedRequestBodyMapsDurationToSeconds(t *testing.T) {
-	c := jsonVideoContext(t, `{"model":"grok-video","prompt":"test","duration":15,"aspect_ratio":"9:16"}`)
+	c := jsonVideoContext(t, `{"model":"grok-video","prompt":"test","duration":15,"aspect_ratio":"9:16","image_url":"https://example.com/ref.png","vendor_magic":"must-not-pass"}`)
 
 	reader, err := BuildNormalizedRequestBody(c, "grok-image-video", DurationFieldSeconds)
 	if err != nil {
@@ -49,6 +49,16 @@ func TestBuildNormalizedRequestBodyMapsDurationToSeconds(t *testing.T) {
 	}
 	if got["aspect_ratio"] != "9:16" {
 		t.Fatalf("unrelated field was not preserved: %#v", got)
+	}
+	images, ok := got["reference_image_urls"].([]any)
+	if !ok || len(images) != 1 || images[0] != "https://example.com/ref.png" {
+		t.Fatalf("canonical images = %#v", got["reference_image_urls"])
+	}
+	if _, exists := got["image_url"]; exists {
+		t.Fatalf("image alias leaked upstream: %#v", got)
+	}
+	if _, exists := got["vendor_magic"]; exists {
+		t.Fatalf("unknown client field leaked upstream: %#v", got)
 	}
 }
 

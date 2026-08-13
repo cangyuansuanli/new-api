@@ -94,35 +94,22 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 // strict VideoGenerateRequest schema. In particular, size/seconds aliases and
 // UI-only fields must not leak to Adobe2API, whose schema rejects unknown keys.
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
-	storage, err := common.GetBodyStorage(c)
+	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
-		return nil, fmt.Errorf("read adobe video request: %w", err)
+		return nil, err
 	}
-	body, err := storage.Bytes()
-	if err != nil {
-		return nil, fmt.Errorf("read adobe video request bytes: %w", err)
-	}
-
-	var raw map[string]any
-	if err := common.Unmarshal(body, &raw); err != nil {
-		return nil, fmt.Errorf("adobe video request must be JSON: %w", err)
-	}
-	req, _ := relaycommon.GetTaskRequest(c)
 
 	modelName := ""
 	if info != nil {
 		modelName = strings.TrimSpace(info.UpstreamModelName)
 	}
 	if modelName == "" {
-		modelName = strings.TrimSpace(asString(raw["model"]))
+		modelName = strings.TrimSpace(req.Model)
 	}
 	if strings.HasPrefix(modelName, "cy-sd5-seedance-") {
 		modelName = strings.TrimPrefix(modelName, "cy-sd5-")
 	}
-	prompt := strings.TrimSpace(asString(raw["prompt"]))
-	if prompt == "" {
-		prompt = strings.TrimSpace(req.Prompt)
-	}
+	prompt := strings.TrimSpace(req.Prompt)
 	if modelName == "" || prompt == "" {
 		return nil, fmt.Errorf("model and prompt are required")
 	}
@@ -139,19 +126,7 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	firstImage := strings.TrimSpace(req.FirstImageUrl)
 	lastImage := strings.TrimSpace(req.LastImageUrl)
-	if firstImage == "" {
-		firstImage = strings.TrimSpace(asString(raw["first_image_url"]))
-	}
-	if lastImage == "" {
-		lastImage = strings.TrimSpace(asString(raw["last_image_url"]))
-	}
-	mode := strings.ToLower(strings.TrimSpace(asString(raw["reference_mode"])))
-	if mode == "" {
-		mode = relaycommon.InferReferenceMode(req, "", contract.allowMedia)
-		if mode == "frame" && len(images) == 2 && firstImage == "" && lastImage == "" && !contract.allowFrames {
-			mode = "asset"
-		}
-	}
+	mode := relaycommon.InferReferenceMode(req, "", contract.allowMedia)
 	if mode == "frame" {
 		if len(referenceVideos)+len(referenceAudios) > 0 {
 			return nil, fmt.Errorf("%s frame references cannot be combined with video or audio references", modelName)
@@ -202,10 +177,7 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if req.Seed != nil && !contract.allowSeed {
 		return nil, fmt.Errorf("%s does not support seed", modelName)
 	}
-	if _, present := raw["generate_audio"]; present && !contract.allowAudio {
-		return nil, fmt.Errorf("%s does not support audio control", modelName)
-	}
-	if _, present := raw["audio"]; present && !contract.allowAudio {
+	if req.GenerateAudio != nil && !contract.allowAudio {
 		return nil, fmt.Errorf("%s does not support audio control", modelName)
 	}
 
@@ -216,27 +188,22 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if duration > 0 {
 		out["duration"] = duration
 	}
-	if ratio := normalizeAspectRatio(asString(raw["aspect_ratio"])); ratio != "" {
+	if ratio := normalizeAspectRatio(req.AspectRatio); ratio != "" {
 		out["aspect_ratio"] = ratio
-	} else if ratio := normalizeAspectRatio(asString(raw["size"])); ratio != "" {
+	} else if ratio := normalizeAspectRatio(req.Size); ratio != "" {
 		out["aspect_ratio"] = ratio
 	}
-	for _, key := range []string{"resolution", "negative_prompt"} {
-		if value := strings.TrimSpace(asString(raw[key])); value != "" {
-			out[key] = value
-		}
+	if value := strings.TrimSpace(req.Resolution); value != "" {
+		out["resolution"] = value
 	}
 	if mode != "" {
 		out["reference_mode"] = mode
 	}
-	if value, ok := raw["generate_audio"]; ok {
-		if audio, valid := asBool(value); valid {
-			out["generate_audio"] = audio
-		}
-	} else if value, ok := raw["audio"]; ok {
-		if audio, valid := asBool(value); valid {
-			out["generate_audio"] = audio
-		}
+	if req.GenerateAudio != nil {
+		out["generate_audio"] = *req.GenerateAudio
+	}
+	if req.Seed != nil {
+		out["seed"] = *req.Seed
 	}
 	if len(images) > 0 {
 		out["images"] = images
@@ -266,21 +233,6 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 	// Pass the outer adaptor so DoTaskApiRequest dispatches to this vendor's
 	// BuildRequestURL instead of the embedded default video's URL.
 	return channel.DoTaskApiRequest(a, c, info, requestBody)
-}
-
-func asString(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case float64:
-		return strconv.FormatFloat(typed, 'f', -1, 64)
-	case int:
-		return strconv.Itoa(typed)
-	case bool:
-		return strconv.FormatBool(typed)
-	default:
-		return ""
-	}
 }
 
 func firstPositiveInt(values ...any) int {

@@ -251,15 +251,6 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	applyUsagePostProcessing(info, &simpleResponse.Usage, responseBody)
 
-	if passthrough, ok := manjuSora2PassthroughIfNeeded(info, responseBody); ok {
-		patchedBody, patchErr := service.PatchClientFacingModelJSONFromContext(c, passthrough)
-		if patchErr == nil {
-			passthrough = patchedBody
-		}
-		service.IOCopyBytesGracefully(c, resp, passthrough)
-		return &simpleResponse.Usage, nil
-	}
-
 	adaptedBody, adaptErr := manjuBananaAdaptIfNeeded(c.Request.Context(), info, responseBody)
 	if adaptErr != nil {
 		return nil, adaptErr

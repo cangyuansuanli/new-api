@@ -11,7 +11,6 @@
 | 上游来源 | 典型 raw | 状态 |
 |---------|---------|------|
 | 各渠道内容审查 | `content moderation`, `unsafe content`, 谷粒中文政策 | ✅ |
-| Manju 审核 | `审核失败`, `平台内容审核`, `参考图未通过` | ✅ |
 | 代理/HTTP | `status_code=502/503/524`, `do request failed` | ✅ |
 | adobe2api/media_limits | `image too large, max 30MB` | ✅ |
 | adobe2api/generation | `too many images, max 9` | ✅ |
@@ -85,14 +84,6 @@
 | grok/adaptor.go | `grok-video-1.5 requires exactly one reference image` | ✅ |
 | grok/adaptor.go | `does not support video references` | ✅ |
 | 119337 轮询 | `fail_reason: reference image rejected` | ✅（common） |
-
-## manju.go（manju-openai-sora*）
-
-| 上游来源 | 典型 raw | 状态 |
-|---------|---------|------|
-| convert_test.go | `审核失败` | ✅ |
-| convert_test.go | `某张上传的参考图未通过平台内容审核...` | ✅ |
-| convert.go | `task failed` | ✅ |
 
 ## chatvideo.go（cy-vid2-sora-2 等 chat 线路）
 

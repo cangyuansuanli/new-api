@@ -2,8 +2,9 @@ package common
 
 import "strings"
 
-// InferReferenceMode chooses frame vs media when the client omits reference_mode.
-// Vendors may extend with model-specific allowlists after calling this helper.
+// InferReferenceMode derives the upstream mode from the model contract and
+// canonical reference fields. explicitMode is accepted only for callers that
+// still serve legacy non-oaivideo task protocols.
 func InferReferenceMode(req TaskSubmitReq, explicitMode string, allowMedia bool) string {
 	mode := strings.ToLower(strings.TrimSpace(explicitMode))
 	if mode != "" {
@@ -13,8 +14,6 @@ func InferReferenceMode(req TaskSubmitReq, explicitMode string, allowMedia bool)
 	last := strings.TrimSpace(req.LastImageUrl)
 	switch {
 	case first != "" || last != "":
-		return "frame"
-	case len(req.Images) == 2 && first == "" && last == "":
 		return "frame"
 	case allowMedia && (len(req.Images) > 0 || len(req.ReferenceVideos) > 0 || len(req.ReferenceAudios) > 0):
 		return "media"

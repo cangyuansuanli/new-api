@@ -250,7 +250,7 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 }
 
 func usageSecondsFromTaskData(data []byte) int {
-	return oaivideo.UsageSecondsFromTaskData(data, nil)
+	return oaivideo.UsageSecondsFromTaskData(data)
 }
 
 func usageSecondsFromBillingContext(bc *model.TaskBillingContext) int {

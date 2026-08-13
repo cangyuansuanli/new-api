@@ -36,8 +36,8 @@ func TestValidateMultipartDirectStoresNormalizedRequest(t *testing.T) {
 	if req.Model != "adobe-sora2" || req.Prompt != "a city at night" || req.Duration != 8 {
 		t.Fatalf("normalized request = %#v", req)
 	}
-	if req.Seconds != "8" {
-		t.Fatalf("seconds = %q, want normalized alias 8", req.Seconds)
+	if req.Seconds != "" {
+		t.Fatalf("seconds compatibility alias leaked into relay request: %q", req.Seconds)
 	}
 }
 
@@ -65,8 +65,8 @@ func TestValidateMultipartDirectReadsDurationField(t *testing.T) {
 	if req.Duration != 15 {
 		t.Fatalf("duration = %d, want 15", req.Duration)
 	}
-	if req.Seconds != "15" {
-		t.Fatalf("seconds = %q, want normalized alias 15", req.Seconds)
+	if req.Seconds != "" {
+		t.Fatalf("seconds compatibility alias leaked into relay request: %q", req.Seconds)
 	}
 }
 
@@ -91,6 +91,30 @@ func TestValidateMultipartDirectNormalizesImageURL(t *testing.T) {
 	}
 	if len(req.Images) != 1 || req.Images[0] != "https://example.com/ref.jpg" {
 		t.Fatalf("normalized images = %#v", req.Images)
+	}
+	if req.ImageUrl != "" || req.InputReference != "" || req.ReferenceImageUrls != nil {
+		t.Fatalf("image compatibility aliases leaked into relay request: %#v", req)
+	}
+}
+
+func TestValidateMultipartDirectNormalizesLegacyVideoURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", bytes.NewBufferString(`{"model":"omni-fast-v2v","prompt":"test","video_url":"https://example.com/ref.mp4"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	if taskErr := ValidateMultipartDirect(c, &RelayInfo{}); taskErr != nil {
+		t.Fatalf("ValidateMultipartDirect: %v", taskErr)
+	}
+	req, err := GetTaskRequest(c)
+	if err != nil {
+		t.Fatalf("GetTaskRequest: %v", err)
+	}
+	if len(req.ReferenceVideos) != 1 || req.ReferenceVideos[0] != "https://example.com/ref.mp4" {
+		t.Fatalf("reference videos = %#v", req.ReferenceVideos)
+	}
+	if req.VideoURL != "" {
+		t.Fatalf("video_url compatibility alias leaked into relay request: %q", req.VideoURL)
 	}
 }
 

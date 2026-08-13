@@ -12,6 +12,7 @@ import {
   getModelDisplayName,
   stripModelVendorPrefix,
 } from './model-display-name'
+import { mergeVideoCapabilityParams } from './video-api-contract'
 
 type UiParamFieldConfig = {
   enabled?: boolean
@@ -562,13 +563,14 @@ function buildUnifiedVideoDoc(
   const limits = ui?.referenceLimits ?? {}
 
   const ratio = pickDefaultRatio(paramsConfig.ratio)
+  const duration = pickDefaultDuration(paramsConfig.duration)
   const resolution = pickDefaultResolution(paramsConfig.resolution)
 
   const body: Record<string, unknown> = {
     model: modelName,
     prompt: '雨夜城市街道，电影感镜头缓慢推进',
-    duration: pickDefaultDuration(paramsConfig.duration) ?? 5,
   }
+  if (duration != null) body.duration = duration
   if (ratio) body.aspect_ratio = ratio
   if (resolution) body.resolution = resolution
   if ((limits.images ?? 0) > 0) {
@@ -578,37 +580,43 @@ function buildUnifiedVideoDoc(
   const params: ModelDocParam[] = [
     { name: 'model', description: `必填，固定传 ${modelName}。` },
     { name: 'prompt', description: '必填，视频描述提示词。' },
-    paramNote('duration', paramsConfig.duration, '视频时长（秒）。'),
-    paramNote('aspect_ratio', paramsConfig.ratio, '画幅比例。'),
-    paramNote('resolution', paramsConfig.resolution, '清晰度档位。'),
-    { name: 'size', description: '画幅像素，如 1280x720。' },
-    {
-      name: 'reference_image_urls',
-      description: '参考图 URL 数组（图生视频，Seedance 等）。',
-    },
-    { name: 'images', description: '参考图 URL 数组。' },
-    {
-      name: 'image_url',
-      description: '单张参考图 URL 或 Base64（JSON 图生视频，Omni 等）。',
-    },
-    {
-      name: 'input_reference',
-      description: 'multipart 参考图文件（可多张）；JSON 亦兼容单张 string。',
-    },
-    { name: 'first_image_url', description: '首帧参考图 URL（JSON）。' },
-    { name: 'last_image_url', description: '末帧参考图 URL（JSON）。' },
+    ...(paramsConfig.duration?.enabled
+      ? [paramNote('duration', paramsConfig.duration, '视频时长（秒）。')]
+      : []),
+    ...(paramsConfig.ratio?.enabled
+      ? [paramNote('aspect_ratio', paramsConfig.ratio, '画幅比例。')]
+      : []),
+    ...(paramsConfig.resolution?.enabled
+      ? [paramNote('resolution', paramsConfig.resolution, '清晰度档位。')]
+      : []),
+    ...(paramsConfig.size?.enabled
+      ? [paramNote('size', paramsConfig.size, '画幅像素，如 1280x720。')]
+      : []),
+    ...(paramsConfig.seed?.enabled
+      ? [paramNote('seed', paramsConfig.seed, '可复现种子。')]
+      : []),
+    ...(paramsConfig.generateAudio?.enabled ||
+    paramsConfig.generate_audio?.enabled
+      ? [{ name: 'generate_audio', description: '是否生成音频。' }]
+      : []),
   ].filter((p) => p.description)
 
   if ((limits.images ?? 0) > 0) {
     upsertParam(params, {
       name: 'reference_image_urls',
-      description: `参考图最多 ${limits.images} 张。`,
+      description: `参考图 URL 或 data URI 数组，最多 ${limits.images} 张。`,
     })
   }
   if ((limits.videos ?? 0) > 0) {
     upsertParam(params, {
       name: 'reference_videos',
       description: `参考视频最多 ${limits.videos} 个。`,
+    })
+  }
+  if ((limits.audios ?? 0) > 0) {
+    upsertParam(params, {
+      name: 'reference_audios',
+      description: `参考音频 URL 数组，最多 ${limits.audios} 个。`,
     })
   }
 
@@ -628,7 +636,7 @@ function buildUnifiedVideoDoc(
         basicRequestJson: formatJson({
           model: modelName,
           prompt: body.prompt,
-          duration: body.duration,
+          ...(duration != null ? { duration } : {}),
           ...(ratio ? { aspect_ratio: ratio } : {}),
           ...(resolution ? { resolution } : {}),
         }),
@@ -1188,7 +1196,7 @@ function isMediaModel(model: PricingModel): boolean {
 function mergeCapabilityVariant(
   unified: ModelApiDocVariant,
   capability: ModelApiDocVariant,
-  imageUi?: ImageUiParamsDoc
+  model: PricingModel
 ): ModelApiDocVariant {
   const capabilityIntro = capability.intro?.trim()
   const unifiedIntro = unified.intro?.trim()
@@ -1199,9 +1207,16 @@ function mergeCapabilityVariant(
       : `${capabilityIntro} ${unifiedIntro}`.trim()
   }
 
-  const params = [...unified.params]
-  for (const row of capability.params) {
-    upsertParam(params, row)
+  const isVideo =
+    model.supported_endpoint_types?.includes('openai-video') ||
+    Boolean(model.video_ui_params)
+  const params = isVideo
+    ? mergeVideoCapabilityParams(unified.params, capability.params)
+    : [...unified.params]
+  if (!isVideo) {
+    for (const row of capability.params) {
+      upsertParam(params, row)
+    }
   }
 
   return {
@@ -1215,9 +1230,15 @@ function mergeCapabilityVariant(
     requestJson: unified.requestJson,
     basicRequestJson: unified.basicRequestJson,
     examples: [],
-    params: filterGulie2KImageParams(params, imageUi),
+    params: isVideo
+      ? params
+      : filterGulie2KImageParams(
+          params,
+          model.image_ui_params as ImageUiParamsDoc | undefined
+        ),
     createResponseJson: unified.createResponseJson,
-    queryResponseJson: unified.queryResponseJson ?? capability.queryResponseJson,
+    queryResponseJson:
+      unified.queryResponseJson ?? capability.queryResponseJson,
     queryFailedResponseJson:
       unified.queryFailedResponseJson ?? capability.queryFailedResponseJson,
   }
@@ -1228,7 +1249,6 @@ function mergeCapabilityDoc(
   capability: ModelApiDoc,
   model: PricingModel
 ): ModelApiDoc {
-  const imageUi = model.image_ui_params as ImageUiParamsDoc | undefined
   const merged: ModelApiDocVariant[] = []
   for (const unifiedVariant of unified.variants) {
     const match =
@@ -1236,7 +1256,7 @@ function mergeCapabilityDoc(
       capability.variants[0]
     merged.push(
       match
-        ? mergeCapabilityVariant(unifiedVariant, match, imageUi)
+        ? mergeCapabilityVariant(unifiedVariant, match, model)
         : unifiedVariant
     )
   }

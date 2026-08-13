@@ -29,14 +29,6 @@ const (
 // and multipart files, replaces model, and translates the public duration
 // aliases into the field required by the selected upstream vendor.
 func BuildNormalizedRequestBody(c *gin.Context, upstreamModel string, durationField DurationField) (io.Reader, error) {
-	storage, err := common.GetBodyStorage(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "get_request_body_failed")
-	}
-	cachedBody, err := storage.Bytes()
-	if err != nil {
-		return nil, errors.Wrap(err, "read_body_bytes_failed")
-	}
 	contentType := c.GetHeader("Content-Type")
 	taskReq, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
@@ -48,11 +40,7 @@ func BuildNormalizedRequestBody(c *gin.Context, upstreamModel string, durationFi
 	}
 
 	if strings.HasPrefix(contentType, "application/json") {
-		var bodyMap map[string]interface{}
-		if err := common.Unmarshal(cachedBody, &bodyMap); err != nil {
-			return nil, errors.Wrap(err, "unmarshal_video_request_failed")
-		}
-		bodyMap["model"] = upstreamModel
+		bodyMap := taskReq.CanonicalVideoBody(upstreamModel)
 		delete(bodyMap, string(DurationFieldSeconds))
 		delete(bodyMap, string(DurationFieldDuration))
 		if duration != 0 {
@@ -72,13 +60,26 @@ func BuildNormalizedRequestBody(c *gin.Context, upstreamModel string, durationFi
 		}
 		var buf bytes.Buffer
 		writer := multipart.NewWriter(&buf)
-		writer.WriteField("model", upstreamModel)
-		for key, values := range formData.Value {
-			if key == "model" || key == string(DurationFieldSeconds) || key == string(DurationFieldDuration) {
+		canonical := taskReq.CanonicalVideoBody(upstreamModel)
+		delete(canonical, "duration")
+		for key, value := range canonical {
+			if key == "metadata" {
+				encoded, marshalErr := common.Marshal(value)
+				if marshalErr != nil {
+					return nil, errors.Wrap(marshalErr, "marshal_video_metadata_failed")
+				}
+				writer.WriteField(key, string(encoded))
 				continue
 			}
-			for _, v := range values {
-				writer.WriteField(key, v)
+			switch typed := value.(type) {
+			case string:
+				writer.WriteField(key, typed)
+			case []string:
+				for _, item := range typed {
+					writer.WriteField(key, item)
+				}
+			default:
+				writer.WriteField(key, fmt.Sprint(typed))
 			}
 		}
 		if duration != 0 {
@@ -118,5 +119,9 @@ func BuildNormalizedRequestBody(c *gin.Context, upstreamModel string, durationFi
 		return &buf, nil
 	}
 
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "get_request_body_failed")
+	}
 	return common.ReaderOnly(storage), nil
 }
