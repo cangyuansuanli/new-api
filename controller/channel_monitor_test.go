@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -166,6 +167,7 @@ func TestGetChannelMonitorStatusHidesDisabledMonitor(t *testing.T) {
 
 func TestListChannelMonitorStatusUsesPublicContract(t *testing.T) {
 	setupChannelMonitorControllerTest(t)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"LLM-GPT-pro":"GPT Pro"}`))
 	common.OptionMapRWMutex.Lock()
 	common.OptionMap["ChannelMonitorEnabled"] = "true"
 	common.OptionMapRWMutex.Unlock()
