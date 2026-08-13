@@ -30,7 +30,7 @@ type ModelUiParamProfile struct {
 }
 
 func (item *ModelUiParamProfile) Insert() error {
-	if item.Capability != ModelUiParamCapabilityVideo && item.Capability != ModelUiParamCapabilityImage {
+	if !IsModelUiParamCapability(item.Capability) {
 		return errors.New("invalid capability")
 	}
 	if item.ProfileId == "" {
@@ -43,7 +43,7 @@ func (item *ModelUiParamProfile) Insert() error {
 }
 
 func (item *ModelUiParamProfile) Update() error {
-	if item.Capability != ModelUiParamCapabilityVideo && item.Capability != ModelUiParamCapabilityImage {
+	if !IsModelUiParamCapability(item.Capability) {
 		return errors.New("invalid capability")
 	}
 	if item.ProfileId == "" {
@@ -122,6 +122,9 @@ func ClearModelProfileBinding(capability, profileID string) error {
 	}
 	if capability == ModelUiParamCapabilityImage {
 		return tx.Where("image_profile_id = ?", profileID).Update("image_profile_id", "").Error
+	}
+	if capability == ModelUiParamCapabilityAudio {
+		return tx.Where("audio_profile_id = ?", profileID).Update("audio_profile_id", "").Error
 	}
 	return errors.New("invalid capability")
 }

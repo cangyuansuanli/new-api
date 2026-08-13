@@ -100,7 +100,7 @@ curl "https://newapi.example.com/v1/audio/generations/{task_id}" \
 
 | 模型 | 计费 | 令牌分组（OAIREGBox） |
 |------|------|----------------------|
-| `gemini-music` | 按次 ¥0.50/首（internal：`cy-au1-gemini-music`） | `gemini-高速` |
+| `gemini-music` | 按次 ¥0.99/条（internal：`cy-au1-gemini-music`） | `gemini-高速` |
 
 失败不计费；502/503/504 可指数退避重试。
 

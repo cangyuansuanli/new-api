@@ -12,7 +12,7 @@ import (
 
 func GetModelUiParamRegistrySettings(c *gin.Context) {
 	capability := strings.TrimSpace(c.Param("capability"))
-	if capability != model.ModelUiParamCapabilityVideo && capability != model.ModelUiParamCapabilityImage {
+	if capability != model.ModelUiParamCapabilityVideo && capability != model.ModelUiParamCapabilityImage && capability != model.ModelUiParamCapabilityAudio {
 		common.ApiErrorMsg(c, "invalid capability")
 		return
 	}
@@ -26,7 +26,7 @@ func GetModelUiParamRegistrySettings(c *gin.Context) {
 
 func UpdateModelUiParamRegistrySettings(c *gin.Context) {
 	capability := strings.TrimSpace(c.Param("capability"))
-	if capability != model.ModelUiParamCapabilityVideo && capability != model.ModelUiParamCapabilityImage {
+	if capability != model.ModelUiParamCapabilityVideo && capability != model.ModelUiParamCapabilityImage && capability != model.ModelUiParamCapabilityAudio {
 		common.ApiErrorMsg(c, "invalid capability")
 		return
 	}
@@ -43,7 +43,7 @@ func UpdateModelUiParamRegistrySettings(c *gin.Context) {
 	if strings.TrimSpace(payload.DefaultProfileId) != "" {
 		item.DefaultProfileId = strings.TrimSpace(payload.DefaultProfileId)
 	}
-	if capability == model.ModelUiParamCapabilityVideo && strings.TrimSpace(payload.PollDefaults) != "" {
+	if (capability == model.ModelUiParamCapabilityVideo || capability == model.ModelUiParamCapabilityAudio) && strings.TrimSpace(payload.PollDefaults) != "" {
 		item.PollDefaults = payload.PollDefaults
 	}
 	if err := item.Update(); err != nil {
@@ -76,7 +76,7 @@ func CreateModelUiParamProfile(c *gin.Context) {
 		common.ApiErrorMsg(c, "profile_id is required")
 		return
 	}
-	if item.Capability != model.ModelUiParamCapabilityVideo && item.Capability != model.ModelUiParamCapabilityImage {
+	if item.Capability != model.ModelUiParamCapabilityVideo && item.Capability != model.ModelUiParamCapabilityImage && item.Capability != model.ModelUiParamCapabilityAudio {
 		common.ApiErrorMsg(c, "invalid capability")
 		return
 	}

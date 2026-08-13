@@ -43,6 +43,14 @@ type ImageUiParamsDoc = {
   hints?: Array<{ text?: string } | string>
 }
 
+type AudioUiParamsDoc = {
+  id?: string
+  apiMode?: string
+  params?: Record<string, UiParamFieldConfig>
+  hints?: Array<{ text?: string } | string>
+  poll?: { delayMs?: number; maxAttempts?: number }
+}
+
 function extractUiHintTexts(hints?: VideoUiParamsDoc['hints']): string[] {
   if (!hints?.length) return []
   return hints
@@ -214,6 +222,19 @@ const UNIFIED_IMAGE_SYNC_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
     method: 'POST',
     path: `${base}/images/generations`,
     description: '同步出图（application/json，勿传 async 或 async: false）。',
+  },
+]
+
+const UNIFIED_AUDIO_ASYNC_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
+  {
+    method: 'POST',
+    path: `${base}/audio/generations`,
+    description: '创建音乐任务（application/json，async 默认 true）。',
+  },
+  {
+    method: 'GET',
+    path: `${base}/audio/generations/{task_id}`,
+    description: '查询任务状态与结果地址。',
   },
 ]
 
@@ -1025,6 +1046,67 @@ function buildUnifiedImageDoc(
   }
 }
 
+function buildUnifiedAudioDoc(
+  model: PricingModel,
+  base: string,
+  displayName: string,
+  modelName: string
+): ModelApiDoc {
+  const ui = model.audio_ui_params as AudioUiParamsDoc | undefined
+  const hints = extractUiHintTexts(ui?.hints)
+
+  const params: ModelDocParam[] = [
+    { name: 'model', description: `必填，固定传 ${modelName}。` },
+    { name: 'prompt', description: '必填，音乐风格/用途/情绪描述。' },
+    { name: 'async', description: '默认 true；仅调试可传 false 同步等待。' },
+    { name: 'response_format', description: '默认 url。' },
+    { name: 'stream', description: '须省略或 false。' },
+  ]
+
+  return {
+    displayName,
+    modelName,
+    variants: [
+      {
+        mode: 'async',
+        intro:
+          hints.join(' ') ||
+          model.description?.trim() ||
+          '统一音乐接口（详见 docs/unified-audio-api.md）：POST /v1/audio/generations 提交，GET 轮询至完成后取音频。',
+        generationModes: [],
+        endpoints: UNIFIED_AUDIO_ASYNC_ENDPOINTS(base),
+        requestJson: formatJson({
+          model: modelName,
+          prompt: '创作一首轻快的电子风格 BGM，适合科技产品广告',
+          async: true,
+        }),
+        basicRequestJson: formatJson({
+          model: modelName,
+          prompt: '创作一首轻快的电子风格 BGM，适合科技产品广告',
+        }),
+        examples: [],
+        params,
+        createResponseJson: formatJson({
+          id: 'task_aud_01HZX8A2...',
+          object: 'audio.generation',
+          model: modelName,
+          status: 'queued',
+          progress: '20%',
+          created_at: 1715923200,
+        }),
+        queryResponseJson: formatJson({
+          id: 'task_aud_01HZX8A2...',
+          object: 'audio.generation',
+          status: 'completed',
+          progress: '100%',
+          data: [{ url: 'https://example.com/audio.mp3' }],
+        }),
+        queryFailedResponseJson: null,
+      },
+    ],
+  }
+}
+
 function buildMinimalFallback(
   model: PricingModel,
   siteOrigin?: string
@@ -1037,6 +1119,10 @@ function buildMinimalFallback(
 
   if (endpoints.includes('openai-video')) {
     return buildUnifiedVideoDoc(model, base, displayName, modelName)
+  }
+
+  if (endpoints.includes('openai-audio') || model.audio_ui_params) {
+    return buildUnifiedAudioDoc(model, base, displayName, modelName)
   }
 
   if (
@@ -1090,10 +1176,12 @@ function isMediaModel(model: PricingModel): boolean {
   const endpoints = model.supported_endpoint_types || []
   return (
     endpoints.includes('openai-video') ||
+    endpoints.includes('openai-audio') ||
     endpoints.includes('image-generation') ||
     endpoints.includes('openai-image') ||
     Boolean(model.video_ui_params) ||
-    Boolean(model.image_ui_params)
+    Boolean(model.image_ui_params) ||
+    Boolean(model.audio_ui_params)
   )
 }
 

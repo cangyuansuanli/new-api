@@ -38,6 +38,7 @@ type Pricing struct {
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 	VideoUiParams          map[string]interface{}  `json:"video_ui_params,omitempty"`
 	ImageUiParams          map[string]interface{}  `json:"image_ui_params,omitempty"`
+	AudioUiParams          map[string]interface{}  `json:"audio_ui_params,omitempty"`
 	ApiDoc                 map[string]interface{}  `json:"api_doc,omitempty"`
 }
 
@@ -384,6 +385,7 @@ func buildPricingSnapshot() (*pricingSnapshot, error) {
 			if uiParamCtx != nil {
 				pricing.VideoUiParams = ResolveVideoUiParams(meta, uiParamCtx)
 				pricing.ImageUiParams = ResolveImageUiParams(meta, uiParamCtx)
+				pricing.AudioUiParams = ResolveAudioUiParams(meta, uiParamCtx)
 			}
 			if doc := ParseApiDocJSON(meta.ApiDoc); doc != nil {
 				pricing.ApiDoc = doc
@@ -391,6 +393,7 @@ func buildPricingSnapshot() (*pricingSnapshot, error) {
 		} else if uiParamCtx != nil {
 			pricing.VideoUiParams = ResolveVideoUiParams(nil, uiParamCtx)
 			pricing.ImageUiParams = ResolveImageUiParams(nil, uiParamCtx)
+			pricing.AudioUiParams = ResolveAudioUiParams(nil, uiParamCtx)
 		}
 		modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
 		if findPrice {

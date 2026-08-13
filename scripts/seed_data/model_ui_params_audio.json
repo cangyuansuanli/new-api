@@ -1,0 +1,29 @@
+{
+  "defaultId": "audio-tpl-gemini-music",
+  "capabilityFallback": ["gemini-music", "music"],
+  "poll": {
+    "audio-json-async": {
+      "delayMs": 5000,
+      "maxAttempts": 24
+    }
+  },
+  "profiles": [
+    {
+      "id": "audio-tpl-gemini-music",
+      "api_mode": "audio-json-async",
+      "match_mode": "exact",
+      "match": ["cy-au1-gemini-music"],
+      "params": {},
+      "poll": {
+        "delayMs": 5000,
+        "maxAttempts": 24
+      },
+      "hints": [
+        {
+          "text": "音乐生成为异步任务，提交后自动轮询，完成后从 URL 下载。"
+        }
+      ],
+      "note": "Gemini 音乐 · cy-au1-gemini-music"
+    }
+  ]
+}

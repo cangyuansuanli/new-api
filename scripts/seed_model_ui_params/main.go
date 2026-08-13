@@ -50,6 +50,7 @@ func main() {
 	}{
 		{model.ModelUiParamCapabilityVideo, "model_ui_params_video.json"},
 		{model.ModelUiParamCapabilityImage, "model_ui_params_image.json"},
+		{model.ModelUiParamCapabilityAudio, "model_ui_params_audio.json"},
 	}
 
 	for _, item := range capabilities {
@@ -209,7 +210,7 @@ func profileDocToRow(capability string, doc map[string]interface{}) (*model.Mode
 		}
 		applyWireConfigFromDoc(doc, row)
 	}
-	if capability == model.ModelUiParamCapabilityImage {
+	if capability == model.ModelUiParamCapabilityImage || capability == model.ModelUiParamCapabilityAudio {
 		if apiMode, ok := doc["apiMode"].(string); ok {
 			row.ApiMode = apiMode
 		}
@@ -225,7 +226,9 @@ func profileDocToRow(capability string, doc map[string]interface{}) (*model.Mode
 		if hints, ok := doc["hints"]; ok {
 			row.Hints = service.MustJSONString(hints, "[]")
 		}
-		applyWireConfigFromDoc(doc, row)
+		if capability == model.ModelUiParamCapabilityImage {
+			applyWireConfigFromDoc(doc, row)
+		}
 	}
 
 	return row, matchTokens, nil

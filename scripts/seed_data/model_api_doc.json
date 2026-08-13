@@ -178,6 +178,53 @@
         "created": 1715923200,
         "data": [{ "url": "https://example.com/image.png" }]
       }
+    },
+    "audio_async": {
+      "dispatch_mode": "async",
+      "intro": "异步音乐生成：POST 提交任务（async 默认 true）→ GET 轮询 → 从 data[0].url 取音频。",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "{{base}}/audio/generations",
+          "description": "创建音乐任务（application/json，async 默认 true）。"
+        },
+        {
+          "method": "GET",
+          "path": "{{base}}/audio/generations/{task_id}",
+          "description": "查询任务状态与结果地址。"
+        }
+      ],
+      "basic_request_json": {
+        "model": "{{model}}",
+        "prompt": "创作一首轻快的电子风格 BGM，适合科技产品广告"
+      },
+      "request_json": {
+        "model": "{{model}}",
+        "prompt": "创作一首轻快的电子风格 BGM，适合科技产品广告",
+        "async": true
+      },
+      "params": [
+        { "name": "model", "description": "必填，固定传模型广场展示名。" },
+        { "name": "prompt", "description": "必填，音乐风格/用途/情绪描述。" },
+        { "name": "async", "description": "默认 true；仅调试可传 false 同步等待。" },
+        { "name": "response_format", "description": "默认 url。" },
+        { "name": "stream", "description": "须省略或 false。" }
+      ],
+      "create_response_json": {
+        "id": "task_aud_01HZX8A2...",
+        "object": "audio.generation",
+        "model": "{{model}}",
+        "status": "queued",
+        "progress": "20%",
+        "created_at": 1715923200
+      },
+      "query_response_json": {
+        "id": "task_aud_01HZX8A2...",
+        "object": "audio.generation",
+        "status": "completed",
+        "progress": "100%",
+        "data": [{ "url": "https://example.com/audio.mp3" }]
+      }
     }
   }
 }

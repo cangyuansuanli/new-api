@@ -8,7 +8,7 @@ Seed scripts should only write:
 - doc_params_json (model-specific param notes, merged with unified reference)
 
 Do NOT write endpoints, request_json curl blocks, or examples — model-api-doc.ts
-generates those from unified-video-api / unified-image-api + video_ui_params.
+generates those from unified-video-api / unified-image-api / unified-audio-api + *_ui_params.
 """
 
 from __future__ import annotations
@@ -42,6 +42,36 @@ UNIFIED_IMAGE_ASYNC_ENDPOINTS = [
         "description": "查询任务状态。",
     },
 ]
+
+UNIFIED_AUDIO_ASYNC_ENDPOINTS = [
+    {
+        "method": "POST",
+        "path": "{{base}}/audio/generations",
+        "description": "创建音乐任务（默认 async=true，见 docs/unified-audio-api.md）。",
+    },
+    {
+        "method": "GET",
+        "path": "{{base}}/audio/generations/{task_id}",
+        "description": "查询任务状态与结果 URL。",
+    },
+]
+
+CREATE_AUDIO_RESP = {
+    "id": "task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "object": "audio.generation",
+    "model": "gemini-music",
+    "status": "queued",
+    "progress": "20%",
+    "created_at": 1715923200,
+}
+QUERY_AUDIO_RESP = {
+    "id": "task_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "object": "audio.generation",
+    "model": "gemini-music",
+    "status": "completed",
+    "progress": "100%",
+    "data": [{"url": "https://download.example.com/v1/audio/aud-xxxx/content"}],
+}
 
 CREATE_VIDEO_RESP = {"id": "task_abc123", "status": "queued", "progress": 0}
 QUERY_VIDEO_RESP = {
@@ -95,6 +125,23 @@ def image_capability_doc(
             "status": "completed",
             "data": [{"url": "https://example.com/image.png"}],
         },
+    }
+
+
+def audio_capability_doc(
+    *,
+    intro: str,
+    dispatch_mode: str = "async",
+    params: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "dispatch_mode": dispatch_mode,
+        "intro": intro.strip(),
+        "endpoints": UNIFIED_AUDIO_ASYNC_ENDPOINTS,
+        "doc_params_json": params or [],
+        "params": params or [],
+        "create_response_json": CREATE_AUDIO_RESP,
+        "query_response_json": QUERY_AUDIO_RESP,
     }
 
 

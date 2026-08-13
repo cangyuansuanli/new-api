@@ -11,7 +11,17 @@ import (
 const (
 	ModelUiParamCapabilityVideo = "video"
 	ModelUiParamCapabilityImage = "image"
+	ModelUiParamCapabilityAudio = "audio"
 )
+
+func IsModelUiParamCapability(capability string) bool {
+	switch capability {
+	case ModelUiParamCapabilityVideo, ModelUiParamCapabilityImage, ModelUiParamCapabilityAudio:
+		return true
+	default:
+		return false
+	}
+}
 
 type ModelUiParamRegistry struct {
 	Id               int            `json:"id" gorm:"primaryKey;autoIncrement"`
@@ -23,7 +33,7 @@ type ModelUiParamRegistry struct {
 }
 
 func (item *ModelUiParamRegistry) Insert() error {
-	if item.Capability != ModelUiParamCapabilityVideo && item.Capability != ModelUiParamCapabilityImage {
+	if !IsModelUiParamCapability(item.Capability) {
 		return errors.New("invalid capability")
 	}
 	now := common.GetTimestamp()
@@ -32,7 +42,7 @@ func (item *ModelUiParamRegistry) Insert() error {
 }
 
 func (item *ModelUiParamRegistry) Update() error {
-	if item.Capability != ModelUiParamCapabilityVideo && item.Capability != ModelUiParamCapabilityImage {
+	if !IsModelUiParamCapability(item.Capability) {
 		return errors.New("invalid capability")
 	}
 	item.UpdatedTime = common.GetTimestamp()

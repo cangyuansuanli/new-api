@@ -67,6 +67,7 @@ export type PricingModel = {
   /** 后台下发的视频/图像 UI 参数（与 model_ui_params 配置一致） */
   video_ui_params?: Record<string, unknown>
   image_ui_params?: Record<string, unknown>
+  audio_ui_params?: Record<string, unknown>
   /** 后台 models.api_doc JSON，驱动模型文档弹窗 */
   api_doc?: Record<string, unknown>
   /**
