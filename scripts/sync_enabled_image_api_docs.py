@@ -13,7 +13,7 @@ from dataclasses import dataclass
 CANONICAL_FIELDS = {
     "model", "prompt", "size", "quality", "n", "background",
     "output_format", "output_compression", "moderation", "response_format",
-    "images", "mask", "async", "stream",
+    "images", "mask", "async",
 }
 FORBIDDEN_TEXT = (
     "multipart", "data uri", "data:image", "aspect_ratio", "image_size",
@@ -36,27 +36,27 @@ class ModelDocSpec:
 
 
 SPECS = (
-    ModelDocSpec("0lll0-gemini-3.1-flash-lite-image", "0lll0-gemini-3.1-flash-lite-image", "image-tpl-aspect-count-flash-lite", "async", ("size", "quality", "n", "response_format", "images", "async", "stream"), "Flash Lite 1K 图像模型。", "支持 1:1、16:9、9:16、3:2、2:3、4:3、3:4、21:9 或 auto。", "支持 auto、low（1K）。"),
-    ModelDocSpec("adobe-firefly-gpt-image-2-1k", "gpt-image-2-1k", "image-tpl-gpt-image-2-1k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async", "stream"), "GPT Image 2 1K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–1048576。", "支持 low、medium、high；不改变 1K 计费档位。"),
-    ModelDocSpec("adobe-firefly-gpt-image-2-2k", "gpt-image-2-2k", "image-tpl-gpt-image-2-2k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async", "stream"), "GPT Image 2 2K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–4194304。", "支持 low、medium、high；不改变 2K 计费档位。"),
-    ModelDocSpec("adobe-firefly-gpt-image-2-4k", "gpt-image-2-4k", "image-tpl-gpt-image-2-4k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async", "stream"), "GPT Image 2 4K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–8294400。", "支持 low、medium、high；不改变 4K 计费档位。"),
-    ModelDocSpec("adobe-firefly-nano-banana-pro-1k", "nano-banana-pro-1k", "image-tpl-nano-banana-pro-1k", "async", ("size", "n", "response_format", "images", "async", "stream"), "Nano Banana Pro 1K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。"),
-    ModelDocSpec("adobe-firefly-nano-banana-pro-2k", "nano-banana-pro-2k", "image-tpl-nano-banana-pro-2k", "async", ("size", "n", "response_format", "images", "async", "stream"), "Nano Banana Pro 2K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。"),
-    ModelDocSpec("adobe-firefly-nano-banana-pro-4k", "nano-banana-pro-4k", "image-tpl-nano-banana-pro-4k", "async", ("size", "n", "response_format", "images", "async", "stream"), "Nano Banana Pro 4K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。"),
-    ModelDocSpec("adobe-firefly-nano-banana2-1k", "nano-banana2-1k", "image-tpl-nano-banana2-1k", "async", ("size", "n", "response_format", "images", "async", "stream"), "Nano Banana 2 1K 固定档位。", "支持模型面板列出的比例。"),
-    ModelDocSpec("adobe-firefly-nano-banana2-2k", "nano-banana2-2k", "image-tpl-nano-banana2-2k", "async", ("size", "n", "response_format", "images", "async", "stream"), "Nano Banana 2 2K 固定档位。", "支持模型面板列出的比例。"),
-    ModelDocSpec("adobe-firefly-nano-banana2-4k", "nano-banana2-4k", "image-tpl-nano-banana2-4k", "async", ("size", "n", "response_format", "images", "async", "stream"), "Nano Banana 2 4K 固定档位。", "支持模型面板列出的比例。"),
-    ModelDocSpec("codex-gpt-image-2-1k", "codex-gpt-image-2-1k", "image-tpl-codex-1-2k", "sync", ("size", "quality", "n", "response_format", "images", "stream"), "Codex 1K/2K 同步图像模型。", "支持模型面板列出的比例。", "low=1K，medium=2K；不支持 high。"),
-    ModelDocSpec("cy-img1-gpt-image-2", "cy-img1-gpt-image-2", "image-tpl-gulie-1k", "async", ("size", "n", "response_format", "images", "async", "stream"), "GPT Image 2 1K 异步图像模型。", "支持 1:1、3:2、2:3 或 auto。"),
-    ModelDocSpec("cy-img2-gpt-image-2-4k", "cy-img2-gpt-image-2-4k", "image-tpl-geek2-4k", "async", ("size", "quality", "n", "background", "output_format", "output_compression", "moderation", "response_format", "images", "mask", "async", "stream"), "GPT Image 2 4K 全参数模型。", "支持比例或模型限制内的精确尺寸。", "支持 low、medium、high。"),
-    ModelDocSpec("czeq-gpt-image-2-4k", "czeq-gpt-image-2-4k", "image-tpl-square-4k-single", "async", ("size", "n", "response_format", "images", "async", "stream"), "GPT Image 2 4K 单图模型。", "支持模型面板列出的比例或尺寸。"),
-    ModelDocSpec("flux-pro-2", "flux-pro-2", "image-tpl-flux-pro-2", "async", ("size", "quality", "n", "background", "output_format", "output_compression", "response_format", "images", "async", "stream"), "FLUX.2 Pro 异步图像模型。", "支持比例或 256–1920px 范围内的精确尺寸。", "支持模型面板列出的画质选项。"),
-    ModelDocSpec("go2api-gpt-image-2-1k", "go2api-gpt-image-2-1k", "image-tpl-aspect-count-basic", "async", ("size", "n", "response_format", "images", "async", "stream"), "GPT Image 2 1K 异步图像模型。", "支持模型面板列出的比例或尺寸。"),
-    ModelDocSpec("manju-gemini-banana-2.0-1/2k", "manju-gemini-banana-2.0-1/2k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images", "stream"), "Gemini Banana 2.0 1K/2K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium。"),
-    ModelDocSpec("manju-gemini-banana-2.0-4k", "manju-gemini-banana-2.0-4k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images", "stream"), "Gemini Banana 2.0 4K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium、high。"),
-    ModelDocSpec("manju-gemini-banana-flash-lite", "manju-gemini-banana-flash-lite", "image-tpl-banana-chat-flash-lite", "sync", ("size", "quality", "n", "response_format", "images", "stream"), "Gemini Banana Flash Lite 1K 同步模型。", "支持模型面板列出的比例或 auto。", "仅支持 auto、low（1K）。"),
-    ModelDocSpec("manju-gemini-banana-pro-1/2k", "manju-gemini-banana-pro-1/2k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images", "stream"), "Gemini Banana Pro 1K/2K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium。"),
-    ModelDocSpec("manju-gemini-banana-pro-4k", "manju-gemini-banana-pro-4k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images", "stream"), "Gemini Banana Pro 4K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium、high。"),
+    ModelDocSpec("0lll0-gemini-3.1-flash-lite-image", "0lll0-gemini-3.1-flash-lite-image", "image-tpl-aspect-count-flash-lite", "async", ("size", "quality", "n", "response_format", "images", "async"), "Flash Lite 1K 图像模型。", "支持 1:1、16:9、9:16、3:2、2:3、4:3、3:4、21:9 或 auto。", "支持 auto、low（1K）。"),
+    ModelDocSpec("adobe-firefly-gpt-image-2-1k", "gpt-image-2-1k", "image-tpl-gpt-image-2-1k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 1K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–1048576。", "支持 low、medium、high；不改变 1K 计费档位。"),
+    ModelDocSpec("adobe-firefly-gpt-image-2-2k", "gpt-image-2-2k", "image-tpl-gpt-image-2-2k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 2K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–4194304。", "支持 low、medium、high；不改变 2K 计费档位。"),
+    ModelDocSpec("adobe-firefly-gpt-image-2-4k", "gpt-image-2-4k", "image-tpl-gpt-image-2-4k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 4K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–8294400。", "支持 low、medium、high；不改变 4K 计费档位。"),
+    ModelDocSpec("adobe-firefly-nano-banana-pro-1k", "nano-banana-pro-1k", "image-tpl-nano-banana-pro-1k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana Pro 1K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。"),
+    ModelDocSpec("adobe-firefly-nano-banana-pro-2k", "nano-banana-pro-2k", "image-tpl-nano-banana-pro-2k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana Pro 2K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。"),
+    ModelDocSpec("adobe-firefly-nano-banana-pro-4k", "nano-banana-pro-4k", "image-tpl-nano-banana-pro-4k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana Pro 4K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。"),
+    ModelDocSpec("adobe-firefly-nano-banana2-1k", "nano-banana2-1k", "image-tpl-nano-banana2-1k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2 1K 固定档位。", "支持模型面板列出的比例。"),
+    ModelDocSpec("adobe-firefly-nano-banana2-2k", "nano-banana2-2k", "image-tpl-nano-banana2-2k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2 2K 固定档位。", "支持模型面板列出的比例。"),
+    ModelDocSpec("adobe-firefly-nano-banana2-4k", "nano-banana2-4k", "image-tpl-nano-banana2-4k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2 4K 固定档位。", "支持模型面板列出的比例。"),
+    ModelDocSpec("codex-gpt-image-2-1k", "codex-gpt-image-2-1k", "image-tpl-codex-1-2k", "sync", ("size", "quality", "n", "response_format", "images"), "Codex 1K/2K 同步图像模型。", "支持模型面板列出的比例。", "low=1K，medium=2K；不支持 high。"),
+    ModelDocSpec("cy-img1-gpt-image-2", "cy-img1-gpt-image-2", "image-tpl-gulie-1k", "async", ("size", "n", "response_format", "images", "async"), "GPT Image 2 1K 异步图像模型。", "支持 1:1、3:2、2:3 或 auto。"),
+    ModelDocSpec("cy-img2-gpt-image-2-4k", "cy-img2-gpt-image-2-4k", "image-tpl-geek2-4k", "async", ("size", "quality", "n", "background", "output_format", "output_compression", "moderation", "response_format", "images", "mask", "async"), "GPT Image 2 4K 全参数模型。", "支持比例或模型限制内的精确尺寸。", "支持 low、medium、high。"),
+    ModelDocSpec("czeq-gpt-image-2-4k", "czeq-gpt-image-2-4k", "image-tpl-square-4k-single", "async", ("size", "n", "response_format", "images", "async"), "GPT Image 2 4K 单图模型。", "支持模型面板列出的比例或尺寸。"),
+    ModelDocSpec("flux-pro-2", "flux-pro-2", "image-tpl-flux-pro-2", "async", ("size", "quality", "n", "background", "output_format", "output_compression", "response_format", "images", "async"), "FLUX.2 Pro 异步图像模型。", "支持比例或 256–1920px 范围内的精确尺寸。", "支持模型面板列出的画质选项。"),
+    ModelDocSpec("go2api-gpt-image-2-1k", "go2api-gpt-image-2-1k", "image-tpl-aspect-count-basic", "async", ("size", "n", "response_format", "images", "async"), "GPT Image 2 1K 异步图像模型。", "支持模型面板列出的比例或尺寸。"),
+    ModelDocSpec("manju-gemini-banana-2.0-1/2k", "manju-gemini-banana-2.0-1/2k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana 2.0 1K/2K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium。"),
+    ModelDocSpec("manju-gemini-banana-2.0-4k", "manju-gemini-banana-2.0-4k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana 2.0 4K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium、high。"),
+    ModelDocSpec("manju-gemini-banana-flash-lite", "manju-gemini-banana-flash-lite", "image-tpl-banana-chat-flash-lite", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Flash Lite 1K 同步模型。", "支持模型面板列出的比例或 auto。", "仅支持 auto、low（1K）。"),
+    ModelDocSpec("manju-gemini-banana-pro-1/2k", "manju-gemini-banana-pro-1/2k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Pro 1K/2K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium。"),
+    ModelDocSpec("manju-gemini-banana-pro-4k", "manju-gemini-banana-pro-4k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Pro 4K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium、high。"),
 )
 
 
@@ -85,7 +85,6 @@ def param_rows(spec: ModelDocSpec) -> list[dict[str, str]]:
         "images": f"参考图 HTTPS URL 数组，最多 {spec.max_images} 张。客户端先直传对象存储，再提交 URL。",
         "mask": "可选蒙版 HTTPS URL；透明区域为编辑区。",
         "async": "必须为 true；提交后按创建端点轮询。",
-        "stream": "建议 false。",
     }
     fields = ("model", "prompt", *spec.fields)
     return [{"name": name, "description": notes[name]} for name in fields]
@@ -103,7 +102,6 @@ def request_body(spec: ModelDocSpec, *, edit: bool = False) -> dict:
         elif name == "moderation": body[name] = "auto"
         elif name == "response_format": body[name] = "url"
         elif name == "async": body[name] = True
-        elif name == "stream": body[name] = False
     if edit:
         body["images"] = ["https://cdn.example.com/reference.png"]
         if "mask" in spec.fields:

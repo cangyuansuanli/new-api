@@ -673,7 +673,6 @@ function buildGulie2KImageParams(
   return [
     { name: 'size', description: sizeDescription },
     paramNote('n', paramsConfig?.count, '生成张数，默认 1。'),
-    { name: 'stream', description: '建议 false（非 SSE JSON 响应）。' },
   ].filter((p) => p.description)
 }
 
@@ -952,7 +951,6 @@ function buildUnifiedAudioDoc(
     { name: 'prompt', description: '必填，音乐风格/用途/情绪描述。' },
     { name: 'async', description: '默认 true；仅调试可传 false 同步等待。' },
     { name: 'response_format', description: '默认 url。' },
-    { name: 'stream', description: '须省略或 false。' },
   ]
 
   return {

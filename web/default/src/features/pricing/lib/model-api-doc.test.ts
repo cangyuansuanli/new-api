@@ -89,3 +89,27 @@ describe('buildModelApiDoc media ownership', () => {
     })
   }
 })
+
+test('async image docs never expose stream or multipart compatibility', () => {
+  const model = mediaModel('image', ['model', 'prompt', 'async'])
+  model.api_doc = {
+    dispatch_mode: 'async',
+    intro: 'canonical JSON only',
+    endpoints: [
+      { method: 'POST', path: '{{base}}/images/generations', description: 'JSON' },
+    ],
+    request_json: { model: 'banana-pro-2k', prompt: 'test', async: true },
+    params: [
+      { name: 'model', description: '' },
+      { name: 'prompt', description: '' },
+      { name: 'async', description: '' },
+    ],
+    create_response_json: { status: 'queued' },
+  }
+  const doc = buildModelApiDoc(model, 'https://api.example.com')
+  assert.ok(doc)
+  const variant = doc.variants[0]
+  const rendered = JSON.stringify(variant)
+  assert.equal(rendered.includes('stream'), false)
+  assert.equal(rendered.toLowerCase().includes('multipart'), false)
+})

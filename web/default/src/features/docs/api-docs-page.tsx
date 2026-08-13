@@ -226,8 +226,7 @@ export function ApiDocsPage() {
     "prompt": "一只橘猫趴在窗台上晒太阳，水彩画风格",
     "size": "1:1",
     "n": 1,
-    "response_format": "url",
-    "stream": false
+    "response_format": "url"
   }'`}
         />
         <CodeBlock
@@ -243,8 +242,7 @@ export function ApiDocsPage() {
       "https://cdn.example.com/reference-1.png",
       "https://cdn.example.com/reference-2.png"
     ],
-    "response_format": "url",
-    "stream": false
+    "response_format": "url"
   }'`}
         />
         <CodeBlock
@@ -258,8 +256,7 @@ export function ApiDocsPage() {
     "size": "1024x1024",
     "quality": "medium",
     "n": 1,
-    "async": true,
-    "stream": false
+    "async": true
   }'`}
         />
         <CodeBlock
@@ -278,7 +275,7 @@ export function ApiDocsPage() {
             ],
             [
               '标准字段',
-              '公共字段为 model、prompt、size、quality、n、background、output_format、output_compression、moderation、response_format、images、mask、async、stream。',
+              '公共字段为 model、prompt、size、quality、n、background、output_format、output_compression、moderation、response_format、images、mask、async；具体支持集合以模型文档为准。',
             ],
             [
               'size',
@@ -356,7 +353,6 @@ export function ApiDocsPage() {
             ['model / prompt', '必填：模型广场 public 名与音频描述'],
             ['response_format', '统一返回格式字段'],
             ['async', '统一同步 / 异步开关'],
-            ['stream', '统一流式开关；仅模型明确支持时使用'],
           ]}
         />
 
