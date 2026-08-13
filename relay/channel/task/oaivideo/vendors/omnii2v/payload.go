@@ -31,16 +31,7 @@ func buildUpstreamBody(body map[string]interface{}, upstreamModel string, durati
 		out["last_image_url"] = lastImage
 	}
 
-	refImages := collectReferenceImages(body)
-	switch len(refImages) {
-	case 0:
-	case 1:
-		if firstImage == "" && lastImage == "" {
-			out["image_url"] = refImages[0]
-		} else {
-			out["images"] = stringSliceToInterface(refImages)
-		}
-	default:
+	if refImages := collectReferenceImages(body); len(refImages) > 0 {
 		if len(refImages) > 5 {
 			refImages = refImages[:5]
 		}

@@ -19,7 +19,7 @@ relay/channel/task/oaivideo/
     ├── seedancetengda/    # cy-sd2 → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
     ├── seedanceheygen/    # cy-sd6 双 SKU → 固定 720p/1080p flat /v1/videos
-    ├── omnii2v/         # cy-sd1 omni-fast* flat → upstream images/image_url
+    ├── omnii2v/         # cy-sd1 omni-fast* flat → upstream images[]（JSON 多图，勿 multipart input_reference）
     ├── omniv2v/         # cy-sd1 omni-fast-v2v* flat → upstream videos/images
     ├── adobe/        # Adobe typed video endpoint + strict JSON normalization
     └── defaultvideo/ # sora-2 等标准 OpenAI Video 兜底
@@ -138,7 +138,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
 | `cy-gv2-grok-video` → `grok-imagine-video`；`cy-gv2-grok-video-1.5` → `grok-imagine-video-1.5`（当前分别在渠道 106/107） | Seqnode | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；JSON → `/v1/videos/generations` | `/v1/videos/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
-| `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `image_url` → 上游 `images` / `image_url`；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
+| `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `images` / `image_url` → 上游 `images[]`（单图亦数组）；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 `reference_videos` / `reference_image_urls` → 上游 `videos` / `images` | OpenAI Video 形 |
 | `cy-sd4-seedance*` | seedance-leonardo | flat JSON → Leonardo `/v1/videos` | OpenAI Video 形（校验/错误见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
 | `cy-sd6-seedance-2.0-720p` / `cy-sd6-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-heygen | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；严格 JSON 白名单，按 SKU 强制 720p/1080p | `/v1/videos/{id}` + 鉴权 `/content` 成片转存 |

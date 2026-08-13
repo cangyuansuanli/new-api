@@ -13,13 +13,15 @@ ENDPOINTS = [
 
 OMNI_I2V_PARAMS = [
     {"name": "model", "description": "必填，传模型广场展示名（public 名）。"},
-    {"name": "prompt", "description": "必填，视频描述。"},
+    {"name": "prompt", "description": "必填，视频描述；多图时在 prompt 中指明图1/图2 等对应关系。"},
     {"name": "aspect_ratio", "description": "16:9（横屏，默认）或 9:16（竖屏）。"},
-    {"name": "image_url", "description": "单张参考图（公网 URL 或 data:image Base64，JSON 提交）。"},
+    {"name": "seconds", "description": "可选，目标秒数（如 4–10）；接收后上游仍可能固定输出约 10 秒。"},
     {
-        "name": "input_reference",
-        "description": "多参考图文件（multipart/form-data，最多 5 张，每张 ≤5MB）；勿用 JSON 数组。",
+        "name": "reference_image_urls",
+        "description": "JSON 多参考图（推荐，最多 5 张）；元素为公网 HTTPS URL 或 data:image Base64。出站映射为上游 images[]。",
     },
+    {"name": "images", "description": "与 reference_image_urls 等价的上游字段别名（JSON 数组，最多 5 张）。"},
+    {"name": "image_url", "description": "单张参考图兼容字段（公网 URL 或 data:image Base64）；多图请用 reference_image_urls/images。"},
     {"name": "first_image_url", "description": "首帧参考图（JSON；可与 last_image_url 单独或成对使用）。"},
     {"name": "last_image_url", "description": "末帧参考图（JSON）。"},
 ]
@@ -49,8 +51,8 @@ DOCS: dict[str, dict] = {
     "oairegbox-omni-fast": {
         "intro": (
             "Omni 文生/图生视频。固定 720p、约 10 秒，按次 ¥0.40。"
-            "JSON 提交 aspect_ratio；单图 JSON image_url；多图 multipart input_reference 文件；"
-            "首尾帧 JSON first_image_url / last_image_url。"
+            "JSON 提交 aspect_ratio；多图用 reference_image_urls 或 images 数组（最多 5 张，URL/Base64）；"
+            "单图可用 image_url；首尾帧 JSON first_image_url / last_image_url。"
         ),
         "params": OMNI_I2V_PARAMS,
         "basic_request_json": {
@@ -60,15 +62,20 @@ DOCS: dict[str, dict] = {
         },
         "request_json": {
             "model": "omni-fast",
-            "prompt": "保持人物一致，缓慢走动",
+            "prompt": "图1的猫头鹰与图2的小兔子在图3的书房里，镜头缓慢推进",
             "aspect_ratio": "16:9",
-            "image_url": "https://cdn.example.com/photo.jpg",
+            "seconds": 6,
+            "reference_image_urls": [
+                "https://cdn.example.com/owl.jpg",
+                "https://cdn.example.com/bunny.jpg",
+                "https://cdn.example.com/study.jpg",
+            ],
         },
     },
     "oairegbox-omni-fast-no-water": {
         "intro": (
             "Omni 无水印版。固定 720p、约 10 秒，按次 ¥0.50。"
-            "出片经自动清洗，完成前可能多一个 processing 阶段。参数同 omni-fast。"
+            "出片经自动清洗，完成前可能多一个 processing 阶段。参数同 omni-fast（多图 JSON reference_image_urls/images）。"
         ),
         "params": [
             {"name": "model", "description": "必填：omni-fast-no-water（对外 public 名）。"},
