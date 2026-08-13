@@ -10,14 +10,17 @@ import (
 type UiParamResolveContext struct {
 	VideoProfiles map[string]ModelUiParamProfile
 	ImageProfiles map[string]ModelUiParamProfile
+	AudioProfiles map[string]ModelUiParamProfile
 	VideoRegistry *ModelUiParamRegistry
 	ImageRegistry *ModelUiParamRegistry
+	AudioRegistry *ModelUiParamRegistry
 }
 
 func LoadUiParamResolveContext() (*UiParamResolveContext, error) {
 	ctx := &UiParamResolveContext{
 		VideoProfiles: make(map[string]ModelUiParamProfile),
 		ImageProfiles: make(map[string]ModelUiParamProfile),
+		AudioProfiles: make(map[string]ModelUiParamProfile),
 	}
 
 	videoProfiles, err := GetAllModelUiParamProfiles(ModelUiParamCapabilityVideo)
@@ -43,6 +46,19 @@ func LoadUiParamResolveContext() (*UiParamResolveContext, error) {
 	imageRegistry, err := GetModelUiParamRegistryByCapability(ModelUiParamCapabilityImage)
 	if err == nil {
 		ctx.ImageRegistry = imageRegistry
+	}
+
+	audioProfiles, err := GetAllModelUiParamProfiles(ModelUiParamCapabilityAudio)
+	if err != nil {
+		return nil, err
+	}
+	for _, profile := range audioProfiles {
+		ctx.AudioProfiles[profile.ProfileId] = profile
+	}
+
+	audioRegistry, err := GetModelUiParamRegistryByCapability(ModelUiParamCapabilityAudio)
+	if err == nil {
+		ctx.AudioRegistry = audioRegistry
 	}
 
 	return ctx, nil
@@ -77,6 +93,22 @@ func ResolveImageUiParams(meta *Model, ctx *UiParamResolveContext) map[string]in
 		return nil
 	}
 	applyImagePollDefaults(doc, ctx.ImageRegistry)
+	return doc
+}
+
+func ResolveAudioUiParams(meta *Model, ctx *UiParamResolveContext) map[string]interface{} {
+	if ctx == nil {
+		return nil
+	}
+	profileID := ""
+	if meta != nil {
+		profileID = strings.TrimSpace(meta.AudioProfileId)
+	}
+	doc, err := resolveProfileDocument(ModelUiParamCapabilityAudio, profileID, ctx.AudioProfiles, ctx.AudioRegistry)
+	if err != nil || doc == nil {
+		return nil
+	}
+	applyAudioPollDefaults(doc, ctx.AudioRegistry)
 	return doc
 }
 
@@ -220,8 +252,31 @@ func applyImagePollDefaults(doc map[string]interface{}, registry *ModelUiParamRe
 	}
 }
 
+func applyAudioPollDefaults(doc map[string]interface{}, registry *ModelUiParamRegistry) {
+	if doc == nil || registry == nil {
+		return
+	}
+	if _, ok := doc["poll"]; ok {
+		return
+	}
+	apiMode, _ := doc["apiMode"].(string)
+	if apiMode == "" {
+		apiMode, _ = doc["api_mode"].(string)
+	}
+	if apiMode == "" {
+		apiMode = "audio-json-async"
+	}
+	var pollDefaults map[string]map[string]interface{}
+	if err := json.Unmarshal([]byte(registry.PollDefaults), &pollDefaults); err != nil {
+		return
+	}
+	if poll, ok := pollDefaults[apiMode]; ok && len(poll) > 0 {
+		doc["poll"] = poll
+	}
+}
+
 func BindModelsToProfile(capability, profileID string, matchTokens []string) error {
-	if capability != ModelUiParamCapabilityVideo && capability != ModelUiParamCapabilityImage {
+	if !IsModelUiParamCapability(capability) {
 		return nil
 	}
 	profileID = strings.TrimSpace(profileID)
@@ -252,10 +307,13 @@ func BindModelsToProfile(capability, profileID string, matchTokens []string) err
 			continue
 		}
 		updates := map[string]interface{}{"updated_time": now}
-		if capability == ModelUiParamCapabilityVideo {
+		switch capability {
+		case ModelUiParamCapabilityVideo:
 			updates["video_profile_id"] = profileID
-		} else {
+		case ModelUiParamCapabilityImage:
 			updates["image_profile_id"] = profileID
+		case ModelUiParamCapabilityAudio:
+			updates["audio_profile_id"] = profileID
 		}
 		if err := DB.Model(&Model{}).Where("id = ?", item.Id).Updates(updates).Error; err != nil {
 			return err
@@ -268,7 +326,7 @@ func BindModelsToProfile(capability, profileID string, matchTokens []string) err
 // dedicated product namespaces whose names may contain broad compatibility
 // tokens owned by another profile (for example, firefly-gpt-image-2-4k).
 func BindExactModelsToProfile(capability, profileID string, modelNames []string) error {
-	if capability != ModelUiParamCapabilityVideo && capability != ModelUiParamCapabilityImage {
+	if !IsModelUiParamCapability(capability) {
 		return nil
 	}
 	profileID = strings.TrimSpace(profileID)
@@ -287,10 +345,13 @@ func BindExactModelsToProfile(capability, profileID string, modelNames []string)
 	}
 
 	updates := map[string]interface{}{"updated_time": common.GetTimestamp()}
-	if capability == ModelUiParamCapabilityVideo {
+	switch capability {
+	case ModelUiParamCapabilityVideo:
 		updates["video_profile_id"] = profileID
-	} else {
+	case ModelUiParamCapabilityImage:
 		updates["image_profile_id"] = profileID
+	case ModelUiParamCapabilityAudio:
+		updates["audio_profile_id"] = profileID
 	}
 	return DB.Model(&Model{}).Where("model_name IN ?", normalized).Updates(updates).Error
 }

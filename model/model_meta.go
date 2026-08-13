@@ -41,6 +41,7 @@ type Model struct {
 	NameRule       int            `json:"name_rule" gorm:"default:0"`
 	VideoProfileId string         `json:"video_profile_id,omitempty" gorm:"size:128"`
 	ImageProfileId string         `json:"image_profile_id,omitempty" gorm:"size:128"`
+	AudioProfileId string         `json:"audio_profile_id,omitempty" gorm:"size:128"`
 	ApiDoc         string         `json:"api_doc,omitempty" gorm:"type:text"`
 
 	MatchedModels []string `json:"matched_models,omitempty" gorm:"-"`
@@ -50,6 +51,7 @@ type Model struct {
 type ModelMediaCapabilities struct {
 	Image bool
 	Video bool
+	Audio bool
 }
 
 func (mi *Model) Insert() error {
@@ -86,7 +88,7 @@ func (mi *Model) Update() error {
 	mi.UpdatedTime = common.GetTimestamp()
 	// 使用 Select 强制更新所有字段，包括零值
 	return DB.Model(&Model{}).Where("id = ?", mi.Id).
-		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "status", "sync_official", "name_rule", "video_profile_id", "image_profile_id", "api_doc", "updated_time").
+		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "status", "sync_official", "name_rule", "video_profile_id", "image_profile_id", "audio_profile_id", "api_doc", "updated_time").
 		Updates(mi).Error
 }
 
@@ -141,7 +143,7 @@ func GetExactModelMediaCapabilities(modelNames []string) (map[string]ModelMediaC
 
 	var models []Model
 	if err := DB.Model(&Model{}).
-		Select("model_name", "endpoints", "video_profile_id", "image_profile_id").
+		Select("model_name", "endpoints", "video_profile_id", "image_profile_id", "audio_profile_id").
 		Where("model_name IN ? AND name_rule = ?", modelNames, NameRuleExact).
 		Find(&models).Error; err != nil {
 		return nil, err
@@ -154,6 +156,8 @@ func GetExactModelMediaCapabilities(modelNames []string) (map[string]ModelMediaC
 				strings.Contains(endpoints, `"image-generation"`),
 			Video: strings.TrimSpace(item.VideoProfileId) != "" ||
 				strings.Contains(endpoints, `"openai-video"`),
+			Audio: strings.TrimSpace(item.AudioProfileId) != "" ||
+				strings.Contains(endpoints, `"openai-audio"`),
 		}
 	}
 	return result, nil
