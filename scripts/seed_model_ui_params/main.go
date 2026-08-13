@@ -207,6 +207,7 @@ func profileDocToRow(capability string, doc map[string]interface{}) (*model.Mode
 		if validationKey, ok := doc["validation_key"].(string); ok && row.ValidationKey == "" {
 			row.ValidationKey = validationKey
 		}
+		applyWireConfigFromDoc(doc, row)
 	}
 	if capability == model.ModelUiParamCapabilityImage {
 		if apiMode, ok := doc["apiMode"].(string); ok {
@@ -224,7 +225,26 @@ func profileDocToRow(capability string, doc map[string]interface{}) (*model.Mode
 		if hints, ok := doc["hints"]; ok {
 			row.Hints = service.MustJSONString(hints, "[]")
 		}
+		applyWireConfigFromDoc(doc, row)
 	}
 
 	return row, matchTokens, nil
+}
+
+func applyWireConfigFromDoc(doc map[string]interface{}, row *model.ModelUiParamProfile) {
+	if wireConfig, ok := doc["wireConfig"]; ok {
+		row.WireConfig = service.MustJSONString(wireConfig, "{}")
+		return
+	}
+	wireFormat, ok := doc["wireFormat"].(string)
+	if !ok || strings.TrimSpace(wireFormat) == "" {
+		return
+	}
+	wireDoc := map[string]interface{}{"wireFormat": wireFormat}
+	for _, key := range []string{"wireVariant", "durationField", "frameMode", "mirrorDurationToSeconds", "mirrorDurationToSize", "skipAspectRatio", "includeGenerateAudio", "referenceFields", "multipartTriggers", "imageWireVariant"} {
+		if v, exists := doc[key]; exists {
+			wireDoc[key] = v
+		}
+	}
+	row.WireConfig = service.MustJSONString(wireDoc, "{}")
 }

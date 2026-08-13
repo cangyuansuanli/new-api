@@ -540,18 +540,16 @@ function buildUnifiedVideoDoc(
   const paramsConfig = ui?.params ?? {}
   const limits = ui?.referenceLimits ?? {}
 
-  const metadata: Record<string, unknown> = {}
   const ratio = pickDefaultRatio(paramsConfig.ratio)
   const resolution = pickDefaultResolution(paramsConfig.resolution)
-  if (ratio) metadata.aspect_ratio = ratio
-  if (resolution) metadata.resolution = resolution
 
   const body: Record<string, unknown> = {
     model: modelName,
     prompt: '雨夜城市街道，电影感镜头缓慢推进',
     duration: pickDefaultDuration(paramsConfig.duration) ?? 5,
   }
-  if (Object.keys(metadata).length > 0) body.metadata = metadata
+  if (ratio) body.aspect_ratio = ratio
+  if (resolution) body.resolution = resolution
   if ((limits.images ?? 0) > 0) {
     body.reference_image_urls = ['https://example.com/ref.png']
   }
@@ -560,8 +558,8 @@ function buildUnifiedVideoDoc(
     { name: 'model', description: `必填，固定传 ${modelName}。` },
     { name: 'prompt', description: '必填，视频描述提示词。' },
     paramNote('duration', paramsConfig.duration, '视频时长（秒）。'),
-    paramNote('metadata.aspect_ratio', paramsConfig.ratio, '画幅比例。'),
-    paramNote('metadata.resolution', paramsConfig.resolution, '清晰度档位。'),
+    paramNote('aspect_ratio', paramsConfig.ratio, '画幅比例。'),
+    paramNote('resolution', paramsConfig.resolution, '清晰度档位。'),
     { name: 'size', description: '画幅像素，如 1280x720。' },
     {
       name: 'reference_image_urls',
@@ -602,7 +600,7 @@ function buildUnifiedVideoDoc(
         intro:
           hints.join(' ') ||
           model.description?.trim() ||
-          '统一视频接口：POST /v1/videos 提交任务，GET 轮询至完成后取片。',
+          '统一视频接口（详见 docs/unified-video-api.md）：POST /v1/videos 提交，GET 轮询至完成后取片。',
         generationModes: [],
         endpoints: UNIFIED_VIDEO_ENDPOINTS(base),
         requestJson: formatJson(body),
@@ -610,7 +608,8 @@ function buildUnifiedVideoDoc(
           model: modelName,
           prompt: body.prompt,
           duration: body.duration,
-          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+          ...(ratio ? { aspect_ratio: ratio } : {}),
+          ...(resolution ? { resolution } : {}),
         }),
         examples: [],
         params,
@@ -1087,11 +1086,92 @@ function buildMinimalFallback(
   }
 }
 
+function isMediaModel(model: PricingModel): boolean {
+  const endpoints = model.supported_endpoint_types || []
+  return (
+    endpoints.includes('openai-video') ||
+    endpoints.includes('image-generation') ||
+    endpoints.includes('openai-image') ||
+    Boolean(model.video_ui_params) ||
+    Boolean(model.image_ui_params)
+  )
+}
+
+function mergeCapabilityVariant(
+  unified: ModelApiDocVariant,
+  capability: ModelApiDocVariant,
+  imageUi?: ImageUiParamsDoc
+): ModelApiDocVariant {
+  const capabilityIntro = capability.intro?.trim()
+  const unifiedIntro = unified.intro?.trim()
+  let intro = unifiedIntro
+  if (capabilityIntro && capabilityIntro !== unifiedIntro) {
+    intro = capabilityIntro.includes(unifiedIntro)
+      ? capabilityIntro
+      : `${capabilityIntro} ${unifiedIntro}`.trim()
+  }
+
+  const params = [...unified.params]
+  for (const row of capability.params) {
+    upsertParam(params, row)
+  }
+
+  return {
+    ...unified,
+    intro,
+    generationModes:
+      capability.generationModes.length > 0
+        ? capability.generationModes
+        : unified.generationModes,
+    endpoints: unified.endpoints,
+    requestJson: unified.requestJson,
+    basicRequestJson: unified.basicRequestJson,
+    examples: [],
+    params: filterGulie2KImageParams(params, imageUi),
+    createResponseJson: unified.createResponseJson,
+    queryResponseJson: unified.queryResponseJson ?? capability.queryResponseJson,
+    queryFailedResponseJson:
+      unified.queryFailedResponseJson ?? capability.queryFailedResponseJson,
+  }
+}
+
+function mergeCapabilityDoc(
+  unified: ModelApiDoc,
+  capability: ModelApiDoc,
+  model: PricingModel
+): ModelApiDoc {
+  const imageUi = model.image_ui_params as ImageUiParamsDoc | undefined
+  const merged: ModelApiDocVariant[] = []
+  for (const unifiedVariant of unified.variants) {
+    const match =
+      capability.variants.find((v) => v.mode === unifiedVariant.mode) ??
+      capability.variants[0]
+    merged.push(
+      match
+        ? mergeCapabilityVariant(unifiedVariant, match, imageUi)
+        : unifiedVariant
+    )
+  }
+  if (merged.length === 0) return capability
+  return {
+    displayName: unified.displayName,
+    modelName: unified.modelName,
+    variants: merged,
+  }
+}
+
 export function buildModelApiDoc(
   model: PricingModel,
   siteOrigin?: string
 ): ModelApiDoc {
-  const fromConfig = normalizeModelApiDoc(model.api_doc, model, siteOrigin)
-  if (fromConfig) return fromConfig
-  return buildMinimalFallback(model, siteOrigin)
+  const unified = buildMinimalFallback(model, siteOrigin)
+  if (!isMediaModel(model)) {
+    const fromConfig = normalizeModelApiDoc(model.api_doc, model, siteOrigin)
+    if (fromConfig) return fromConfig
+    return unified
+  }
+
+  const capabilityOnly = normalizeModelApiDoc(model.api_doc, model, siteOrigin)
+  if (!capabilityOnly) return unified
+  return mergeCapabilityDoc(unified, capabilityOnly, model)
 }

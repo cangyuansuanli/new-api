@@ -2580,7 +2580,7 @@
     "API mode: video-generations": "POST /v1/video/generations（Grok 异步）",
     "POST /v1/videos with JSON body (GZ payload: multi-ref image/video/audio, frame inputs).": "POST /v1/videos，JSON 请求体（GZ：多参考图/视频/音频、首尾帧）。",
     "POST /v1/videos as multipart FormData (OpenAI Sora-style: seconds, size, input_reference[]).": "POST /v1/videos，multipart FormData（Sora 风格：seconds、size、input_reference[]）。",
-    "POST /v1/videos with JSON body, poll GET /v1/videos/{id} (Omni, Seedance, veo-clean, etc.).": "POST /v1/videos JSON + GET /v1/videos/{id} 轮询（Omni、Seedance、veo-clean 等）。",
+    "POST /v1/videos with JSON body, poll GET /v1/videos/{id} (Omni, Seedance, etc.).": "POST /v1/videos JSON + GET /v1/videos/{id} 轮询（Omni、Seedance 等）。",
     "POST /v1/chat/completions streaming; video URL returned inline (oairegbox-grok-video, etc.).": "POST /v1/chat/completions 流式，响应内联返回视频 URL（oairegbox-grok-video 等）。",
     "POST /v1/video/generations, poll GET /v1/video/generations/{id} (119337-grok-video, etc.).": "POST /v1/video/generations + GET /v1/video/generations/{id} 轮询（119337-grok-video 等）。",
     "Order": "排序",

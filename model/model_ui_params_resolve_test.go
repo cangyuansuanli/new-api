@@ -35,6 +35,26 @@ func TestProfileToDocumentImageApiMode(t *testing.T) {
 	}
 }
 
+func TestProfileToDocumentWireConfig(t *testing.T) {
+	doc, err := profileToDocument(ModelUiParamProfile{
+		ProfileId:      "video-tpl-seedance-flat",
+		Capability:     ModelUiParamCapabilityVideo,
+		Params:         `{"resolution":{"enabled":true}}`,
+		Hints:          "[]",
+		WireConfig:     `{"wireFormat":"json-flat","frameMode":"first_last_url"}`,
+		PayloadBuilder: "seedance-flat",
+	})
+	if err != nil {
+		t.Fatalf("profileToDocument() error = %v", err)
+	}
+	if doc["wireFormat"] != "json-flat" {
+		t.Fatalf("wireFormat = %#v", doc["wireFormat"])
+	}
+	if doc["frameMode"] != "first_last_url" {
+		t.Fatalf("frameMode = %#v", doc["frameMode"])
+	}
+}
+
 func TestResolveProfileDocumentRequiresExplicitProfileID(t *testing.T) {
 	profiles := map[string]ModelUiParamProfile{
 		"default-video": {

@@ -147,14 +147,8 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	mode := strings.ToLower(strings.TrimSpace(asString(raw["reference_mode"])))
 	if mode == "" {
-		switch {
-		case firstImage != "" || lastImage != "":
-			mode = "frame"
-		case contract.allowMedia && (len(images) > 0 || len(referenceVideos) > 0 || len(referenceAudios) > 0):
-			mode = "media"
-		case len(images) == 2 && contract.allowFrames:
-			mode = "frame"
-		case len(images) > 0:
+		mode = relaycommon.InferReferenceMode(req, "", contract.allowMedia)
+		if mode == "frame" && len(images) == 2 && firstImage == "" && lastImage == "" && !contract.allowFrames {
 			mode = "asset"
 		}
 	}

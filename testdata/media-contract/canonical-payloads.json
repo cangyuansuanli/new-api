@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "video": {
+    "canonical_json": {
+      "model": "{{model}}",
+      "prompt": "雨夜城市街道，电影感镜头缓慢推进",
+      "duration": 8,
+      "aspect_ratio": "16:9",
+      "resolution": "720p",
+      "reference_image_urls": ["https://example.com/ref.png"]
+    }
+  },
+  "image": {
+    "canonical_async_json": {
+      "model": "{{model}}",
+      "prompt": "一只橘猫坐在窗台上",
+      "size": "1024x1024",
+      "n": 1,
+      "async": true
+    }
+  }
+}

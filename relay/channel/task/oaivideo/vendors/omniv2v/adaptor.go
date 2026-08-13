@@ -31,6 +31,7 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		duration := 0
 		if req, err := relaycommon.GetTaskRequest(c); err == nil {
 			duration = req.RequestedDurationSeconds()
+			mergeTaskSubmitIntoBodyMap(bodyMap, &req)
 		}
 		out := buildUpstreamBody(bodyMap, info.UpstreamModelName, duration)
 		newBody, err := common.Marshal(out)
