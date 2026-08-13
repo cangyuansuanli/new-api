@@ -22,6 +22,8 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relay/image"
 	"github.com/QuantumNous/new-api/relay/imagevendor"
+	"github.com/QuantumNous/new-api/relay/audio"
+	audiovendor "github.com/QuantumNous/new-api/relay/audiovendor"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -39,6 +41,8 @@ func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		err = image.Helper(c, info)
+	case relayconstant.RelayModeAudioGenerations:
+		err = audio.Helper(c, info)
 	case relayconstant.RelayModeAudioSpeech:
 		fallthrough
 	case relayconstant.RelayModeAudioTranslation:
@@ -132,9 +136,17 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			return
 		}
 	}
+	if audioRequest, ok := request.(*dto.AudioGenerationRequest); ok {
+		relayInfo.InitChannelMeta(c)
+		if err := audiovendor.ValidateRequest(c, relayInfo, audioRequest); err != nil {
+			newAPIError = types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+			return
+		}
+	}
 
-	needSensitiveCheck := relayFormat == types.RelayFormatOpenAIImage &&
-		setting.ShouldCheckPromptSensitiveForUser(c.GetInt("id"), setting.SensitivePromptScopeImage)
+	sensitiveScope, needSensitiveScope := sensitivePromptScopeForRelayFormat(relayFormat)
+	needSensitiveCheck := needSensitiveScope &&
+		setting.ShouldCheckPromptSensitiveForUser(c.GetInt("id"), sensitiveScope)
 	needCountToken := constant.CountToken
 	// Avoid building huge CombineText (strings.Join) when token counting and sensitive check are both disabled.
 	var meta *types.TokenCountMeta
@@ -148,7 +160,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	if meta != nil && needSensitiveCheck {
-		if rejected, apiErr := service.PromptSensitiveRejection(c, meta.CombineText, setting.SensitivePromptScopeImage); rejected {
+		if rejected, apiErr := service.PromptSensitiveRejection(c, meta.CombineText, sensitiveScope); rejected {
 			newAPIError = apiErr
 			return
 		}
@@ -298,6 +310,8 @@ func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
 		meta.MaxTokens = int(lo.FromPtr(r.MaxTokens))
 	case *dto.ImageRequest:
 		// Pricing for image requests depends on ImagePriceRatio; safe to compute even when CountToken is disabled.
+		return r.GetTokenCountMeta()
+	case *dto.AudioGenerationRequest:
 		return r.GetTokenCountMeta()
 	default:
 		// Best-effort: leave CombineText empty to avoid large allocations.
@@ -674,4 +688,15 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 		return false
 	}
 	return true
+}
+
+func sensitivePromptScopeForRelayFormat(relayFormat types.RelayFormat) (setting.SensitivePromptScope, bool) {
+	switch relayFormat {
+	case types.RelayFormatOpenAIImage:
+		return setting.SensitivePromptScopeImage, true
+	case types.RelayFormatOpenAIAudioGeneration:
+		return setting.SensitivePromptScopeAudio, true
+	default:
+		return 0, false
+	}
 }

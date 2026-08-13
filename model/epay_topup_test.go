@@ -19,8 +19,7 @@ func TestEpayQuotaFromCny_oneToOne(t *testing.T) {
 	operation_setting.USDExchangeRate = 7.2
 	common.QuotaPerUnit = 500_000
 
-	quota := EpayQuotaFromCny(20)
-	require.Equal(t, int((20.0/7.2)*500_000), quota)
+	require.Equal(t, 1388889, EpayQuotaFromCny(20))
 }
 
 func TestIsLegacyEpayUsdTopUpAmount(t *testing.T) {

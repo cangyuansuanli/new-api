@@ -91,8 +91,32 @@ type Properties struct {
 	TaskKind          string `json:"task_kind,omitempty"`
 }
 
+func scanJSONBytes(val interface{}) ([]byte, error) {
+	switch v := val.(type) {
+	case nil:
+		return nil, nil
+	case []byte:
+		if len(v) == 0 {
+			return nil, nil
+		}
+		b := make([]byte, len(v))
+		copy(b, v)
+		return b, nil
+	case string:
+		if v == "" {
+			return nil, nil
+		}
+		return []byte(v), nil
+	default:
+		return json.Marshal(v)
+	}
+}
+
 func (m *Properties) Scan(val interface{}) error {
-	bytesValue, _ := val.([]byte)
+	bytesValue, err := scanJSONBytes(val)
+	if err != nil {
+		return err
+	}
 	if len(bytesValue) == 0 {
 		*m = Properties{}
 		return nil
@@ -162,8 +186,12 @@ func GenerateTaskID() string {
 }
 
 func (p *TaskPrivateData) Scan(val interface{}) error {
-	bytesValue, _ := val.([]byte)
+	bytesValue, err := scanJSONBytes(val)
+	if err != nil {
+		return err
+	}
 	if len(bytesValue) == 0 {
+		*p = TaskPrivateData{}
 		return nil
 	}
 	return common.Unmarshal(bytesValue, p)
@@ -278,8 +306,16 @@ func taskListPrivateDataSelectExpr() string {
 	case common.UsingMySQL:
 		return `JSON_OBJECT('result_url', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(private_data, '$.result_url')), ''))`
 	default:
-		return `json_object('result_url', COALESCE(json_extract(private_data, '$.result_url'), ''))`
+		return `COALESCE(` + sqliteProjectPrivateDataKeys(`j.key = 'result_url'`) + `, '{}')`
 	}
+}
+
+func sqlitePrivateDataJSON() string {
+	return `CASE WHEN private_data IS NULL OR private_data = '' THEN '{}' ELSE private_data END`
+}
+
+func sqliteProjectPrivateDataKeys(whereClause string) string {
+	return `(SELECT json_group_object(j.key, j.value) FROM json_each(` + sqlitePrivateDataJSON() + `) AS j WHERE ` + whereClause + `)`
 }
 
 // taskPrivateDataWithoutSnapshotExpr projects private_data without request_snapshot,
@@ -292,7 +328,7 @@ func taskPrivateDataWithoutSnapshotExpr() string {
 	case common.UsingMySQL:
 		return `JSON_REMOVE(COALESCE(private_data, JSON_OBJECT()), '$.request_snapshot')`
 	default:
-		return `json_remove(COALESCE(private_data, '{}'), '$.request_snapshot')`
+		return `COALESCE(` + sqliteProjectPrivateDataKeys(`j.key <> 'request_snapshot'`) + `, '{}')`
 	}
 }
 
@@ -416,7 +452,7 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 	var tasks []*Task
 	err := DB.Where("progress != ?", "100%").
-		Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess}).
+		Where("status NOT IN ?", []TaskStatus{TaskStatusFailure, TaskStatusSuccess}).
 		Where("submit_time < ?", cutoffUnix).
 		Order("submit_time").
 		Limit(limit).
@@ -439,43 +475,6 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 		return nil
 	}
 	return tasks
-}
-
-func GetPendingImageAsyncTasks(limit int) []*Task {
-	return getPendingAsyncTasksByKind(constant.TaskKindImage, limit)
-}
-
-func getPendingAsyncTasksByKind(kind string, limit int) []*Task {
-	if limit <= 0 {
-		return nil
-	}
-	// Async workers need the durable request_snapshot to replay the request after
-	// a process restart. Do not reuse GetAllUnFinishSyncTasks here: that query
-	// intentionally projects request_snapshot out of private_data for polling
-	// and status reads.
-	var all []*Task
-	if err := DB.Where("progress != ?", "100%").
-		Where("status != ?", TaskStatusFailure).
-		Where("status != ?", TaskStatusSuccess).
-		Limit(limit * 8).
-		Order("id").
-		Find(&all).Error; err != nil {
-		return nil
-	}
-	if len(all) == 0 {
-		return nil
-	}
-	out := make([]*Task, 0, limit)
-	for _, task := range all {
-		if task == nil || task.Properties.TaskKind != kind {
-			continue
-		}
-		out = append(out, task)
-		if len(out) >= limit {
-			break
-		}
-	}
-	return out
 }
 
 func GetByOnlyTaskId(taskId string) (*Task, bool, error) {
@@ -828,6 +827,35 @@ func (t *Task) ToOpenAIImageJob(object string) *dto.OpenAIImageJob {
 		}
 	} else if t.GetResultURL() != "" {
 		job.Data = []dto.ImageData{{Url: t.GetResultURL()}}
+	}
+	return job
+}
+
+// ToOpenAIAudioJob builds the audio async poll DTO.
+func (t *Task) ToOpenAIAudioJob(object string) *dto.OpenAIAudioJob {
+	job := dto.NewOpenAIAudioJob(object)
+	job.ID = t.TaskID
+	job.Model = t.Properties.OriginModelName
+	job.CreatedAt = t.CreatedAt
+	switch t.Status {
+	case TaskStatusSuccess:
+		job.Status = dto.AudioJobStatusCompleted
+		job.Progress = "100%"
+	case TaskStatusFailure:
+		job.Status = dto.AudioJobStatusFailed
+		job.Progress = "100%"
+		if t.FailReason != "" {
+			job.Error = &dto.OpenAIAudioJobError{Message: t.FailReason}
+		}
+	case TaskStatusInProgress:
+		job.Status = dto.AudioJobStatusInProgress
+		job.Progress = t.Progress
+	default:
+		job.Status = dto.AudioJobStatusQueued
+		job.Progress = t.Progress
+	}
+	if t.GetResultURL() != "" {
+		job.Data = []dto.AudioGenerationData{{URL: t.GetResultURL()}}
 	}
 	return job
 }

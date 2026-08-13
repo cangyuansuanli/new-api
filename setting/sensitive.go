@@ -8,18 +8,19 @@ import (
 var CheckSensitiveEnabled = true
 var CheckSensitiveOnPromptEnabled = true
 
-// LocalSensitivePromptBlockEnabled 本地敏感词前置拦截（仅生图）：关闭后不检查词表、直接转发上游。
+// LocalSensitivePromptBlockEnabled 本地敏感词前置拦截（生图/音乐）：关闭后不检查词表、直接转发上游。
 var LocalSensitivePromptBlockEnabled = true
 
-// SensitiveReviewWhitelistUserIds 审查白名单用户（仅生图）：跳过本地词表前置拦截；生图上游内容审查拒绝时仍扣费。
+// SensitiveReviewWhitelistUserIds 审查白名单用户（生图/音乐）：跳过本地词表前置拦截；上游内容审查拒绝时仍扣费。
 var SensitiveReviewWhitelistUserIds = map[int]struct{}{}
 
 // SensitivePromptScope 本地词表前置拦截的作用域。
-// 文本/视频不做本地拦截，审查交给上游；仅生图走本地词表 + 审查白名单。
+// 文本/视频不做本地拦截，审查交给上游；生图与音乐走本地词表 + 审查白名单。
 type SensitivePromptScope int
 
 const (
 	SensitivePromptScopeImage SensitivePromptScope = iota
+	SensitivePromptScopeAudio
 )
 
 //var CheckSensitiveOnCompletionEnabled = true
@@ -95,9 +96,9 @@ func ShouldCheckPromptSensitive(scope SensitivePromptScope) bool {
 	return ShouldCheckPromptSensitiveForUser(0, scope)
 }
 
-// ShouldCheckPromptSensitiveForUser 白名单用户跳过本地词表拦截（仅 SensitivePromptScopeImage）。
+// ShouldCheckPromptSensitiveForUser 白名单用户跳过本地词表拦截（生图/音乐）。
 func ShouldCheckPromptSensitiveForUser(userId int, scope SensitivePromptScope) bool {
-	if scope != SensitivePromptScopeImage {
+	if scope != SensitivePromptScopeImage && scope != SensitivePromptScopeAudio {
 		return false
 	}
 	if !promptSensitiveBaseEnabled() {

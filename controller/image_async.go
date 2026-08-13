@@ -16,7 +16,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relay/image"
 	"github.com/QuantumNous/new-api/relay/imagevendor"
-	adobevideo "github.com/QuantumNous/new-api/relay/video/adobe"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/types"
@@ -51,30 +50,6 @@ func RelayOpenAIImageEdits(c *gin.Context) {
 		return
 	}
 	Relay(c, types.RelayFormatOpenAIImage)
-}
-
-func RelayOpenAIChatCompletions(c *gin.Context) {
-	if adobevideo.IsDeprecatedChatRequest(c) {
-		adobevideo.SetDeprecatedChatHeaders(c)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{
-				"message": "Adobe 视频模型请使用 POST /v1/videos 提交任务，并通过 GET /v1/videos/{task_id} 轮询结果。",
-				"type":    "invalid_request_error",
-				"code":    "adobe_video_use_videos_api",
-			},
-		})
-		return
-	}
-	if openai.IsAsyncChatImageRequest(c) {
-		openai.SetChatImageDeprecationHeaders(c)
-		c.Set("relay_mode", relayconstant.RelayModeChatCompletions)
-		RelayImageTaskSubmit(c)
-		return
-	}
-	if openai.IsLegacyChatImageRequest(c) {
-		openai.SetChatImageDeprecationHeaders(c)
-	}
-	Relay(c, types.RelayFormatOpenAI)
 }
 
 func RelayImageTaskFetch(c *gin.Context) {
@@ -153,7 +128,7 @@ func RelayImageTaskSubmit(c *gin.Context) {
 	if meta != nil {
 		relaycommon.StorePromptInput(c, meta.CombineText)
 		if needSensitiveCheck {
-			if taskErr := service.TaskErrorIfSensitivePrompt(c, meta.CombineText); taskErr != nil {
+			if taskErr := service.TaskErrorIfSensitivePrompt(c, meta.CombineText, setting.SensitivePromptScopeImage); taskErr != nil {
 				respondTaskError(c, taskErr)
 				return
 			}

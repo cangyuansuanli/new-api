@@ -107,13 +107,16 @@ func GetImageTaskStatus(userID int, taskID string) (ImageTaskStatus, bool, error
 	if taskID == "" {
 		return ImageTaskStatus{}, false, nil
 	}
-	var status ImageTaskStatus
+	var task Task
 	err := DB.Model(&Task{}).
 		Select("status", "fail_reason").
 		Where("user_id = ? AND task_id = ?", userID, taskID).
-		Take(&status).Error
+		Take(&task).Error
 	exists, err := RecordExist(err)
-	return status, exists, err
+	if err != nil || !exists {
+		return ImageTaskStatus{}, exists, err
+	}
+	return ImageTaskStatus{Status: task.Status, FailReason: task.FailReason}, true, nil
 }
 
 // GetClaimableImageAsyncTaskIDs returns durable image jobs that are ready to
@@ -155,7 +158,7 @@ func fairImageTaskIDs(tasks []*Task, limit int) []string {
 	queuesByPriority := make(map[int][]*userQueue)
 	queueIndex := make(map[int]map[int]*userQueue)
 	for _, task := range tasks {
-		if task == nil || task.TaskID == "" || task.Properties.TaskKind != constant.TaskKindImage {
+		if task == nil || task.TaskID == "" || !isImageAsyncTaskKind(task.Properties.TaskKind) {
 			continue
 		}
 		if _, exists := queuesByPriority[task.Priority]; !exists {
@@ -192,6 +195,45 @@ func fairImageTaskIDs(tasks []*Task, limit int) []string {
 		}
 	}
 	return ids
+}
+
+func isImageAsyncTaskKind(kind string) bool {
+	return kind == "" || kind == constant.TaskKindImage
+}
+
+// GetPendingImageAsyncTasks returns in-flight image async tasks with request snapshots.
+func GetPendingImageAsyncTasks(limit int) []*Task {
+	return getPendingImageAsyncTasks(limit)
+}
+
+func getPendingImageAsyncTasks(limit int) []*Task {
+	if limit <= 0 {
+		return nil
+	}
+	var all []*Task
+	if err := DB.Where("platform = ?", constant.TaskPlatformImage).
+		Where("progress != ?", "100%").
+		Where("status != ?", TaskStatusFailure).
+		Where("status != ?", TaskStatusSuccess).
+		Limit(limit * 8).
+		Order("id").
+		Find(&all).Error; err != nil {
+		return nil
+	}
+	if len(all) == 0 {
+		return nil
+	}
+	out := make([]*Task, 0, limit)
+	for _, task := range all {
+		if task == nil || !isImageAsyncTaskKind(task.Properties.TaskKind) {
+			continue
+		}
+		out = append(out, task)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
 }
 
 func CountActiveImageTasks(userID int) (global int64, perUser int64, err error) {
@@ -320,7 +362,7 @@ func ClaimImageAsyncTaskForChannels(taskID, owner string, leaseDuration time.Dur
 	if err := DB.Where("task_id = ? AND lease_owner = ?", taskID, owner).First(&task).Error; err != nil {
 		return nil, false, err
 	}
-	if task.Properties.TaskKind != constant.TaskKindImage {
+	if !isImageAsyncTaskKind(task.Properties.TaskKind) {
 		ReleaseImageAsyncTaskLease(taskID, owner)
 		return nil, false, nil
 	}

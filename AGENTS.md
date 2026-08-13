@@ -26,6 +26,8 @@ relay/         — AI API relay/proxy with provider adapters
   relay/channel/ — Provider-specific adapters (openai/, claude/, gemini/, aws/, etc.)
   relay/image/           — Sync/async image relay (Helper, worker, fetch)
   relay/imagevendor/     — Image vendor registry (match + rehost policy + request patch per vendor)
+  relay/audio/           — Sync/async music relay (Helper, worker, fetch)
+  relay/audiovendor/     — Audio vendor registry
 middleware/    — Auth, rate limiting, CORS, logging, distribution
 setting/       — Configuration management (ratio, model, operation, system, performance)
 common/        — Shared utilities (JSON, crypto, Redis, env, rate-limit, etc.)

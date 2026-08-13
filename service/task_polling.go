@@ -255,7 +255,7 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 			task.Progress = "100%"
 			RefundTaskQuota(ctx, task, task.FailReason)
 		}
-		if responseItem.Status == model.TaskStatusSuccess {
+		if model.TaskStatus(responseItem.Status) == model.TaskStatusSuccess {
 			task.Progress = "100%"
 		}
 		task.Data = responseItem.Data
@@ -411,7 +411,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
 	var resultSource *relaycommon.TaskResultSource
-	if taskResult.Status == model.TaskStatusSuccess {
+	if model.TaskStatus(taskResult.Status) == model.TaskStatusSuccess {
 		resultSource = resolveVideoTaskResultSource(adaptor, task, taskResult, baseURL, key)
 	}
 

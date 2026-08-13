@@ -22,6 +22,7 @@ import (
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
 	taskoairouter "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/router"
+	"github.com/QuantumNous/new-api/relay/audio"
 	"github.com/QuantumNous/new-api/relay/image"
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
@@ -163,6 +164,7 @@ func main() {
 		})
 	}
 	image.StartWorker()
+	audio.StartWorker()
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		common.BatchUpdateEnabled = true
 		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")

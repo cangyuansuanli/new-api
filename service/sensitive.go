@@ -41,7 +41,7 @@ func CheckSensitiveText(text string) (bool, []string) {
 	return SensitiveWordContains(text)
 }
 
-// PromptSensitiveRejection 本地敏感词前置拦截（仅生图）：命中则直接拒绝，不转发上游、不预扣费。
+// PromptSensitiveRejection 本地敏感词前置拦截（生图/音乐）：命中则直接拒绝，不转发上游、不预扣费。
 func PromptSensitiveRejection(c *gin.Context, text string, scope setting.SensitivePromptScope) (bool, *types.NewAPIError) {
 	userId := 0
 	if c != nil {
@@ -64,9 +64,9 @@ func PromptSensitiveRejection(c *gin.Context, text string, scope setting.Sensiti
 	)
 }
 
-// TaskErrorIfSensitivePrompt 生图任务提交前的敏感词拦截。
-func TaskErrorIfSensitivePrompt(c *gin.Context, text string) *dto.TaskError {
-	if rejected, apiErr := PromptSensitiveRejection(c, text, setting.SensitivePromptScopeImage); rejected {
+// TaskErrorIfSensitivePrompt 媒体任务提交前的敏感词拦截。
+func TaskErrorIfSensitivePrompt(c *gin.Context, text string, scope setting.SensitivePromptScope) *dto.TaskError {
+	if rejected, apiErr := PromptSensitiveRejection(c, text, scope); rejected {
 		taskErr := TaskErrorFromAPIError(apiErr)
 		taskErr.LocalError = true
 		return taskErr

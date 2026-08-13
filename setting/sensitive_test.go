@@ -35,7 +35,26 @@ func TestShouldCheckPromptSensitiveForUser_WhitelistSkipsLocalBlock(t *testing.T
 	}
 }
 
-func TestShouldCheckPromptSensitiveForUser_NonImageScopeNeverChecked(t *testing.T) {
+func TestShouldCheckPromptSensitiveForUser_AudioScopeMatchesImage(t *testing.T) {
+	prevGlobal := LocalSensitivePromptBlockEnabled
+	prevEnabled := CheckSensitiveEnabled
+	prevPrompt := CheckSensitiveOnPromptEnabled
+	t.Cleanup(func() {
+		LocalSensitivePromptBlockEnabled = prevGlobal
+		CheckSensitiveEnabled = prevEnabled
+		CheckSensitiveOnPromptEnabled = prevPrompt
+	})
+
+	LocalSensitivePromptBlockEnabled = true
+	CheckSensitiveEnabled = true
+	CheckSensitiveOnPromptEnabled = true
+
+	if !ShouldCheckPromptSensitiveForUser(1, SensitivePromptScopeAudio) {
+		t.Fatal("expected audio scope to use local prompt block")
+	}
+}
+
+func TestShouldCheckPromptSensitiveForUser_NonMediaScopeNeverChecked(t *testing.T) {
 	prevGlobal := LocalSensitivePromptBlockEnabled
 	prevEnabled := CheckSensitiveEnabled
 	prevPrompt := CheckSensitiveOnPromptEnabled
@@ -52,7 +71,7 @@ func TestShouldCheckPromptSensitiveForUser_NonImageScopeNeverChecked(t *testing.
 	CheckSensitiveOnPromptEnabled = true
 	SensitiveReviewWhitelistUserIds = map[int]struct{}{}
 
-	// ponytail: 文本/视频等非生图 scope 恒为 false；上游负责审查。
+	// 文本/视频等非媒体 scope 恒为 false；上游负责审查。
 	if ShouldCheckPromptSensitiveForUser(1, SensitivePromptScope(-1)) {
 		t.Fatal("expected unknown scope to skip local check")
 	}
