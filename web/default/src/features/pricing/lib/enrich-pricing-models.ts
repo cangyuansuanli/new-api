@@ -20,6 +20,15 @@ function isBoundImageProfile(model: PricingModel): boolean {
   )
 }
 
+function isBoundAudioProfile(model: PricingModel): boolean {
+  const profileId = (model.audio_ui_params as { id?: string } | undefined)?.id
+  return Boolean(
+    profileId &&
+    !profileId.startsWith(DEFAULT_UI_PROFILE_PREFIX) &&
+    profileId.startsWith('audio-tpl')
+  )
+}
+
 /**
  * 视频 API 文档模型：绑定 openai-video 端点，且不能是显式绑定 image profile
  * 的图像模型。混合渠道可能同时承载图像和视频，不能仅凭渠道端点把同一图像
@@ -43,13 +52,26 @@ export function isImageDocModel(model: PricingModel): boolean {
   return isBoundImageProfile(model)
 }
 
+/** 音乐/音频生成 API 文档模型：绑定 openai-audio 端点或显式 audio profile。 */
+export function isAudioDocModel(model: PricingModel): boolean {
+  if (
+    model.supported_endpoint_types?.includes(ENDPOINT_TYPES.OPENAI_AUDIO)
+  ) {
+    return true
+  }
+  return isBoundAudioProfile(model)
+}
+
 export function isModelDocCandidate(
   model: PricingModel,
-  capability: 'video' | 'image' | 'all'
+  capability: 'video' | 'image' | 'audio' | 'all'
 ): boolean {
   if (capability === 'video') return isVideoDocModel(model)
   if (capability === 'image') return isImageDocModel(model)
-  return isVideoDocModel(model) || isImageDocModel(model)
+  if (capability === 'audio') return isAudioDocModel(model)
+  return (
+    isVideoDocModel(model) || isImageDocModel(model) || isAudioDocModel(model)
+  )
 }
 
 export function enrichPricingModels(data: PricingData): PricingModel[] {
