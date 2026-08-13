@@ -39,7 +39,7 @@ func TestGetByTaskIdForFetchOmitsRequestSnapshot(t *testing.T) {
 	reloaded, exist, err := GetByTaskIdForFetch(7, "task_fetch_select")
 	require.NoError(t, err)
 	require.True(t, exist)
-	assert.Equal(t, TaskStatusInProgress, reloaded.Status)
+	assert.EqualValues(t, TaskStatusInProgress, reloaded.Status)
 	assert.Equal(t, "gpt-image-2", reloaded.Properties.OriginModelName)
 	assert.Equal(t, "https://example.com/result.png", reloaded.GetResultURL())
 	assert.Equal(t, []string{"https://example.com/1.png"}, reloaded.PrivateData.ImageResultURLs)

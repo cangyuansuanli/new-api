@@ -47,6 +47,8 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		request, err = GetAndValidateRerankRequest(c)
 	case types.RelayFormatOpenAIAudio:
 		request, err = GetAndValidAudioRequest(c, relayMode)
+	case types.RelayFormatOpenAIAudioGeneration:
+		request, err = GetAndValidAudioGenerationRequest(c)
 	case types.RelayFormatOpenAIRealtime:
 		request = &dto.BaseRequest{}
 	default:
@@ -75,6 +77,26 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 		}
 	}
 	return audioRequest, nil
+}
+
+func GetAndValidAudioGenerationRequest(c *gin.Context) (*dto.AudioGenerationRequest, error) {
+	req := &dto.AudioGenerationRequest{}
+	if err := common.UnmarshalBodyReusable(c, req); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.Model) == "" {
+		return nil, errors.New("model is required")
+	}
+	if strings.TrimSpace(req.Prompt) == "" {
+		return nil, errors.New("prompt is required")
+	}
+	if strings.TrimSpace(req.ResponseFormat) == "" {
+		req.ResponseFormat = "url"
+	}
+	if req.Stream != nil && *req.Stream {
+		return nil, errors.New("stream is not supported on /v1/audio/generations; omit stream or set stream=false")
+	}
+	return req, nil
 }
 
 func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {

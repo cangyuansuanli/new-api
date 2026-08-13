@@ -253,7 +253,7 @@ func TestGetImageTaskStatusLoadsOnlyStatusFields(t *testing.T) {
 	status, exists, err := GetImageTaskStatus(7, task.TaskID)
 	require.NoError(t, err)
 	require.True(t, exists)
-	require.Equal(t, TaskStatusFailure, status.Status)
+	require.EqualValues(t, TaskStatusFailure, status.Status)
 	require.Equal(t, "upstream failed", status.FailReason)
 
 	_, exists, err = GetImageTaskStatus(8, task.TaskID)

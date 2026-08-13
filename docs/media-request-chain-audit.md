@@ -15,7 +15,8 @@
 | 能力 | 对外入口 | 提交执行 | 结果推进 | 当前状态 |
 | --- | --- | --- | --- | --- |
 | 同步生图 | `POST /v1/images/generations`、`/v1/images/edits` | `relay/image.Helper` → channel adaptor | 当前请求内完成 | 主路径 |
-| 异步生图 | 同上，body `async=true` | image task worker 重放快照，再进入 image Helper | 本地 worker CAS | 已统一任务表；legacy chat 仅为内部兼容读取器，不进入客户文档 |
+| 异步生图 | 同上，body `async=true` | `relay/image` worker 重放快照，再进入 image Helper | 本地 worker CAS | 已统一任务表；legacy chat 仅为内部兼容读取器，不进入客户文档 |
+| 异步音乐 | `POST /v1/audio/generations`（默认 async） | 源站 `new-api-worker-1`（8 路）重放快照 → chat upstream | 本地 worker CAS | internal=`cy-au1-gemini-music`，public=`gemini-music` |
 | 标准异步视频 | `POST /v1/videos` | task adaptor → `DoTaskApiRequest` | `service.TaskPollingLoop` → `FetchTask` | 通用轮询路径 |
 | Grok generations | `POST /v1/videos` | `oaivideo/vendors/grok` → `/v1/video/generations` | 通用轮询按任务模型重选 Grok vendor | 已纳入统一任务族 |
 | Adobe2API 视频 | `POST /v1/videos` | `oaivideo/vendors/adobe` → `/v1/videos/generations` | 通用视频轮询 CAS | 已纳入标准视频任务族 |

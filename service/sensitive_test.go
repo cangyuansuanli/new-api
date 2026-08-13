@@ -95,7 +95,7 @@ func TestTaskErrorIfSensitivePrompt(t *testing.T) {
 	c.Request = httptest.NewRequest("POST", "/v1/images/generations", nil)
 	c.Request.Header.Set("X-Cangyuan-Client", "infinite-canvas")
 
-	taskErr := TaskErrorIfSensitivePrompt(c, "需要锁定人脸信息")
+	taskErr := TaskErrorIfSensitivePrompt(c, "需要锁定人脸信息", setting.SensitivePromptScopeImage)
 	if taskErr == nil {
 		t.Fatal("expected task error")
 	}

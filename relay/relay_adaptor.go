@@ -48,6 +48,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/zhipu"
 	"github.com/QuantumNous/new-api/relay/channel/zhipu_4v"
 	"github.com/QuantumNous/new-api/relay/image"
+	"github.com/QuantumNous/new-api/relay/audio"
 	"github.com/gin-gonic/gin"
 )
 
@@ -165,8 +166,9 @@ func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
 	return nil
 }
 
-// init 向 relay/image 注入父包依赖，避免 image ↔ relay 循环 import。
+// init 向 relay/image、relay/audio 注入父包依赖，避免子包 ↔ relay 循环 import。
 func init() {
 	image.SetGetAdaptor(GetAdaptor)
 	image.SetTextRelay(TextHelper)
+	audio.SetGetAdaptor(GetAdaptor)
 }

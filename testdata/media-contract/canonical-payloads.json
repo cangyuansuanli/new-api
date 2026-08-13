@@ -18,5 +18,18 @@
       "n": 1,
       "async": true
     }
+  },
+  "audio": {
+    "canonical_json": {
+      "model": "gemini-music",
+      "prompt": "创作一首轻快的电子风格 BGM，适合科技产品广告",
+      "response_format": "url"
+    },
+    "canonical_async_json": {
+      "model": "gemini-music",
+      "prompt": "创作一首轻快的电子风格 BGM，适合科技产品广告",
+      "response_format": "url",
+      "async": true
+    }
   }
 }

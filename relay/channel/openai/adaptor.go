@@ -184,6 +184,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			IsChatImageModel(info.OriginModelName) {
 			return chatImageGetRequestURL(info)
 		}
+		if info.RelayMode == relayconstant.RelayModeAudioGenerations &&
+			IsChatAudioModel(info.OriginModelName) {
+			return chatAudioGetRequestURL(info)
+		}
 		if (info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini) &&
 			info.RelayMode != relayconstant.RelayModeResponses &&
 			info.RelayMode != relayconstant.RelayModeResponsesCompact {
@@ -744,6 +748,10 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
 		return channel.DoApiRequest(a, c, info, requestBody)
 	}
+	if IsChatAudioModel(info.OriginModelName) &&
+		info.RelayMode == relayconstant.RelayModeAudioGenerations {
+		return channel.DoApiRequest(a, c, info, requestBody)
+	}
 	if info.RelayMode == relayconstant.RelayModeAudioTranscription ||
 		info.RelayMode == relayconstant.RelayModeAudioTranslation ||
 		(info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c)) {
@@ -794,6 +802,15 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		} else {
 			usage, err = OpenaiImageHandler(c, info, resp)
 		}
+	case relayconstant.RelayModeAudioGenerations:
+		if IsChatAudioModel(info.OriginModelName) {
+			if info.IsStream {
+				return nil, types.NewOpenAIError(fmt.Errorf("chat audio models do not support stream on /v1/audio/generations"), types.ErrorCodeInvalidRequest, http.StatusBadRequest)
+			}
+			usage, err = OpenaiChatAudioHandler(c, info, resp)
+			break
+		}
+		return nil, types.NewOpenAIError(fmt.Errorf("model %q is not configured for audio generation", info.OriginModelName), types.ErrorCodeInvalidRequest, http.StatusBadRequest)
 	case relayconstant.RelayModeRerank:
 		usage, err = common_handler.RerankHandler(c, info, resp)
 	case relayconstant.RelayModeResponses:

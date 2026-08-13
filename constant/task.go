@@ -6,6 +6,7 @@ const (
 	TaskPlatformSuno       TaskPlatform = "suno"
 	TaskPlatformMidjourney              = "mj"
 	TaskPlatformImage                   = "image"
+	TaskPlatformAudio                   = "audio"
 )
 
 const (
@@ -19,9 +20,13 @@ const (
 	TaskActionRemix             = "remixGenerate"
 	TaskActionImageGenerate     = "imageGenerate"
 	TaskActionImageEdit         = "imageEdit"
+	TaskActionAudioGenerate     = "audioGenerate"
 )
 
-const TaskKindImage = "image"
+const (
+	TaskKindImage = "image"
+	TaskKindAudio = "audio"
+)
 
 var SunoModel2Action = map[string]string{
 	"suno_music":  SunoActionMusic,

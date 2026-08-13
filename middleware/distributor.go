@@ -307,6 +307,10 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			modelRequest.Model = getTaskOriginModelName(c)
 		}
 		c.Set("relay_mode", relayMode)
+	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/generations/") && c.Request.Method == http.MethodGet {
+		c.Set("relay_mode", relayconstant.RelayModeAudioFetchByID)
+		shouldSelectChannel = false
+		modelRequest.Model = getTaskOriginModelName(c)
 	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/images/edits/") && c.Request.Method == http.MethodGet {
 		c.Set("relay_mode", relayconstant.RelayModeImageEditsFetchByID)
 		shouldSelectChannel = false
@@ -357,7 +361,12 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	}
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/audio") {
 		relayMode := relayconstant.RelayModeAudioSpeech
-		if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/speech") {
+		if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/generations") {
+			if req, err := getModelFromRequest(c); err == nil && req.Model != "" {
+				modelRequest.Model = req.Model
+			}
+			relayMode = relayconstant.RelayModeAudioGenerations
+		} else if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/speech") {
 
 			modelRequest.Model = common.GetStringIfEmpty(modelRequest.Model, "tts-1")
 		} else if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/translations") {
