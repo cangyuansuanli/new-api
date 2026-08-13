@@ -116,6 +116,17 @@ func profileToDocument(profile ModelUiParamProfile) (map[string]interface{}, err
 	if profile.ValidationKey != "" {
 		doc["validationKey"] = profile.ValidationKey
 	}
+	if strings.TrimSpace(profile.WireConfig) != "" && profile.WireConfig != "{}" {
+		var wire map[string]interface{}
+		if err := json.Unmarshal([]byte(profile.WireConfig), &wire); err != nil {
+			return nil, err
+		}
+		for key, value := range wire {
+			if value != nil && value != "" {
+				doc[key] = value
+			}
+		}
+	}
 	if profile.Capability == ModelUiParamCapabilityVideo {
 		if profile.RequiresReferenceMedia {
 			doc["requiresReferenceMedia"] = true

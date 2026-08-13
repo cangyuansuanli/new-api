@@ -35,6 +35,12 @@ func RelayOpenAIImageGenerations(c *gin.Context) {
 	Relay(c, types.RelayFormatOpenAIImage)
 }
 
+func RelayOpenAIImageEditsDeprecated(c *gin.Context) {
+	c.Header("Deprecation", "true")
+	c.Header("Link", `</v1/images/edits>; rel="successor-version"`)
+	RelayOpenAIImageEdits(c)
+}
+
 func RelayOpenAIImageEdits(c *gin.Context) {
 	if image.IsAsyncRequest(c) {
 		RelayImageTaskSubmit(c)

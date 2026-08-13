@@ -15,6 +15,7 @@ type ModelUiParamProfile struct {
 	ApiMode                string         `json:"api_mode" gorm:"size:32"`
 	PayloadBuilder         string         `json:"payload_builder" gorm:"size:64"`
 	ValidationKey          string         `json:"validation_key" gorm:"size:64"`
+	WireConfig             string         `json:"wire_config" gorm:"type:text;not null;default:'{}'"`
 	RequiresReferenceMedia bool           `json:"requires_reference_media" gorm:"default:false;not null"`
 	Poll                   string         `json:"poll" gorm:"type:text;not null;default:'{}'"`
 	PollStatus             string         `json:"poll_status" gorm:"size:16"`
@@ -54,6 +55,7 @@ func (item *ModelUiParamProfile) Update() error {
 		"api_mode":                 item.ApiMode,
 		"payload_builder":          item.PayloadBuilder,
 		"validation_key":           item.ValidationKey,
+		"wire_config":              item.WireConfig,
 		"requires_reference_media": item.RequiresReferenceMedia,
 		"poll":                     item.Poll,
 		"poll_status":              item.PollStatus,
