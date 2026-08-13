@@ -16,12 +16,12 @@
 | --- | --- | --- | --- | --- |
 | 同步生图 | `POST /v1/images/generations`、`/v1/images/edits` | `relay/image.Helper` → channel adaptor | 当前请求内完成 | 主路径 |
 | 异步生图 | 同上，body `async=true` | `relay/image` worker 重放快照，再进入 image Helper | 本地 worker CAS | 已统一任务表；legacy chat 仅为内部兼容读取器，不进入客户文档 |
-| 异步音乐 | `POST /v1/audio/generations`（默认 async） | 源站 `new-api-worker-1`（8 路）重放快照 → chat upstream | 本地 worker CAS | internal=`cy-au1-gemini-music`，public=`gemini-music` |
+| 异步音乐 | `POST /v1/audio/generations`（默认 async） | 源站 `new-api-worker-1`（8 路）重放快照 → chat upstream → **R2 转存** | 本地 worker CAS | internal=`cy-au1-gemini-music`，public=`gemini-music` |
 | 标准异步视频 | `POST /v1/videos` | task adaptor → `DoTaskApiRequest` | `service.TaskPollingLoop` → `FetchTask` | 通用轮询路径 |
 | Grok generations | `POST /v1/videos` | `oaivideo/vendors/grok` → `/v1/video/generations` | 通用轮询按任务模型重选 Grok vendor | 已纳入统一任务族 |
 | Adobe2API 视频 | `POST /v1/videos` | `oaivideo/vendors/adobe` → `/v1/videos/generations` | 通用视频轮询 CAS | 已纳入标准视频任务族 |
 
-Adobe2API 只返回 Adobe 上游的短期 presigned URL，不再自行下载或转存媒体。生图和视频结果都必须由 NewAPI Worker 下载并转存 R2；任何 Adobe 上游 URL（包括历史 `eu-ai.cangyuansuanli.cn/generated/` URL）都不得绕过 R2 直接发布给客户。
+Adobe2API 只返回 Adobe 上游的短期 presigned URL，不再自行下载或转存媒体。生图、视频与音乐结果都必须由 NewAPI Worker 下载并转存 R2；任何上游 URL（包括历史 `eu-ai.cangyuansuanli.cn/generated/`、`oaibox` 下载域）都不得绕过 R2 直接发布给客户。
 
 因此，图像同步/异步仍然由图像能力决定，视频统一为标准异步 Task；Adobe 仅是上游 vendor 差异，不再拥有独立任务生命周期。
 

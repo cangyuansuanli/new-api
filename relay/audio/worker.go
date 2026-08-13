@@ -293,9 +293,18 @@ func processAudioAsyncTask(dispatcher *audioTaskDispatcher, taskID string) {
 		return
 	}
 
-	meta := map[string]any{"result_url": resultURL}
-	task.SetData(meta)
-	task.PrivateData.ResultURL = resultURL
+	taskData := []byte(`{}`)
+	if len(task.Data) > 0 {
+		taskData = task.Data
+	}
+	rehostedURL, patchedData, rehostErr := service.RehostAudioTaskResult(ctx, task.UserId, task.TaskID, resultURL, taskData, nil)
+	if rehostErr != nil {
+		failAudioAsyncTask(dispatcher, ctx, task, model.TaskStatusInProgress, fmt.Sprintf("audio result rehost failed: %v", rehostErr))
+		return
+	}
+
+	task.SetData(patchedData)
+	task.PrivateData.ResultURL = rehostedURL
 	task.Status = model.TaskStatusSuccess
 	task.Progress = taskcommon.ProgressComplete
 	task.FinishTime = time.Now().Unix()

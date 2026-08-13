@@ -2,7 +2,7 @@
 
 面向外部 API 客户与无限画布共用的 **唯一** 音乐生成契约。各模型差异见模型广场「能力卡片」，本文只描述通用 endpoint 与 canonical 字段。
 
-> 内部执行链路：入口 `POST /v1/audio/generations`（默认 async）→ **源站 `new-api-worker-1` 上 8 路 audio worker** 重放快照并出站 `POST /v1/chat/completions`（Gemini 音乐）→ `GET` 轮询取 `data[0].url`。
+> 内部执行链路：入口 `POST /v1/audio/generations`（默认 async）→ **源站 `new-api-worker-1` 上 8 路 audio worker** 重放快照并出站 `POST /v1/chat/completions`（Gemini 音乐）→ 下载上游音频并转存 R2 → `GET` 轮询取 `data[0].url`（仅 first-party CDN）。
 
 ## 端点
 
