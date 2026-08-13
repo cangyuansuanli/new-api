@@ -20,13 +20,17 @@ func TestBuildUpstreamBodyMapsReferenceImages(t *testing.T) {
 	}
 }
 
-func TestBuildUpstreamBodySingleImageUsesImageURL(t *testing.T) {
+func TestBuildUpstreamBodySingleImageUsesImagesArray(t *testing.T) {
 	out := buildUpstreamBody(map[string]interface{}{
 		"prompt":    "test prompt",
 		"image_url": "https://cdn.example.com/a.jpg",
 	}, "omni-fast-no-water", 0)
-	if out["image_url"] != "https://cdn.example.com/a.jpg" {
-		t.Fatalf("expected image_url, got %v", out["image_url"])
+	images, ok := out["images"].([]interface{})
+	if !ok || len(images) != 1 || images[0] != "https://cdn.example.com/a.jpg" {
+		t.Fatalf("expected single-element images array, got %v", out["images"])
+	}
+	if _, exists := out["image_url"]; exists {
+		t.Fatal("image_url should not be forwarded upstream")
 	}
 }
 

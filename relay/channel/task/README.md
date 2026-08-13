@@ -33,7 +33,7 @@ oaivideo/
     ├── seedancetengda/    # cy-sd2 / tengd → Tengda content[] JSON
     ├── seedanceleonardo/  # cy-sd4 → Leonardo flat /v1/videos
     ├── seedanceheygen/    # cy-sd6 → 固定分辨率双产品 + 鉴权 content
-    ├── omnii2v/     # cy-sd1 omni-fast*：flat reference_image_urls → 上游 images/image_url
+    ├── omnii2v/     # cy-sd1 omni-fast*：flat reference_image_urls → upstream images[]
     ├── omniv2v/     # cy-sd1 omni-fast-v2v*：flat reference_videos → 上游 videos/images
     ├── adobe/       # Adobe2API typed video（含 cy-sd5 Seedance）：/v1/videos/generations
     └── defaultvideo/ # 兜底：sora-2 等标准 OpenAI Video
