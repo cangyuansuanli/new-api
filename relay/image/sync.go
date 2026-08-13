@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	openai "github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/QuantumNous/new-api/service"
@@ -59,7 +60,8 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 
 	var requestBody io.Reader
 
-	passThroughEnabled := (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) && !imagePatch.OutboundBodyChanged
+	jsonEditRequiresAdaptation := info.RelayMode == relayconstant.RelayModeImagesEdits && strings.HasPrefix(strings.ToLower(c.GetHeader("Content-Type")), "application/json")
+	passThroughEnabled := (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) && !imagePatch.OutboundBodyChanged && !jsonEditRequiresAdaptation
 	if passThroughEnabled && !openai.IsAdobe2APIImageRelay(info) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {

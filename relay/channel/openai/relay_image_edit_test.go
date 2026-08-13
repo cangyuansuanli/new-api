@@ -2,6 +2,7 @@ package openai
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -117,4 +118,26 @@ func TestCollectImageEditReferenceDataURIsMultipart(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, images, 1)
 	require.Contains(t, images[0], "data:image/png;base64,")
+}
+
+func TestImageJSONEditFormPreservesCanonicalURLFields(t *testing.T) {
+	count := uint(2)
+	stream := false
+	form, err := imageJSONEditForm(dto.ImageRequest{
+		Model:             "gpt-image-1",
+		Prompt:            "edit",
+		N:                 &count,
+		Size:              "1:1",
+		Quality:           "high",
+		ResponseFormat:    "url",
+		Stream:            &stream,
+		Images:            json.RawMessage(`["https://cdn.example.com/a.png","https://cdn.example.com/b.png"]`),
+		Mask:              json.RawMessage(`"https://cdn.example.com/mask.png"`),
+		OutputCompression: json.RawMessage(`72`),
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"https://cdn.example.com/a.png", "https://cdn.example.com/b.png"}, form.Value["image"])
+	require.Equal(t, []string{"https://cdn.example.com/mask.png"}, form.Value["mask"])
+	require.Equal(t, []string{"72"}, form.Value["output_compression"])
+	require.Equal(t, []string{"false"}, form.Value["stream"])
 }

@@ -12,7 +12,6 @@ import {
   getModelDisplayName,
   stripModelVendorPrefix,
 } from './model-display-name'
-import { mergeVideoCapabilityParams } from './video-api-contract'
 
 type UiParamFieldConfig = {
   enabled?: boolean
@@ -28,11 +27,7 @@ type VideoUiParamsDoc = {
   id?: string
   apiMode?: string
   params?: Record<string, UiParamFieldConfig>
-  referenceLimits?: {
-    images?: number
-    videos?: number
-    audios?: number
-  }
+  referenceLimits?: { images?: number; videos?: number; audios?: number }
   hints?: Array<{ text?: string } | string>
   requiresReferenceMedia?: boolean
 }
@@ -61,25 +56,19 @@ function extractUiHintTexts(hints?: VideoUiParamsDoc['hints']): string[] {
 
 function pickDefaultRatio(config?: UiParamFieldConfig): string | undefined {
   if (!config?.enabled) return undefined
-  const fromOptions = config.options?.[0]?.value
-  if (fromOptions) return fromOptions
-  return '16:9'
+  return config.options?.[0]?.value || '16:9'
 }
 
 function pickDefaultDuration(config?: UiParamFieldConfig): number | undefined {
   if (!config?.enabled) return undefined
-  if (config.numericOptions?.length) return config.numericOptions[0]
-  if (config.min != null) return config.min
-  return 8
+  return config.numericOptions?.[0] ?? config.min ?? 8
 }
 
 function pickDefaultResolution(
   config?: UiParamFieldConfig
 ): string | undefined {
   if (!config?.enabled) return undefined
-  const fromOptions = config.options?.[0]?.value
-  if (fromOptions) return fromOptions
-  return '720p'
+  return config.options?.[0]?.value || '720p'
 }
 
 export type ModelDocParam = { name: string; description: string }
@@ -183,11 +172,7 @@ const VIDEO_POLL_CREATE = JSON.stringify(
 )
 
 const UNIFIED_VIDEO_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
-  {
-    method: 'POST',
-    path: `${base}/videos`,
-    description: '创建视频任务（application/json 或 multipart/form-data）。',
-  },
+  { method: 'POST', path: `${base}/videos`, description: '创建视频任务。' },
   {
     method: 'GET',
     path: `${base}/videos/{task_id}`,
@@ -196,7 +181,7 @@ const UNIFIED_VIDEO_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
   {
     method: 'GET',
     path: `${base}/videos/{task_id}/content`,
-    description: '下载成片（部分模型）。',
+    description: '下载成片。',
   },
 ]
 
@@ -204,17 +189,17 @@ const UNIFIED_IMAGE_ASYNC_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
   {
     method: 'POST',
     path: `${base}/images/generations`,
-    description: '创建图像任务（application/json，async 必须为 true）。',
+    description: '创建图像任务。',
   },
   {
     method: 'GET',
     path: `${base}/images/generations/{task_id}`,
-    description: '查询任务状态与结果地址。',
+    description: '查询图像任务。',
   },
   {
     method: 'GET',
     path: `${base}/images/{task_id}/content`,
-    description: '下载图片（部分模型）。',
+    description: '下载图片。',
   },
 ]
 
@@ -222,7 +207,7 @@ const UNIFIED_IMAGE_SYNC_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
   {
     method: 'POST',
     path: `${base}/images/generations`,
-    description: '同步出图（application/json，勿传 async 或 async: false）。',
+    description: '同步出图。',
   },
 ]
 
@@ -230,12 +215,12 @@ const UNIFIED_AUDIO_ASYNC_ENDPOINTS = (base: string): ModelDocEndpoint[] => [
   {
     method: 'POST',
     path: `${base}/audio/generations`,
-    description: '创建音乐任务（application/json，async 默认 true）。',
+    description: '创建音频任务。',
   },
   {
     method: 'GET',
     path: `${base}/audio/generations/{task_id}`,
-    description: '查询任务状态与结果地址。',
+    description: '查询音频任务。',
   },
 ]
 
@@ -348,23 +333,14 @@ function inferImageDispatchMode(
   doc?: RawModelApiDocSlice | RawModelApiDoc,
   ui?: ImageUiParamsDoc
 ): 'async' | 'sync' {
-  const mode = doc?.dispatch_mode
-  if (mode === 'async' || mode === 'sync') return mode
-  return isAsyncImageUi(ui) ? 'async' : 'sync'
-}
-
-function isAsyncImageUi(ui?: ImageUiParamsDoc): boolean {
-  if (!ui) return true
-  const mode = (ui.apiMode ?? '').trim()
-  if (mode === 'images-json-async' || mode === 'images-edits-async') return true
-  if (mode && !mode.includes('async')) return false
-  if (ui.id?.startsWith('image-tpl')) return true
-  return true
+  if (doc?.dispatch_mode === 'sync') return 'sync'
+  if (doc?.dispatch_mode === 'async') return 'async'
+  return (ui?.apiMode ?? '').includes('async') ? 'async' : 'sync'
 }
 
 function supportsDualImageMode(model: PricingModel): boolean {
   const name = (model.model_name || '').toLowerCase()
-  return DUAL_IMAGE_MATCH.some((token) => name.includes(token.toLowerCase()))
+  return DUAL_IMAGE_MATCH.some((token) => name.includes(token))
 }
 
 function paramNote(
@@ -375,34 +351,21 @@ function paramNote(
   const parts: string[] = []
   if (config?.hint) parts.push(config.hint)
   if (config?.fixedLabel) parts.push(`固定：${config.fixedLabel}`)
-  if (config?.options?.length) {
+  if (config?.options?.length)
     parts.push(`支持 ${config.options.map((o) => o.value).join('、')}`)
-  }
-  if (config?.numericOptions?.length) {
-    parts.push(`支持 ${config.numericOptions.join('、')} 秒`)
-  }
-  if (config?.min != null && config?.max != null) {
+  if (config?.numericOptions?.length)
+    parts.push(`支持 ${config.numericOptions.join('、')}`)
+  if (config?.min != null && config?.max != null)
     parts.push(`范围 ${config.min}–${config.max}`)
-  }
-  return {
-    name,
-    description: parts.join('；') || fallback || '',
-  }
+  return { name, description: parts.join('；') || fallback || '' }
 }
 
 function upsertParam(params: ModelDocParam[], row: ModelDocParam) {
-  const idx = params.findIndex((p) => p.name === row.name)
-  if (idx === -1) {
+  const existing = params.find((item) => item.name === row.name)
+  if (!existing) {
     params.push(row)
-    return
-  }
-  if (!params[idx].description) {
-    params[idx].description = row.description
-  } else if (
-    row.description &&
-    !params[idx].description.includes(row.description)
-  ) {
-    params[idx].description = `${params[idx].description}；${row.description}`
+  } else if (!existing.description) {
+    existing.description = row.description
   }
 }
 
@@ -456,20 +419,6 @@ function normalizeSingleVariant(
       : applyPlaceholdersToJson(queryFailedRaw, modelName, base)
 
   const endpoints = normalizeEndpoints(slice.endpoints, base, modelName)
-  const isVideo =
-    model.supported_endpoint_types?.includes('openai-video') ||
-    Boolean(model.video_ui_params)
-  const isImage =
-    model.supported_endpoint_types?.includes('image-generation') ||
-    Boolean(model.image_ui_params)
-
-  const defaultEndpoints = isVideo
-    ? UNIFIED_VIDEO_ENDPOINTS(base)
-    : isImage
-      ? mode === 'async'
-        ? UNIFIED_IMAGE_ASYNC_ENDPOINTS(base)
-        : UNIFIED_IMAGE_SYNC_ENDPOINTS(base)
-      : []
 
   return {
     mode,
@@ -484,24 +433,19 @@ function normalizeSingleVariant(
       )
     ),
     generationModes: normalizeGenerationModes(slice.generation_modes),
-    endpoints: endpoints.length > 0 ? endpoints : defaultEndpoints,
+    endpoints,
     requestJson,
     basicRequestJson,
     examples,
-    params: filterGulie2KImageParams(
-      mergeBananaImageParamNotes(
-        normalizeParams(paramsSource),
-        model.image_ui_params as ImageUiParamsDoc | undefined
-      ),
-      model.image_ui_params as ImageUiParamsDoc | undefined
+    params: normalizeParams(paramsSource).map((row) => ({
+      ...row,
+      description: sanitizeCustomerFacingText(row.description),
+    })),
+    createResponseJson: applyPlaceholdersToJson(
+      slice.create_response_json,
+      modelName,
+      base
     ),
-    createResponseJson:
-      applyPlaceholdersToJson(slice.create_response_json, modelName, base) ||
-      (mode === 'async'
-        ? VIDEO_POLL_CREATE
-        : formatJson({
-            data: [{ url: 'https://example.com/image.png' }],
-          })),
     queryResponseJson,
     queryFailedResponseJson,
   }
@@ -542,10 +486,10 @@ export function normalizeModelApiDoc(
     return { displayName, modelName, variants }
   }
 
-  const mode = inferImageDispatchMode(
-    doc,
-    model.image_ui_params as ImageUiParamsDoc
-  )
+  if (doc.dispatch_mode !== 'async' && doc.dispatch_mode !== 'sync') {
+    return null
+  }
+  const mode = doc.dispatch_mode
   const single = normalizeSingleVariant(doc, model, siteOrigin, mode)
   if (!single) return null
   return { displayName, modelName, variants: [single] }
@@ -716,14 +660,6 @@ function usesGulie2KImageParams(ui?: ImageUiParamsDoc): boolean {
   return (ui?.id || '').toLowerCase() === 'image-tpl-gulie-2k'
 }
 
-const GULIE_2K_FORBIDDEN_IMAGE_PARAMS = new Set([
-  'quality',
-  'image_size',
-  'output_resolution',
-  'resolution',
-  'aspect_ratio',
-])
-
 const GULIE_2K_SIZE_PARAM_NOTE =
   '画幅比例：1:1、3:2、2:3 或 auto。本模型固定 2K 档位，请勿传 quality、image_size、output_resolution、resolution 或像素尺寸；传入后平台会忽略。'
 
@@ -739,44 +675,6 @@ function buildGulie2KImageParams(
     paramNote('n', paramsConfig?.count, '生成张数，默认 1。'),
     { name: 'stream', description: '建议 false（非 SSE JSON 响应）。' },
   ].filter((p) => p.description)
-}
-
-function filterGulie2KImageParams(
-  params: ModelDocParam[],
-  ui?: ImageUiParamsDoc
-): ModelDocParam[] {
-  if (!usesGulie2KImageParams(ui)) {
-    return params
-  }
-  const filtered = params
-    .filter((p) => !GULIE_2K_FORBIDDEN_IMAGE_PARAMS.has(p.name))
-    .map((p) => {
-      if (p.name !== 'size') {
-        return {
-          ...p,
-          description: sanitizeCustomerFacingText(p.description),
-        }
-      }
-      const cleaned = sanitizeCustomerFacingText(p.description)
-        .replace(/兼容传像素[^；。]*/g, '')
-        .replace(/1:1\s*@\s*1K[^；。]*/gi, '')
-        .replace(/Gulie\s*线路/g, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim()
-      return {
-        name: 'size',
-        description: [cleaned, GULIE_2K_SIZE_PARAM_NOTE]
-          .filter(Boolean)
-          .join(' '),
-      }
-    })
-  if (!filtered.some((p) => p.name === 'size')) {
-    filtered.unshift({
-      name: 'size',
-      description: GULIE_2K_SIZE_PARAM_NOTE,
-    })
-  }
-  return filtered
 }
 
 const BANANA_IMAGE_PARAM_NOTES = {
@@ -802,20 +700,6 @@ function sanitizeCustomerFacingText(text: string): string {
     .replace(/上游[^，。；\n]*/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
-}
-
-function mergeBananaImageParamNotes(
-  params: ModelDocParam[],
-  ui?: ImageUiParamsDoc
-): ModelDocParam[] {
-  if (!usesBananaStyleImageParams(ui)) {
-    return params.map((p) => ({
-      ...p,
-      description: sanitizeCustomerFacingText(p.description),
-    }))
-  }
-  if (params.length > 0) return params
-  return buildBananaStyleImageParams(ui?.params ?? {})
 }
 
 function buildBananaStyleImageParams(
@@ -1193,93 +1077,11 @@ function isMediaModel(model: PricingModel): boolean {
   )
 }
 
-function mergeCapabilityVariant(
-  unified: ModelApiDocVariant,
-  capability: ModelApiDocVariant,
-  model: PricingModel
-): ModelApiDocVariant {
-  const capabilityIntro = capability.intro?.trim()
-  const unifiedIntro = unified.intro?.trim()
-  let intro = unifiedIntro
-  if (capabilityIntro && capabilityIntro !== unifiedIntro) {
-    intro = capabilityIntro.includes(unifiedIntro)
-      ? capabilityIntro
-      : `${capabilityIntro} ${unifiedIntro}`.trim()
-  }
-
-  const isVideo =
-    model.supported_endpoint_types?.includes('openai-video') ||
-    Boolean(model.video_ui_params)
-  const params = isVideo
-    ? mergeVideoCapabilityParams(unified.params, capability.params)
-    : [...unified.params]
-  if (!isVideo) {
-    for (const row of capability.params) {
-      upsertParam(params, row)
-    }
-  }
-
-  return {
-    ...unified,
-    intro,
-    generationModes:
-      capability.generationModes.length > 0
-        ? capability.generationModes
-        : unified.generationModes,
-    endpoints: unified.endpoints,
-    requestJson: unified.requestJson,
-    basicRequestJson: unified.basicRequestJson,
-    examples: [],
-    params: isVideo
-      ? params
-      : filterGulie2KImageParams(
-          params,
-          model.image_ui_params as ImageUiParamsDoc | undefined
-        ),
-    createResponseJson: unified.createResponseJson,
-    queryResponseJson:
-      unified.queryResponseJson ?? capability.queryResponseJson,
-    queryFailedResponseJson:
-      unified.queryFailedResponseJson ?? capability.queryFailedResponseJson,
-  }
-}
-
-function mergeCapabilityDoc(
-  unified: ModelApiDoc,
-  capability: ModelApiDoc,
-  model: PricingModel
-): ModelApiDoc {
-  const merged: ModelApiDocVariant[] = []
-  for (const unifiedVariant of unified.variants) {
-    const match =
-      capability.variants.find((v) => v.mode === unifiedVariant.mode) ??
-      capability.variants[0]
-    merged.push(
-      match
-        ? mergeCapabilityVariant(unifiedVariant, match, model)
-        : unifiedVariant
-    )
-  }
-  if (merged.length === 0) return capability
-  return {
-    displayName: unified.displayName,
-    modelName: unified.modelName,
-    variants: merged,
-  }
-}
-
 export function buildModelApiDoc(
   model: PricingModel,
   siteOrigin?: string
-): ModelApiDoc {
-  const unified = buildMinimalFallback(model, siteOrigin)
-  if (!isMediaModel(model)) {
-    const fromConfig = normalizeModelApiDoc(model.api_doc, model, siteOrigin)
-    if (fromConfig) return fromConfig
-    return unified
-  }
-
-  const capabilityOnly = normalizeModelApiDoc(model.api_doc, model, siteOrigin)
-  if (!capabilityOnly) return unified
-  return mergeCapabilityDoc(unified, capabilityOnly, model)
+): ModelApiDoc | null {
+  const configured = normalizeModelApiDoc(model.api_doc, model, siteOrigin)
+  if (configured || isMediaModel(model)) return configured
+  return buildMinimalFallback(model, siteOrigin)
 }

@@ -11,6 +11,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -468,7 +469,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesEdits:
 		if isJSONRequest(c) {
-			return request, nil
+			form, err := imageJSONEditForm(request)
+			if err != nil {
+				return nil, err
+			}
+			c.Request.MultipartForm = form
+			c.Request.PostForm = url.Values(form.Value)
 		}
 
 		var requestBody bytes.Buffer
@@ -619,6 +625,59 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 func isImageEditHTTPSReference(field, value string) bool {
 	field = strings.TrimSuffix(strings.TrimSpace(field), "[]")
 	return (field == "image" || field == "mask") && strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "https://")
+}
+
+func imageJSONEditForm(request dto.ImageRequest) (*multipart.Form, error) {
+	images := append(parseJSONStringList(request.Image), parseJSONStringList(request.Images)...)
+	if len(images) == 0 {
+		return nil, errors.New("image is required")
+	}
+	for _, imageURL := range images {
+		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(imageURL)), "https://") {
+			return nil, errors.New("image references must be HTTPS URLs")
+		}
+	}
+	values := url.Values{
+		"model":  []string{request.Model},
+		"prompt": []string{request.Prompt},
+		"image":  images,
+	}
+	if request.N != nil {
+		values.Set("n", strconv.FormatUint(uint64(*request.N), 10))
+	}
+	for key, value := range map[string]string{
+		"size":            request.Size,
+		"quality":         request.Quality,
+		"response_format": request.ResponseFormat,
+	} {
+		if strings.TrimSpace(value) != "" {
+			values.Set(key, value)
+		}
+	}
+	if request.Stream != nil {
+		values.Set("stream", strconv.FormatBool(*request.Stream))
+	}
+	for key, raw := range map[string]json.RawMessage{
+		"background":     request.Background,
+		"output_format":  request.OutputFormat,
+		"moderation":     request.Moderation,
+		"input_fidelity": request.InputFidelity,
+		"mask":           request.Mask,
+	} {
+		if valuesFromRaw := parseJSONStringList(raw); len(valuesFromRaw) > 0 {
+			if key == "mask" && !strings.HasPrefix(strings.ToLower(strings.TrimSpace(valuesFromRaw[0])), "https://") {
+				return nil, errors.New("mask must be an HTTPS URL")
+			}
+			values[key] = valuesFromRaw
+		}
+	}
+	if len(request.OutputCompression) > 0 {
+		var compression json.Number
+		if err := common.Unmarshal(request.OutputCompression, &compression); err == nil {
+			values.Set("output_compression", compression.String())
+		}
+	}
+	return &multipart.Form{Value: values, File: map[string][]*multipart.FileHeader{}}, nil
 }
 
 func imageEditHTTPSReferences(form *multipart.Form, field string) []string {

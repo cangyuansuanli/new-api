@@ -214,27 +214,7 @@ func collectManjuBananaReferenceImages(c *gin.Context, request dto.ImageRequest)
 }
 
 func resolveManjuBananaAspectRatio(size string) string {
-	value := strings.TrimSpace(size)
-	if value == "" || strings.EqualFold(value, "auto") {
-		return ""
-	}
-	if strings.Contains(value, ":") {
-		return value
-	}
-	switch strings.ToLower(value) {
-	case "1024x1024":
-		return "1:1"
-	case "1536x1024":
-		return "3:2"
-	case "1024x1536":
-		return "2:3"
-	case "1792x1024", "1920x1080":
-		return "16:9"
-	case "1024x1792", "1080x1920":
-		return "9:16"
-	default:
-		return ""
-	}
+	return imagevendor.CanonicalAspectRatio(size)
 }
 
 func resolveManjuBananaOutputResolution(originModel string, request dto.ImageRequest) string {
@@ -250,17 +230,10 @@ func resolveManjuBananaOutputResolution(originModel string, request dto.ImageReq
 			return normalizeAdobe2APIImageSize(value)
 		}
 	}
-	value := strings.ToLower(strings.TrimSpace(request.Quality))
-	switch value {
-	case "high", "hd", "4k":
-		return "4K"
-	case "medium", "2k":
-		return "2K"
-	case "low", "standard", "1k", "1/2k":
-		return "1K"
-	default:
-		return "1K"
+	if resolution := imagevendor.CanonicalResolution(request.Quality); resolution != "" {
+		return resolution
 	}
+	return "1K"
 }
 
 // AdaptManjuBananaChatCompletionResponse 将上游异步任务或 URL 出图响应转为下游同步 data URI Markdown。
