@@ -74,7 +74,7 @@ FALLBACK = {
     "last_image_url": "尾帧 HTTPS URL。",
 }
 FORBIDDEN = re.compile(
-    r"multipart|data:image|input_reference|兼容别名|chat/completions|"
+    r"multipart|data:image|input_reference|兼容别名|chat/completions|stream|"
     r"\bseconds\b|(?<!reference_)\bimage_urls\b|\bimage_url\b|\bvideo_url\b|"
     r"\breference_images\b|\breference_mode\b|\bmetadata\b",
     re.I,
