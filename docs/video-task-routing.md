@@ -144,7 +144,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-gv1-grok-video*` + upstream `grok-imagine-video*` | Geeknow Grok | 严格 JSON → `/v1/videos` | OpenAI Video 形 |
 | `cy-gv2-grok-video` → `grok-imagine-video`；`cy-gv2-grok-video-1.5` → `grok-imagine-video-1.5`（当前分别在渠道 106/107） | Seqnode | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；JSON → `/v1/videos/generations` | `/v1/videos/{id}` 状态 + 鉴权 `/v1/videos/{id}/content` 成片转存 |
 | `cy-sd1-seedance*` | seedance-oairegbox | cy-sd1 白名单 flat JSON → OAIREGBox `/v1/videos` | OpenAI Video 形 |
-| `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `images` / `image_url` → 上游 `images[]`（单图亦数组）；首尾帧 `first_image_url` / `last_image_url` 原样透传 | OpenAI Video 形 |
+| `cy-sd1-omni-fast*` / upstream `omni-fast*` | omni-i2v | 公开 `reference_image_urls` / `images` / `image_url` → 上游 `images[]`（单图亦数组）；首尾帧 `first_image_url` / `last_image_url` 原样透传；成片转存时若同时返回 `data[].url`（`task_*`）与绝对 `video_url`（`vid-*`），vendor 优先 `vid-*` 以免 `task_*` 未就绪 409 | OpenAI Video 形 |
 | `cy-sd1-omni-v2v*` / upstream `omni-fast-v2v*` | omni-v2v | 公开 JSON `reference_videos` / `reference_image_urls` → 上游 `videos` / `video_url` / `images`；legacy multipart 仅出站内部兼容 | OpenAI Video 形 |
 | `cy-sd4-seedance*` | seedance-leonardo | flat JSON → Leonardo `/v1/videos` | OpenAI Video 形（校验/错误见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)） |
 | `cy-sd6-seedance-2.0-720p` / `cy-sd6-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-heygen | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；严格 JSON 白名单，按 SKU 强制 720p/1080p | `/v1/videos/{id}` + 鉴权 `/content` 成片转存 |

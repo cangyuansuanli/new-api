@@ -95,25 +95,6 @@ func TestParseTaskResult_GZFormat(t *testing.T) {
 		}
 	})
 
-	t.Run("omni prefers data url over relative video_url", func(t *testing.T) {
-		body := []byte(`{
-			"id":"task_upstream",
-			"status":"completed",
-			"video_url":"/v1/videos/vid-4444bf370600/content",
-			"data":[{"url":"https://download-2.oaibox.xyz/v1/videos/task_abc/content"}]
-		}`)
-		result, err := adaptor.ParseTaskResult(body)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.Status != model.TaskStatusSuccess {
-			t.Fatalf("expected SUCCESS, got %s", result.Status)
-		}
-		want := "https://download-2.oaibox.xyz/v1/videos/task_abc/content"
-		if result.Url != want {
-			t.Fatalf("expected %q, got %q", want, result.Url)
-		}
-	})
 }
 
 func TestParseTaskResult_OpenAIFormat(t *testing.T) {
