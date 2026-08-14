@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -125,8 +126,12 @@ func (*TaskAdaptor) ResolveTaskResultSource(baseURL, taskID, key string) *relayc
 	if strings.TrimSpace(key) != "" {
 		headers.Set("Authorization", "Bearer "+key)
 	}
+	rehostURL := strings.TrimRight(strings.TrimSpace(baseURL), "/") + "/v1/videos/" + taskID + "/content"
+	if _, keepDirect := consumeDirectRehostURL(taskID); keepDirect {
+		rehostURL = ""
+	}
 	return &relaycommon.TaskResultSource{
-		URL:     strings.TrimRight(baseURL, "/") + "/v1/videos/" + taskID + "/content",
+		URL:     rehostURL,
 		Headers: headers,
 	}
 }
@@ -140,8 +145,12 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	if parseErr != nil {
 		return result, err
 	}
+	upstreamTaskID := strings.TrimSpace(gjson.GetBytes(respBody, "id").String())
 	if videoURL := extractSd8VideoURL(respBody, resTask); videoURL != "" {
 		result.Url = videoURL
+		noteDirectRehostURL(upstreamTaskID, videoURL)
+	} else {
+		noteDirectRehostURL(upstreamTaskID, "")
 	}
 	return result, err
 }
