@@ -56,6 +56,8 @@ SPECS = (
     s("cy-sd6-seedance-2.0-720p", "sd6-seedance-2.0-720p", "video-tpl-heygen-seedance-720p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd7-seedance-2.0-1080p", "sd7-seedance-2.0-1080p", "video-tpl-magica-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios generate_audio"),
     s("cy-sd7-seedance-2.0-720p", "sd7-seedance-2.0-720p", "video-tpl-magica-seedance-720p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios generate_audio"),
+    s("cy-sd8-seedance-2.0", "sd8-seedance-2.0", "video-tpl-sd8-seedance-facepass-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios"),
+    s("cy-sd8-seedance-2.0-fast", "sd8-seedance-2.0-fast", "video-tpl-sd8-seedance-fast-async", "duration aspect_ratio reference_image_urls"),
 )
 
 ALIASES = {

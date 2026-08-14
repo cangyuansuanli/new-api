@@ -22,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancemagica"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancehuabu"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	seqnode "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -71,6 +72,7 @@ type RouterAdaptor struct {
 	seedanceHeygen    delegate
 	seedanceMagica    delegate
 	seedanceTengda    delegate
+	seedanceHuabu     delegate
 }
 
 func NewRouterAdaptor() channel.TaskAdaptor {
@@ -88,6 +90,7 @@ func NewRouterAdaptor() channel.TaskAdaptor {
 		seedanceHeygen:    &seedanceheygen.TaskAdaptor{},
 		seedanceMagica:    &seedancemagica.TaskAdaptor{},
 		seedanceTengda:    &seedancetengda.TaskAdaptor{},
+		seedanceHuabu:     &seedancehuabu.TaskAdaptor{},
 	}
 }
 
@@ -127,6 +130,8 @@ func (r *RouterAdaptor) delegateFor(info *relaycommon.RelayInfo) delegate {
 		return r.seedanceMagica
 	case registry.VendorSeedanceTengda:
 		return r.seedanceTengda
+	case registry.VendorSeedanceHuabu:
+		return r.seedanceHuabu
 	default:
 		return r.native
 	}
@@ -242,7 +247,8 @@ func (r *RouterAdaptor) GetModelList() []string {
 	models = append(models, r.seedanceOairegbox.GetModelList()...)
 	models = append(models, r.seedanceLeonardo.GetModelList()...)
 	models = append(models, r.seedanceHeygen.GetModelList()...)
-	return append(models, r.seedanceTengda.GetModelList()...)
+	models = append(models, r.seedanceTengda.GetModelList()...)
+	return append(models, r.seedanceHuabu.GetModelList()...)
 }
 
 func (r *RouterAdaptor) GetChannelName() string {
