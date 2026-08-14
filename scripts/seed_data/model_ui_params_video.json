@@ -3477,6 +3477,183 @@
             "multipartTriggers": [
                 "input_reference"
             ]
+        },
+        {
+            "id": "video-tpl-sd8-seedance-facepass-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd8-seedance-2.0"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 3,
+                "audios": 3,
+                "total": 15,
+                "fullReferenceMode": {
+                    "label": "多模态参考",
+                    "descriptionWithImages": "图片、视频与音频参考素材须为公网 HTTPS URL"
+                },
+                "validationHint": "最多 9 张参考图、3 段参考视频、3 段参考音频；含人物参考图须遮眼后再上传。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": false
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        5,
+                        10,
+                        15
+                    ],
+                    "min": 5,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": false
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": false
+                }
+            },
+            "hints": [
+                {
+                    "text": "¥2.9/条；时长仅支持 5、10、15 秒。"
+                },
+                {
+                    "text": "卡脸线路：含人物参考图须遮眼（贴纸/马赛克遮挡眼部）后再上传。"
+                },
+                {
+                    "text": "支持最多 9 图、3 视频、3 音频；素材须为公网 HTTPS URL。"
+                }
+            ],
+            "fieldAliases": {
+                "images": "reference_image_urls",
+                "videos": "reference_videos",
+                "audios": "reference_audios"
+            }
+        },
+        {
+            "id": "video-tpl-sd8-seedance-fast-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd8-seedance-2.0-fast"
+            ],
+            "referenceLimits": {
+                "images": 9,
+                "videos": 0,
+                "audios": 0,
+                "total": 9,
+                "validationHint": "仅支持参考图，最多 9 张；不支持参考视频与参考音频。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": false
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        {
+                            "value": "16:9",
+                            "label": "横屏"
+                        },
+                        {
+                            "value": "9:16",
+                            "label": "竖屏"
+                        },
+                        {
+                            "value": "1:1",
+                            "label": "方形"
+                        },
+                        {
+                            "value": "4:3",
+                            "label": "4:3"
+                        },
+                        {
+                            "value": "3:4",
+                            "label": "3:4"
+                        }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [
+                        5,
+                        10,
+                        15
+                    ],
+                    "min": 5,
+                    "max": 15
+                },
+                "generateAudio": {
+                    "enabled": false
+                },
+                "watermark": {
+                    "enabled": false
+                },
+                "seed": {
+                    "enabled": false
+                },
+                "widthHeight": {
+                    "enabled": false
+                },
+                "frameInputs": {
+                    "enabled": false
+                }
+            },
+            "hints": [
+                {
+                    "text": "¥1.9/条；时长仅支持 5、10、15 秒。"
+                },
+                {
+                    "text": "仅支持参考图，最多 9 张；不支持参考视频与参考音频。"
+                }
+            ],
+            "fieldAliases": {
+                "images": "reference_image_urls"
+            }
         }
     ]
 }

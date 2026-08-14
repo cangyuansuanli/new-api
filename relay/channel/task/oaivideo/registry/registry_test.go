@@ -13,7 +13,7 @@ func TestVendorDirectoriesAreRegistered(t *testing.T) {
 		"geeknowgrok": true, "grok": true, "omnii2v": true,
 		"omniv2v": true, "seedanceheygen": true, "seedanceleonardo": true,
 		"seedancemagica": true, "seedanceoairegbox": true,
-		"seedancetengda": true, "seqnode": true,
+		"seedancehuabu": true, "seedancetengda": true, "seqnode": true,
 	}
 	entries, err := os.ReadDir("../vendors")
 	if err != nil {
@@ -38,6 +38,8 @@ func TestResolve(t *testing.T) {
 		{"cy-sd6-seedance-2.0-1080p", "seedance-2.0", VendorSeedanceHeygen},
 		{"cy-sd7-seedance-2.0-720p", "seedance-2.0", VendorSeedanceMagica},
 		{"cy-sd7-seedance-2.0-1080p", "seedance-2.0", VendorSeedanceMagica},
+		{"cy-sd8-seedance-2.0", "sd2.0-933", VendorSeedanceHuabu},
+		{"cy-sd8-seedance-2.0-fast", "sd-2.0-fast-v1", VendorSeedanceHuabu},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", VendorSeedanceLeonardo},
 		{"cy-sd5-seedance-2.0", "seedance-2.0", VendorAdobe},
 		{"cy-sd5-seedance-2.0-fast", "seedance-2.0-fast", VendorAdobe},
