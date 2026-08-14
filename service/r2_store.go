@@ -259,13 +259,13 @@ func UploadGeneratedImageFromURL(ctx context.Context, userID int, taskID string,
 	defer release()
 
 	client := &http.Client{
-		Timeout:   300 * time.Second,
+		Timeout:   600 * time.Second,
 		Transport: GetHttpClient().Transport,
 	}
 	if client.Transport == nil {
 		client = GetHttpClient()
 		if client == nil {
-			client = &http.Client{Timeout: 300 * time.Second}
+			client = &http.Client{Timeout: 600 * time.Second}
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
