@@ -126,3 +126,37 @@ func TestExtractSd8VideoURL(t *testing.T) {
 		t.Fatalf("url = %q", got)
 	}
 }
+
+func TestResolveTaskResultSourcePrefersDirectResultURL(t *testing.T) {
+	resp := []byte(`{"id":"task_upstream","status":"completed","result_url":"https://v3-default.douyin.com/video.mp4"}`)
+	a := &TaskAdaptor{}
+	if _, err := a.ParseTaskResult(resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	source := a.ResolveTaskResultSource("https://huabu-admin.example", "task_upstream", "secret")
+	if source == nil {
+		t.Fatal("expected source")
+	}
+	if source.URL != "" {
+		t.Fatalf("direct result_url should skip /content override, got %q", source.URL)
+	}
+	if source.Headers.Get("Authorization") != "Bearer secret" {
+		t.Fatalf("unexpected auth header %q", source.Headers.Get("Authorization"))
+	}
+}
+
+func TestResolveTaskResultSourceFallsBackToContentEndpoint(t *testing.T) {
+	resp := []byte(`{"id":"task_upstream","status":"completed"}`)
+	a := &TaskAdaptor{}
+	if _, err := a.ParseTaskResult(resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	source := a.ResolveTaskResultSource("https://huabu-admin.example", "task_upstream", "secret")
+	if source == nil {
+		t.Fatal("expected source")
+	}
+	want := "https://huabu-admin.example/v1/videos/task_upstream/content"
+	if source.URL != want {
+		t.Fatalf("missing result_url should use /content, got %q", source.URL)
+	}
+}
