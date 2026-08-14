@@ -28,7 +28,7 @@ describe('Happy House marketplace names', () => {
 })
 
 describe('Seedance public route prefixes', () => {
-  test('keeps sd5, sd6 and sd7 in marketplace and API document names', () => {
+  test('keeps sd5, sd6, sd7 and sd8 in marketplace and API document names', () => {
     assert.equal(formatModelDisplayName('sd5-seedance-2.0'), 'sd5-seedance-2.0')
     assert.equal(
       formatModelDisplayName('sd6-seedance-2.0-720p'),
@@ -45,6 +45,26 @@ describe('Seedance public route prefixes', () => {
     assert.equal(
       formatModelDisplayName('sd7-seedance-2.0-1080p'),
       'sd7-seedance-2.0-1080p'
+    )
+    assert.equal(formatModelDisplayName('sd8-seedance-2.0'), 'sd8-seedance-2.0')
+    assert.equal(
+      formatModelDisplayName('sd8-seedance-2.0-fast'),
+      'sd8-seedance-2.0-fast'
+    )
+  })
+
+  test('does not merge sd8 products into unprefixed Seedance entries', () => {
+    const models = [
+      { model_name: 'seedance-2.0' },
+      { model_name: 'sd8-seedance-2.0' },
+      { model_name: 'sd8-seedance-2.0-fast' },
+    ] as PricingModel[]
+
+    assert.deepEqual(
+      groupPricingModelsByDisplayName(models).map(
+        (model) => model.display_name
+      ),
+      ['sd8-seedance-2.0', 'sd8-seedance-2.0-fast', 'seedance-2.0']
     )
   })
 

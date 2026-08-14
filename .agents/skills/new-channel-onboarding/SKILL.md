@@ -279,6 +279,10 @@ curl -X POST "https://<new-api>/v1/videos" \
 - `docs/dev/model-names.md`
 - `docs/dev/newapi-video-model-mapping.json`
 
+**模型广场 public 前缀白名单（必做）：** 若 public 名形如 `sdN-seedance-*`（与 sd5/sd6/sd7 同类），必须在 `web/default/src/features/pricing/lib/model-display-name.ts` 的 `PUBLIC_MODEL_PREFIX_FIRST_SEGMENTS` 加入 `sdN`，否则会被误剥前缀并与其他 `seedance-2.0` 条目合并，导致模型广场与 API 文档不显示。
+
+**源站 api_doc 同步（必做）：** migrate + seed 后，在源站执行 `scripts/sync_enabled_video_api_docs.py`（SPECS 须包含新 internal 名），否则 api_doc 格式不完整。
+
 ---
 
 ## 11. 提交

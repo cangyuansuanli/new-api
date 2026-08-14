@@ -49,8 +49,8 @@
         { "name": "images", "description": "参考图 URL 数组（与 reference_image_urls 同类用途）。" },
         { "name": "image_url", "description": "单张参考图 URL 或 Base64（JSON 图生视频，Omni 等）。" },
         { "name": "input_reference", "description": "multipart 参考图文件（可多张，Omni 多图）；JSON 亦兼容单张 string。" },
-        { "name": "first_image_url", "description": "首帧参考图 URL（JSON）。" },
-        { "name": "last_image_url", "description": "末帧参考图 URL（JSON）。" }
+        { "name": "first_image_url", "description": "首帧 HTTPS URL 字符串。" },
+        { "name": "last_image_url", "description": "末帧 HTTPS URL 字符串。" }
       ],
       "create_response_json": {
         "id": "task_01HZX8A2...",

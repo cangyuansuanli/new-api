@@ -439,7 +439,9 @@ function normalizeSingleVariant(
     examples,
     params: normalizeParams(paramsSource).map((row) => ({
       ...row,
-      description: sanitizeCustomerFacingText(row.description),
+      description: sanitizeCustomerFacingText(
+        sanitizeFrameUrlParamDescription(row.name, row.description)
+      ),
     })),
     createResponseJson: applyPlaceholdersToJson(
       slice.create_response_json,
@@ -699,6 +701,26 @@ function sanitizeCustomerFacingText(text: string): string {
     .replace(/上游[^，。；\n]*/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
+}
+
+/** 旧 api_doc 把「JSON 请求体」写成了首尾帧值类型；对外统一为 HTTPS URL 字符串。 */
+function sanitizeFrameUrlParamDescription(
+  name: string,
+  description: string
+): string {
+  if (name !== 'first_image_url' && name !== 'last_image_url') {
+    return description
+  }
+  if (!/JSON/i.test(description)) {
+    return description
+  }
+  const label = name === 'first_image_url' ? '首帧' : '末帧'
+  const pairField =
+    name === 'first_image_url' ? 'last_image_url' : 'first_image_url'
+  if (/单独或成对|可单独/.test(description)) {
+    return `${label} HTTPS URL 字符串；可单独使用，也可与 ${pairField} 成对使用。`
+  }
+  return `${label} HTTPS URL 字符串。`
 }
 
 function buildBananaStyleImageParams(
