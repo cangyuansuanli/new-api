@@ -39,7 +39,7 @@ func DownloadTaskImageResult(ctx context.Context, originModel, rawURL string) (*
 		return nil, fmt.Errorf("untrusted queued image result URL")
 	}
 	baseClient := GetHttpClient()
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := &http.Client{Timeout: 600 * time.Second}
 	if baseClient != nil {
 		client.Transport = baseClient.Transport
 	}
