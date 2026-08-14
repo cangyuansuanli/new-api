@@ -113,3 +113,47 @@ test('async image docs never expose stream or multipart compatibility', () => {
   assert.equal(rendered.includes('stream'), false)
   assert.equal(rendered.toLowerCase().includes('multipart'), false)
 })
+
+test('video first/last frame docs say HTTPS URL, not JSON object', () => {
+  const model = mediaModel('video', [
+    'model',
+    'prompt',
+    'first_image_url',
+    'last_image_url',
+  ])
+  model.api_doc = {
+    dispatch_mode: 'async',
+    intro: 'omni frame',
+    endpoints: [
+      { method: 'POST', path: '{{base}}/videos', description: 'create' },
+    ],
+    request_json: {
+      model: 'omni-fast-no-water',
+      prompt: 'test',
+      first_image_url: 'https://cdn.example.com/first.png',
+      last_image_url: 'https://cdn.example.com/last.png',
+    },
+    params: [
+      { name: 'model', description: '必填' },
+      { name: 'prompt', description: '描述' },
+      {
+        name: 'first_image_url',
+        description: '首帧参考图（JSON；可与 last_image_url 单独或成对使用）。',
+      },
+      { name: 'last_image_url', description: '末帧参考图（JSON）。' },
+    ],
+    create_response_json: { status: 'queued' },
+  }
+  const doc = buildModelApiDoc(model, 'https://api.example.com')
+  assert.ok(doc)
+  const byName = Object.fromEntries(
+    doc.variants[0].params.map((row) => [row.name, row.description])
+  )
+  assert.equal(
+    byName.first_image_url,
+    '首帧 HTTPS URL 字符串；可单独使用，也可与 last_image_url 成对使用。'
+  )
+  assert.equal(byName.last_image_url, '末帧 HTTPS URL 字符串。')
+  assert.equal(byName.first_image_url.toLowerCase().includes('json'), false)
+  assert.equal(byName.last_image_url.toLowerCase().includes('json'), false)
+})

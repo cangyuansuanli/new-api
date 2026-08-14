@@ -8,9 +8,9 @@ import subprocess
 from seed_media_api_doc_common import capability_doc, sql_escape_json
 
 OMNI_I2V_PARAMS = [
-    {"name": "reference_image_urls", "description": "JSON 多参考图（最多 5 张）；多图时在 prompt 中指明图1/图2。"},
-    {"name": "first_image_url / last_image_url", "description": "首尾帧参考（JSON URL）。"},
-    {"name": "seconds", "description": "可选；Omni 固定输出约 10 秒。"},
+    {"name": "reference_image_urls", "description": "参考图 HTTPS URL 数组（最多 5 张）；多图时在 prompt 中指明图1/图2。"},
+    {"name": "first_image_url", "description": "首帧 HTTPS URL 字符串；可单独使用，也可与 last_image_url 成对使用。"},
+    {"name": "last_image_url", "description": "末帧 HTTPS URL 字符串；可单独使用，也可与 first_image_url 成对使用。"},
 ]
 
 V2V_PARAMS = [
