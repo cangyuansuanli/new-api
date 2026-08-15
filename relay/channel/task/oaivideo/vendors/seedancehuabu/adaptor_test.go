@@ -55,12 +55,12 @@ func TestBuildRequestBodyMapsPublicAssetFields(t *testing.T) {
 	if got["model"] != UpstreamStandard || got["size"] != "16:9" || got["duration"] != float64(10) {
 		t.Fatalf("unexpected core fields: %#v", got)
 	}
-	images, ok := got["image"].([]any)
+	images, ok := got["images"].([]any)
 	if !ok || len(images) != 2 {
-		t.Fatalf("expected image array under image, got %#v", got["image"])
+		t.Fatalf("expected images array under images, got %#v", got["images"])
 	}
-	if _, ok := got["images"]; ok {
-		t.Fatal("upstream must not receive images field")
+	if _, ok := got["image"]; ok {
+		t.Fatal("multi-image upstream must not receive image string")
 	}
 }
 
