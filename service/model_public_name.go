@@ -26,11 +26,12 @@ import (
 //   - 域内逻辑（relay/service/imagevendor）只应使用 OriginModelName（internal），不得再解析 public 名
 
 type modelPublicRegistry struct {
-	internalSet       map[string]struct{}
-	publicToInternals map[string][]string
-	internalToPublic  map[string]string
-	collisions        map[string][]string
-	channelPrefixes   []string
+	internalSet             map[string]struct{}
+	publicToInternals         map[string][]string
+	internalToPublic        map[string]string
+	routingPublicToInternal map[string]string
+	collisions              map[string][]string
+	channelPrefixes         []string
 }
 
 var (
@@ -92,6 +93,10 @@ func RefreshModelPublicNameRegistry() error {
 	if err != nil {
 		return err
 	}
+	routingAliases, err := model.GetAllModelRoutingAliases()
+	if err != nil {
+		return err
+	}
 	prefixRows, err := model.GetEnabledModelChannelPrefixes()
 	if err != nil {
 		return err
@@ -143,14 +148,25 @@ func RefreshModelPublicNameRegistry() error {
 		}
 	}
 
+	routingPublicToInternal := make(map[string]string, len(routingAliases))
+	for _, alias := range routingAliases {
+		public := strings.TrimSpace(alias.PublicName)
+		internal := strings.TrimSpace(alias.InternalName)
+		if public == "" || internal == "" {
+			continue
+		}
+		routingPublicToInternal[public] = internal
+	}
+
 	modelPublicRegistryMu.Lock()
 	defer modelPublicRegistryMu.Unlock()
 	modelPublicRegistryData = modelPublicRegistry{
-		internalSet:       internalSet,
-		publicToInternals: publicToInternals,
-		internalToPublic:  internalToPublic,
-		collisions:        collisions,
-		channelPrefixes:   channelPrefixes,
+		internalSet:             internalSet,
+		publicToInternals:       publicToInternals,
+		internalToPublic:        internalToPublic,
+		routingPublicToInternal: routingPublicToInternal,
+		collisions:              collisions,
+		channelPrefixes:         channelPrefixes,
 	}
 	modelPublicRegistryReady = true
 	return nil
@@ -197,6 +213,10 @@ func ResolveInternalModelName(publicOrInternal string) (internal string, clientP
 			public = StripChannelRegistrationPrefix(name)
 		}
 		return name, public, nil
+	}
+
+	if internal, ok := registry.routingPublicToInternal[name]; ok {
+		return internal, name, nil
 	}
 
 	internals, ok := registry.publicToInternals[name]

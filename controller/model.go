@@ -288,6 +288,7 @@ func ListModels(c *gin.Context, modelType int) {
 			seenPublicNames[public] = struct{}{}
 			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(public, internal, ownerByModel))
 		}
+		userOpenAiModels = service.AppendRoutingAliasOpenAIModels(userOpenAiModels, userModelNames)
 	} else {
 		userOpenAiModels = make([]dto.OpenAIModels, 0, len(userModelNames))
 		for _, modelName := range userModelNames {
