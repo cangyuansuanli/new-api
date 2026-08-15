@@ -57,6 +57,7 @@ func GetPricing(c *gin.Context) {
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+	pricing = service.AppendRoutingAliasPricing(pricing)
 	for i := range pricing {
 		if service.ModelPublicNameEnabled() {
 			pricing[i].ModelName = service.ToPublicModelName(pricing[i].ModelName)

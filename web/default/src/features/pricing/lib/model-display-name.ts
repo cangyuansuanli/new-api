@@ -89,8 +89,12 @@ const MODEL_FAMILY_FIRST_SEGMENTS = new Set([
   'meta',
 ])
 
-/** 需在模型广场与 API 文档中保留的 public 路由前缀。 */
-const PUBLIC_MODEL_PREFIX_FIRST_SEGMENTS = new Set(['sd5', 'sd6', 'sd7', 'sd8'])
+/** public 路由前缀：sd1 / sd4 / sd99 等，保留完整展示名，不与 seedance-2.0 合并。 */
+const PUBLIC_ROUTE_PREFIX_PATTERN = /^sd\d+$/i
+
+function isPublicRoutePrefixSegment(segment: string): boolean {
+  return PUBLIC_ROUTE_PREFIX_PATTERN.test(segment.trim())
+}
 
 function getNameFirstSegment(modelName: string): string | null {
   const trimmed = modelName.trim()
@@ -103,7 +107,7 @@ export function isModelFamilyFirstSegment(segment: string): boolean {
   const normalized = segment.toLowerCase()
   return (
     MODEL_FAMILY_FIRST_SEGMENTS.has(normalized) ||
-    PUBLIC_MODEL_PREFIX_FIRST_SEGMENTS.has(normalized)
+    isPublicRoutePrefixSegment(normalized)
   )
 }
 

@@ -286,6 +286,7 @@ func migrateDB() error {
 		&UserOAuthBinding{},
 		&PerfMetric{},
 		&ModelPublicAlias{},
+		&ModelRoutingAlias{},
 		&ModelChannelPrefix{},
 		&ModelUiParamRegistry{},
 		&ModelUiParamProfile{},
