@@ -69,5 +69,5 @@ Seedance 2.0 支持纯 prompt 文生与多种参考素材。`seedance-heygen` �
 - `oaivideo/vendors/geeknowgrok/` — Geeknow Grok 路由；`POST/GET /v1/videos`，`seconds` 字符串化，`image`/`images` 参考图
 - `oaivideo/vendors/seqnode/` — Seqnode Grok 出站；提交、轮询和受保护成片来源均封装在 vendor 内
 - `oaivideo/vendors/seedanceheygen/` — cy-sd6 双 SKU 出站；固定分辨率、素材白名单和受保护成片来源均封装在 vendor 内
-- `oaivideo/vendors/seedancehuabu/` — cy-sd8 双 SKU（卡脸 9/3/3、快速 9 图）；`reference_*` → 上游 `image`/`videos`/`audios`，`result_url` 成片
+- `oaivideo/vendors/seedancehuabu/` — cy-sd8 双 SKU（卡脸 9/3/3、快速 9 图）；单图→上游 `image`，多图→上游 `images[]`；`reference_videos`/`reference_audios`→`videos`/`audios`
 - `oaivideo/shared/` 的可选字段转换必须保持 `nil → 空值`；轮询路由读取历史任务时必须允许 `ChannelMeta` 缺失。

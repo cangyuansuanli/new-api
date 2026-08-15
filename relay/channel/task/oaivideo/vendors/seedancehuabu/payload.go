@@ -32,12 +32,13 @@ func buildUpstreamBody(body map[string]interface{}, originModel, upstreamModel s
 	if len(imgs) > maxReferenceImages {
 		imgs = imgs[:maxReferenceImages]
 	}
+	// Huabu 上游：单图用 image 字符串，多图用 images 数组（见 sd2.0 接入文档）。
 	switch len(imgs) {
 	case 0:
 	case 1:
 		out["image"] = imgs[0]
 	default:
-		out["image"] = stringSliceToInterface(imgs)
+		out["images"] = stringSliceToInterface(imgs)
 	}
 
 	if !isFastModel(originModel) {
