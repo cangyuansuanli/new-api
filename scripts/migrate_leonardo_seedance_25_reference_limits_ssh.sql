@@ -15,8 +15,8 @@ UPDATE models AS m
 SET api_doc = jsonb_build_object(
         'dispatch_mode', 'async',
         'intro', format(
-            'Seedance 2.5 %s 视频，模型名锁定清晰度，按成片秒数计费。输出时长 4–%s 秒。当前 8500 积分号池中，720p 无参考视频最多 29 秒；有参考视频时最多 18 秒，账号已有消耗时上限会进一步降低。',
-            v.resolution, v.max_seconds
+            'Seedance 2.5 %s 视频，模型名锁定清晰度，按成片秒数计费。输出时长 4–%s 秒。%s',
+            v.resolution, v.max_seconds, v.pool_limit
         ),
         'endpoints', jsonb_build_array(
             jsonb_build_object('method', 'POST', 'path', '{{base}}/videos', 'description', '创建异步视频任务。'),
@@ -26,7 +26,7 @@ SET api_doc = jsonb_build_object(
         'params', jsonb_build_array(
             jsonb_build_object('name', 'model', 'description', format('必填，传模型广场名称 %s。', v.public_name)),
             jsonb_build_object('name', 'prompt', 'description', '必填，视频内容描述，最多 5000 个 Unicode 字符。'),
-            jsonb_build_object('name', 'duration', 'description', format('整数 4–%s 秒，默认 8。720p 带参考视频时当前号池最多 18 秒。', v.max_seconds)),
+            jsonb_build_object('name', 'duration', 'description', format('整数 4–%s 秒，默认 8。%s', v.max_seconds, v.duration_note)),
             jsonb_build_object('name', 'aspect_ratio', 'description', '21:9、16:9、4:3、1:1、3:4 或 9:16。'),
             jsonb_build_object('name', 'resolution', 'description', format('由当前模型固定为 %s，请求值不会跨档。', v.resolution)),
             jsonb_build_object('name', 'generate_audio', 'description', '是否生成原生音频；首尾帧模式不可用。'),
@@ -50,9 +50,13 @@ SET api_doc = jsonb_build_object(
     )::text,
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('cy-sd4-seedance-2.5-480p', 'sd4-seedance-2.5-480p', '480p', 30),
-    ('cy-sd4-seedance-2.5-720p', 'sd4-seedance-2.5-720p', '720p', 29)
-) AS v(model_name, public_name, resolution, max_seconds)
+    ('cy-sd4-seedance-2.5-480p', 'sd4-seedance-2.5-480p', '480p', 30,
+     '当前 8500 积分号池可覆盖带参考视频的 30 秒模型上限，账号已有消耗时可用时长会降低。',
+     '带参考视频仍可到模型自身 30 秒上限，但受账号实时余额约束。'),
+    ('cy-sd4-seedance-2.5-720p', 'sd4-seedance-2.5-720p', '720p', 29,
+     '当前 8500 积分号池中，无参考视频最多 29 秒；有参考视频时最多 18 秒，账号已有消耗时上限会进一步降低。',
+     '带参考视频时当前号池最多 18 秒。')
+) AS v(model_name, public_name, resolution, max_seconds, pool_limit, duration_note)
 WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 
 COMMIT;
