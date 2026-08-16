@@ -68,7 +68,7 @@ WHERE tag = 'leonardo-minimax-h3'
 INSERT INTO abilities ("group", model, channel_id, enabled, priority, weight)
 SELECT g.grp, m.model_name, ch.id, true, 100, 100
 FROM channels ch
-CROSS JOIN (VALUES ('VIDEO'), ('全模型-无claude/gpt')) AS g(grp)
+CROSS JOIN (VALUES ('VIDEO'), ('全模型-无claude/gpt'), ('downstream-canghai')) AS g(grp)
 CROSS JOIN (VALUES
     ('cy-sd4-minimax-h3-768p'),
     ('cy-sd4-minimax-h3-2k'),
