@@ -95,7 +95,9 @@ Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonard
 
 ## 公共名与路由别名
 
-模型命名分为两个独立边界：`model_public_aliases` 控制模型广场和响应中的展示名，`model_routing_aliases` 只把 legacy 入站名解析为实际 internal ability。管理后台“模型命名与路由”区可维护两类映射；路由名写入时要求目标已存在于 `abilities`，且入站名不得占用展示名。渠道间的 `priority`、`weight` 和 retry 仍在渠道管理中配置。
+模型命名分为两个公共边界：`model_routing_aliases` 提供客户首选的稳定 API 名并解析到实际 internal ability，`model_public_aliases` 提供可选的指定渠道名称。管理后台“模型命名与路由”区可维护两类映射；路由名写入时要求目标已存在于 `abilities`，且入站名不得占用渠道名称。渠道间的 `priority`、`weight` 和 retry 仍在渠道管理中配置。完整契约见 [`model-naming-routing.md`](model-naming-routing.md)。
+
+`/v1/models` 与模型广场默认列出可用 routing alias，同时列出 `hidden_from_marketplace=false` 的渠道展示名。这样客户既可使用稳定中性路由，也可显式选择展示中的特定渠道。`cy-*` internal 名保留入站兼容，但不进入任何公共目录；隐藏渠道展示名只影响目录，已有客户仍可继续调用该别名。
 
 `model_channel_prefixes` 仅用于识别必须配置显式展示名的 internal 命名空间，不再自动剥离或生成公开名。匹配这些前缀但缺少 `model_public_aliases` 的 enabled model 会从 `/pricing` 与 `/v1/models` 隐藏，并在 registry 状态和管理页列出。任何新的渠道 internal 模型必须在启用 ability 前写入明确展示名。
 

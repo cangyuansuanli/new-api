@@ -30,6 +30,8 @@ type modelPublicRegistry struct {
 	internalSet             map[string]struct{}
 	publicToInternals       map[string][]string
 	internalToPublic        map[string]string
+	internalPublicVisible   map[string]bool
+	publicNameVisible       map[string]bool
 	routingPublicToInternal map[string]string
 	collisions              map[string][]string
 	missingExplicitAliases  []string
@@ -83,6 +85,7 @@ func RefreshModelPublicNameRegistry() error {
 	}
 
 	overrideByInternal := make(map[string]string, len(aliases))
+	visibilityByInternal := make(map[string]bool, len(aliases))
 	for _, alias := range aliases {
 		internal := strings.TrimSpace(alias.InternalName)
 		public := strings.TrimSpace(alias.PublicName)
@@ -90,11 +93,14 @@ func RefreshModelPublicNameRegistry() error {
 			continue
 		}
 		overrideByInternal[internal] = public
+		visibilityByInternal[internal] = !alias.HiddenFromMarketplace
 	}
 
 	internalSet := make(map[string]struct{}, len(models))
 	publicToInternals := make(map[string][]string)
 	internalToPublic := make(map[string]string, len(models))
+	internalPublicVisible := make(map[string]bool, len(models))
+	publicNameVisible := make(map[string]bool, len(aliases))
 	collisions := make(map[string][]string)
 	missingExplicitAliases := make([]string, 0)
 
@@ -114,6 +120,9 @@ func RefreshModelPublicNameRegistry() error {
 			public = internal
 		}
 		internalToPublic[internal] = public
+		visible, explicitlyConfigured := visibilityByInternal[internal]
+		internalPublicVisible[internal] = !explicitlyConfigured || visible
+		publicNameVisible[public] = !explicitlyConfigured || visible
 		publicToInternals[public] = append(publicToInternals[public], internal)
 	}
 	sort.Strings(missingExplicitAliases)
@@ -140,12 +149,32 @@ func RefreshModelPublicNameRegistry() error {
 		internalSet:             internalSet,
 		publicToInternals:       publicToInternals,
 		internalToPublic:        internalToPublic,
+		internalPublicVisible:   internalPublicVisible,
+		publicNameVisible:       publicNameVisible,
 		routingPublicToInternal: routingPublicToInternal,
 		collisions:              collisions,
 		missingExplicitAliases:  missingExplicitAliases,
 	}
 	modelPublicRegistryReady = true
 	return nil
+}
+
+// IsModelPublicModelVisible reports whether an internal model's display alias
+// is listed in public catalogs. Hidden aliases remain valid compatibility names.
+func IsModelPublicModelVisible(internalName string) bool {
+	modelPublicRegistryMu.RLock()
+	defer modelPublicRegistryMu.RUnlock()
+	visible, exists := modelPublicRegistryData.internalPublicVisible[internalName]
+	return !exists || visible
+}
+
+// IsPublicCatalogNameVisible filters optional branded aliases from public
+// catalogs. Routing aliases and canonical names are visible by default.
+func IsPublicCatalogNameVisible(publicName string) bool {
+	modelPublicRegistryMu.RLock()
+	defer modelPublicRegistryMu.RUnlock()
+	visible, exists := modelPublicRegistryData.publicNameVisible[publicName]
+	return !exists || visible
 }
 
 func matchesAnyPrefix(modelName string, prefixes []string) bool {

@@ -24,7 +24,6 @@ import {
   Pencil,
   Plus,
   Route,
-  Server,
   Store,
   Trash2,
 } from 'lucide-react'
@@ -35,6 +34,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -61,11 +61,13 @@ import { RoutingAliasesCard } from './routing-aliases-card'
 type AliasFormState = {
   internal_name: string
   public_name: string
+  show_in_marketplace: boolean
 }
 
 const emptyAliasForm = (): AliasFormState => ({
   internal_name: '',
   public_name: '',
+  show_in_marketplace: true,
 })
 
 function NamingModelGuide() {
@@ -77,35 +79,34 @@ function NamingModelGuide() {
         <h2 className='text-base font-semibold'>{t('How model names work')}</h2>
         <p className='text-muted-foreground mt-1 text-sm'>
           {t(
-            'These are two independent mappings. They do not overwrite each other.'
+            'Customers use stable API routes by default, or a channel-specific name when they need to select a channel.'
           )}
         </p>
       </div>
       <div className='grid gap-3 lg:grid-cols-2'>
-        <div className='bg-background flex min-w-0 items-center gap-2 border-l-2 border-emerald-500 px-3 py-3'>
-          <Store className='size-4 shrink-0 text-emerald-600' />
-          <div className='min-w-0'>
-            <p className='text-xs font-medium text-emerald-700 dark:text-emerald-400'>
-              {t('Marketplace and responses')}
-            </p>
-            <div className='mt-1 flex flex-wrap items-center gap-2 font-mono text-xs sm:text-sm'>
-              <span>{t('Internal ability')}</span>
-              <ArrowRight className='text-muted-foreground size-3.5' />
-              <span>{t('Marketplace name')}</span>
-            </div>
-          </div>
-        </div>
         <div className='bg-background flex min-w-0 items-center gap-2 border-l-2 border-sky-500 px-3 py-3'>
           <Route className='size-4 shrink-0 text-sky-600' />
           <div className='min-w-0'>
             <p className='text-xs font-medium text-sky-700 dark:text-sky-400'>
-              {t('Client API requests')}
+              {t('Default: stable API route')}
             </p>
             <div className='mt-1 flex flex-wrap items-center gap-2 font-mono text-xs sm:text-sm'>
               <span>{t('Inbound model name')}</span>
               <ArrowRight className='text-muted-foreground size-3.5' />
               <span>{t('Internal ability')}</span>
-              <Server className='text-muted-foreground size-3.5' />
+            </div>
+          </div>
+        </div>
+        <div className='bg-background flex min-w-0 items-center gap-2 border-l-2 border-emerald-500 px-3 py-3'>
+          <Store className='size-4 shrink-0 text-emerald-600' />
+          <div className='min-w-0'>
+            <p className='text-xs font-medium text-emerald-700 dark:text-emerald-400'>
+              {t('Optional: select a channel')}
+            </p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 font-mono text-xs sm:text-sm'>
+              <span>{t('Channel-specific name')}</span>
+              <ArrowRight className='text-muted-foreground size-3.5' />
+              <span>{t('Internal ability')}</span>
             </div>
           </div>
         </div>
@@ -155,6 +156,7 @@ export function ModelNamingSection() {
       const payload = {
         internal_name: form.internal_name.trim(),
         public_name: form.public_name.trim(),
+        hidden_from_marketplace: !form.show_in_marketplace,
       }
       if (editingAlias) {
         return updateModelPublicAlias({ id: editingAlias.id, ...payload })
@@ -167,7 +169,7 @@ export function ModelNamingSection() {
         return
       }
       toast.success(
-        editingAlias ? t('Display name updated') : t('Display name created')
+        editingAlias ? t('Channel name updated') : t('Channel name created')
       )
       setDialogOpen(false)
       setEditingAlias(null)
@@ -186,8 +188,28 @@ export function ModelNamingSection() {
         toast.error(response.message || t('Operation failed'))
         return
       }
-      toast.success(t('Display name deleted'))
+      toast.success(t('Channel name deleted'))
       setDeleteId(null)
+      await invalidateRegistry()
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('Operation failed'))
+    },
+  })
+
+  const visibilityMutation = useMutation({
+    mutationFn: (alias: ModelPublicAlias) =>
+      updateModelPublicAlias({
+        id: alias.id,
+        internal_name: alias.internal_name,
+        public_name: alias.public_name,
+        hidden_from_marketplace: !alias.hidden_from_marketplace,
+      }),
+    onSuccess: async (response) => {
+      if (!response.success) {
+        toast.error(response.message || t('Operation failed'))
+        return
+      }
       await invalidateRegistry()
     },
     onError: (error: Error) => {
@@ -206,6 +228,7 @@ export function ModelNamingSection() {
     setForm({
       internal_name: alias.internal_name,
       public_name: alias.public_name,
+      show_in_marketplace: !alias.hidden_from_marketplace,
     })
     setDialogOpen(true)
   }
@@ -261,19 +284,21 @@ export function ModelNamingSection() {
         </Alert>
       ) : null}
 
+      <RoutingAliasesCard />
+
       <Card>
         <CardHeader className='flex flex-col items-start justify-between gap-3 space-y-0 sm:flex-row sm:items-center'>
           <div>
-            <CardTitle>{t('Marketplace display names')}</CardTitle>
+            <CardTitle>{t('Channel-specific names')}</CardTitle>
             <p className='text-muted-foreground mt-1 text-sm'>
               {t(
-                'Controls the model name shown in the marketplace, pricing, and API responses.'
+                'Direct API names for selecting a specific channel. Visibility only controls the marketplace and model list.'
               )}
             </p>
           </div>
           <Button size='sm' onClick={openCreate}>
             <Plus className='h-4 w-4' />
-            {t('Add display name')}
+            {t('Add channel name')}
           </Button>
         </CardHeader>
         <CardContent className='overflow-x-auto'>
@@ -281,21 +306,22 @@ export function ModelNamingSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('Internal ability')}</TableHead>
-                <TableHead>{t('Marketplace name')}</TableHead>
+                <TableHead>{t('Channel-specific name')}</TableHead>
+                <TableHead>{t('Visible')}</TableHead>
                 <TableHead className='w-[100px]'>{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className='text-muted-foreground'>
+                  <TableCell colSpan={4} className='text-muted-foreground'>
                     {t('Loading...')}
                   </TableCell>
                 </TableRow>
               ) : aliases.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className='text-muted-foreground'>
-                    {t('No marketplace display names configured')}
+                  <TableCell colSpan={4} className='text-muted-foreground'>
+                    {t('No channel-specific names configured')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -308,12 +334,20 @@ export function ModelNamingSection() {
                       {alias.public_name}
                     </TableCell>
                     <TableCell>
+                      <Switch
+                        checked={!alias.hidden_from_marketplace}
+                        disabled={visibilityMutation.isPending}
+                        aria-label={t('Show in marketplace')}
+                        onCheckedChange={() => visibilityMutation.mutate(alias)}
+                      />
+                    </TableCell>
+                    <TableCell>
                       <div className='flex gap-1'>
                         <Button
                           variant='ghost'
                           size='icon'
-                          aria-label={t('Edit marketplace name')}
-                          title={t('Edit marketplace name')}
+                          aria-label={t('Edit channel name')}
+                          title={t('Edit channel name')}
                           onClick={() => openEdit(alias)}
                         >
                           <Pencil className='h-4 w-4' />
@@ -321,8 +355,8 @@ export function ModelNamingSection() {
                         <Button
                           variant='ghost'
                           size='icon'
-                          aria-label={t('Delete marketplace name')}
-                          title={t('Delete marketplace name')}
+                          aria-label={t('Delete channel name')}
+                          title={t('Delete channel name')}
                           onClick={() => setDeleteId(alias.id)}
                         >
                           <Trash2 className='text-destructive h-4 w-4' />
@@ -337,14 +371,10 @@ export function ModelNamingSection() {
         </CardContent>
       </Card>
 
-      <RoutingAliasesCard />
-
       <Dialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={
-          editingAlias ? t('Edit marketplace name') : t('Add marketplace name')
-        }
+        title={editingAlias ? t('Edit channel name') : t('Add channel name')}
         footer={
           <>
             <Button variant='outline' onClick={() => setDialogOpen(false)}>
@@ -378,8 +408,23 @@ export function ModelNamingSection() {
               }
             />
           </div>
+          <div className='flex items-center justify-between gap-4'>
+            <Label htmlFor='show-in-marketplace'>
+              {t('Show in marketplace')}
+            </Label>
+            <Switch
+              id='show-in-marketplace'
+              checked={form.show_in_marketplace}
+              onCheckedChange={(checked) =>
+                setForm((previous) => ({
+                  ...previous,
+                  show_in_marketplace: checked,
+                }))
+              }
+            />
+          </div>
           <div className='space-y-2'>
-            <Label htmlFor='public-name'>{t('Marketplace name')}</Label>
+            <Label htmlFor='public-name'>{t('Channel-specific name')}</Label>
             <Input
               id='public-name'
               placeholder='sd4-seedance-2.5-480p'
@@ -398,7 +443,7 @@ export function ModelNamingSection() {
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
-        title={t('Delete marketplace name')}
+        title={t('Delete channel name')}
         desc={t(
           'Internal models that require an explicit marketplace name will be hidden after deletion.'
         )}

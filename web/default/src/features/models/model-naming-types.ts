@@ -21,6 +21,7 @@ export interface ModelPublicAlias {
   id: number
   internal_name: string
   public_name: string
+  hidden_from_marketplace: boolean
   created_time: number
   updated_time: number
 }

@@ -108,6 +108,37 @@ func TestCreateModelPublicAliasRejectsRoutingName(t *testing.T) {
 	require.Equal(t, "public_name conflicts with a model routing alias", response.Message)
 }
 
+func TestUpdateModelPublicAliasVisibility(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "cy-channel-image", ChannelId: 1, Enabled: true,
+	}).Error)
+	alias := model.ModelPublicAlias{
+		InternalName: "cy-channel-image",
+		PublicName:   "channel-image",
+	}
+	require.NoError(t, alias.Insert())
+
+	response := performModelRoutingAliasRequest(
+		t,
+		http.MethodPut,
+		"/api/model_public_aliases/",
+		`{"id":`+strconv.Itoa(alias.Id)+`,"internal_name":"cy-channel-image","public_name":"channel-image","hidden_from_marketplace":true}`,
+		UpdateModelPublicAlias,
+	)
+	require.True(t, response.Success)
+
+	stored, err := model.GetModelPublicAliasByID(alias.Id)
+	require.NoError(t, err)
+	require.True(t, stored.HiddenFromMarketplace)
+	require.False(t, service.IsModelPublicModelVisible(alias.InternalName))
+
+	internal, clientName, err := service.ResolveInternalModelName(alias.PublicName)
+	require.NoError(t, err)
+	require.Equal(t, alias.InternalName, internal)
+	require.Equal(t, alias.PublicName, clientName)
+}
+
 func TestUpdateAndDeleteModelRoutingAlias(t *testing.T) {
 	db := setupModelListControllerTestDB(t)
 	require.NoError(t, db.Create(&[]model.Ability{

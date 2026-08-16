@@ -154,7 +154,7 @@ export function RoutingAliasesCard() {
           <CardTitle>{t('API inbound routes')}</CardTitle>
           <p className='text-muted-foreground mt-1 text-sm'>
             {t(
-              'Controls where a client model name is routed. It does not rename the marketplace model.'
+              'Primary customer-facing model names shown in the marketplace and model list. Change the target to switch the default channel.'
             )}
           </p>
         </div>

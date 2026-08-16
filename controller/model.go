@@ -289,6 +289,13 @@ func ListModels(c *gin.Context, modelType int) {
 			userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(public, internal, ownerByModel))
 		}
 		userOpenAiModels = service.AppendRoutingAliasOpenAIModels(userOpenAiModels, userModelNames)
+		visibleModels := make([]dto.OpenAIModels, 0, len(userOpenAiModels))
+		for _, item := range userOpenAiModels {
+			if service.IsPublicCatalogNameVisible(item.Id) {
+				visibleModels = append(visibleModels, item)
+			}
+		}
+		userOpenAiModels = visibleModels
 	} else {
 		userOpenAiModels = make([]dto.OpenAIModels, 0, len(userModelNames))
 		for _, modelName := range userModelNames {

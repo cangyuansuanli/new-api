@@ -37,14 +37,20 @@ export async function listModelPublicAliases(): Promise<ModelPublicAlias[]> {
 }
 
 export async function createModelPublicAlias(
-  data: Pick<ModelPublicAlias, 'internal_name' | 'public_name'>
+  data: Pick<
+    ModelPublicAlias,
+    'internal_name' | 'public_name' | 'hidden_from_marketplace'
+  >
 ): Promise<ApiListResponse<ModelPublicAlias>> {
   const res = await api.post('/api/model_public_aliases/', data)
   return res.data
 }
 
 export async function updateModelPublicAlias(
-  data: Pick<ModelPublicAlias, 'id' | 'internal_name' | 'public_name'>
+  data: Pick<
+    ModelPublicAlias,
+    'id' | 'internal_name' | 'public_name' | 'hidden_from_marketplace'
+  >
 ): Promise<ApiListResponse<ModelPublicAlias>> {
   const res = await api.put('/api/model_public_aliases/', data)
   return res.data
