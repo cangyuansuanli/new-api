@@ -26,6 +26,8 @@ relay/channel/task/oaivideo/
 
 ## 统一轮询流水线
 
+统一视频提交先完成渠道模型映射，再按 internal/upstream 模型解析并持久化 `task_vendor`，最后只初始化一次最终 vendor。校验、计费、请求构造和响应解析必须使用同一 vendor；禁止在模型映射前初始化默认 delegate 后继续使用映射后的 provider delegate。`defaultvideo` 及其嵌入方不得缓存 Base URL 或 API Key，出站必须从当前请求的 `RelayInfo` 读取，避免渠道重试或 vendor 切换复用过期连接信息。
+
 所有视频模型共用 [`service/task_polling.go`](../service/task_polling.go) 中的 `TaskPollingLoop`（每 15 秒）：
 
 1. `FetchTask` — 新任务使用提交时持久化的 `properties.task_vendor` 选择 vendor；历史任务缺少该字段时，才使用 channel ID + internal/upstream 模型恢复。标准线路、Geeknow Grok 与 Seqnode 请求 `GET {baseUrl}/v1/videos/{upstream_task_id}`，119337 Grok 请求 `/v1/video/generations/{upstream_task_id}`

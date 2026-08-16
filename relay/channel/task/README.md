@@ -18,6 +18,8 @@
 
 共用对外 API（`POST/GET /v1/videos`）。渠道分发与模型映射完成后，registry 一次性确定出站 vendor 并持久化到任务；后续生命周期不再按模型名重新猜协议：
 
+提交阶段的固定顺序是：模型映射 → vendor 解析/持久化 → 单次初始化 → vendor 校验 → 计费与出站。默认适配器不缓存 Base URL/API Key，所有继承方均从当前 `RelayInfo` 读取连接信息；不得恢复“映射前初始化默认 delegate、映射后切换 provider delegate”的两阶段行为。
+
 ```
 oaivideo/
 ├── router/          # 门面：GetTaskAdaptor 返回 RouterAdaptor

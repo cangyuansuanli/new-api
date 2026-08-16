@@ -102,7 +102,6 @@ SET api_doc = jsonb_build_object(
             jsonb_build_object('name', 'aspect_ratio', 'description', '21:9、16:9、4:3、1:1、3:4 或 9:16。'),
             jsonb_build_object('name', 'duration', 'description', '整数 5–15 秒。'),
             jsonb_build_object('name', 'resolution', 'description', format('由当前 SKU 固定为 %s，请求值会被渠道覆盖。', v.resolution)),
-            jsonb_build_object('name', 'generate_audio', 'description', '是否生成原生音频；首尾帧模式不可用。'),
             jsonb_build_object('name', 'reference_image_urls', 'description', '参考图 URL 数组，最多 5 张，PNG/JPG/WEBP，单张最大 25MB。'),
             jsonb_build_object('name', 'reference_videos', 'description', '参考视频 URL 数组，最多 3 条；MP4/MOV，单条 2–15 秒、合计最多 15 秒，432–2160px，24–60 FPS。'),
             jsonb_build_object('name', 'reference_audios', 'description', '参考音频 URL 数组，最多 3 条；MP3/WAV，单条 2–15 秒、合计最多 15 秒。使用时必须同时提供至少 1 条参考视频。'),

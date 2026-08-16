@@ -137,7 +137,7 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 }
 
 // RelayTaskSubmit 完成 task 提交的全部流程（每次尝试调用一次）：
-// 刷新渠道元数据 → 确定 platform/adaptor → 验证请求 →
+// 刷新渠道元数据 → 确定 platform/adaptor → 映射视频 vendor → 验证请求 →
 // 估算计费(EstimateBilling) → 计算价格 → 预扣费（仅首次）→
 // 构建/发送/解析上游请求 → 提交后计费调整(AdjustBillingOnSubmit)。
 // 控制器负责 defer Refund 和成功后 Settle。
@@ -147,7 +147,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// the current distributed channel and must be resolved again per attempt.
 	info.TaskVendor = ""
 
-	// 1. 确定 platform → 创建适配器 → 验证请求
+	// 1. 确定 platform → 创建适配器
 	platform := constant.TaskPlatform(c.GetString("platform"))
 	if platform == "" {
 		platform = GetTaskPlatform(c)
@@ -156,25 +156,30 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if adaptor == nil {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("invalid api platform: %s", platform), "invalid_api_platform", http.StatusBadRequest)
 	}
-	adaptor.Init(info)
-	if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
-		return nil, taskErr
-	}
 
-	// 2. 确定模型名称
+	// 2. 映射模型并初始化最终适配器。统一视频路由必须先解析 vendor，
+	// 避免先初始化默认 delegate、映射后却切到未初始化的 provider delegate。
 	modelName := info.OriginModelName
-	if modelName == "" {
-		modelName = service.CoverTaskActionToModelName(platform, info.Action)
-	}
-
-	// 2.5 应用渠道的模型映射（与同步任务对齐）
-	info.OriginModelName = modelName
-	info.UpstreamModelName = modelName
-	if err := helper.ModelMappedHelper(c, info, nil); err != nil {
-		return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
-	}
-	if resolver, ok := adaptor.(channel.TaskVendorResolver); ok {
-		info.TaskVendor = resolver.ResolveTaskVendor(info)
+	if resolver, routed := adaptor.(channel.TaskVendorResolver); routed {
+		if modelName == "" {
+			modelName = service.CoverTaskActionToModelName(platform, info.Action)
+		}
+		if taskErr := prepareRoutedTaskAdaptor(c, adaptor, resolver, info, modelName); taskErr != nil {
+			return nil, taskErr
+		}
+	} else {
+		adaptor.Init(info)
+		if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
+			return nil, taskErr
+		}
+		if modelName == "" {
+			modelName = service.CoverTaskActionToModelName(platform, info.Action)
+		}
+		info.OriginModelName = modelName
+		info.UpstreamModelName = modelName
+		if err := helper.ModelMappedHelper(c, info, nil); err != nil {
+			return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
+		}
 	}
 
 	// 3. 预生成公开 task ID（仅首次）
@@ -261,6 +266,23 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		Platform:       platform,
 		Quota:          finalQuota,
 	}, nil
+}
+
+func prepareRoutedTaskAdaptor(
+	c *gin.Context,
+	adaptor channel.TaskAdaptor,
+	resolver channel.TaskVendorResolver,
+	info *relaycommon.RelayInfo,
+	modelName string,
+) *dto.TaskError {
+	info.OriginModelName = modelName
+	info.UpstreamModelName = modelName
+	if err := helper.ModelMappedHelper(c, info, nil); err != nil {
+		return service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
+	}
+	info.TaskVendor = resolver.ResolveTaskVendor(info)
+	adaptor.Init(info)
+	return adaptor.ValidateRequestAndSetAction(c, info)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。

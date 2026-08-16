@@ -51,7 +51,7 @@ vendor 只接受下表完整的 internal/upstream 配对，不使用 `cy-sd4-*` 
 
 - Seedance 2.0：`video-tpl-seedance-subscription-async`（别名映射见 `service/client_facing_pricing.go`）
 - Seedance 2.5：`video-tpl-seedance-2.5-subscription-async`（exact match；最多 30 图 / 10 视频 / 10 音频，视频和音频单条及合计时长上限 30.2 秒）
-- MiniMax3 三档：`video-tpl-minimax-h3-2k-async`（历史 profile ID，exact match 三个 SKU；含 **原生音频** `generateAudio` → 请求体 `audio`）
+- MiniMax3 三档：`video-tpl-minimax-h3-2k-async`（历史 profile ID，exact match 三个 SKU；真实网页没有声音开关，因此 Profile 隐藏 `generateAudio`，客户请求不发送该字段）
 
 `referenceLimits` 与 leonardo-web2api 模型文档常量表对齐，仅作表单提示。
 MiniMax3 为 **5 图 / 3 视频 / 3 音频**；视频与音频单条 2–15 秒、各自合计 ≤15 秒。不带参考音频时参考视频可为 0；使用参考音频时，必须同时提供至少 1 条参考视频。
@@ -82,9 +82,9 @@ leonardo-web2api 在入队与 worker 阶段校验；NewAPI 只负责 flat 请求
 | `cy-sd4-seedance-2.0` / `-fast` / `-mini` | 480p/720p，4–15s | 支持 | 支持 | 支持 | 支持首尾帧；参考视频不改变 Leonardo 费率 |
 | `cy-sd4-seedance-2.5-480p` | 480p，4–30s | 最多 30 | 最多 10，单条/合计 ≤30.2s | 最多 10，单条/合计 ≤30.2s | 支持首尾帧；有参考视频费率变为 258/s |
 | `cy-sd4-seedance-2.5-720p` | 720p：无参考视频 4–29s，带参考视频 4–18s | 最多 30 | 最多 10，单条/合计 ≤30.2s | 最多 10，单条/合计 ≤30.2s | 支持首尾帧；有参考视频费率变为 466/s |
-| `cy-sd4-minimax-h3-768p` | 768p，5–15s | 最多 5 | 最多 3，单条/合计 2–15s、合计 ≤15s | 最多 3，单条/合计 2–15s、合计 ≤15s | 支持首尾帧；首尾帧不支持音频；有音频参考时至少 1 条视频参考 |
-| `cy-sd4-minimax-h3-2k` | 2K，5–15s | 最多 5 | 同上 | 同上 | 支持首尾帧；首尾帧不支持音频；SKU 强制 2K |
-| `cy-sd4-minimax-h3-4k` | 4K，5–15s | 最多 5 | 同上 | 同上 | 支持首尾帧；首尾帧不支持音频；SKU 强制 4K |
+| `cy-sd4-minimax-h3-768p` | 768p，5–15s | 最多 5 | 最多 3，单条/合计 2–15s、合计 ≤15s | 最多 3，单条/合计 2–15s、合计 ≤15s | 支持首尾帧；有音频参考时至少 1 条视频参考；客户不传 `generate_audio` |
+| `cy-sd4-minimax-h3-2k` | 2K，5–15s | 最多 5 | 同上 | 同上 | 支持首尾帧；客户不传 `generate_audio`；SKU 强制 2K |
+| `cy-sd4-minimax-h3-4k` | 4K，5–15s | 最多 5 | 同上 | 同上 | 支持首尾帧；客户不传 `generate_audio`；SKU 强制 4K |
 | `cy-sd4-happyhouse-1.1` | HD/FHD，3–15s | 最多 9 | 不支持 | 不支持 | 支持首帧；不支持尾帧 |
 | `cy-sd4-happyhouse-1.0` | HD/FHD，3–15s | 无视频时最多 9；有视频时最多 5 | 最多 1，3–10s | 不支持 | 支持首帧；不支持尾帧；有视频时网页隐藏输出档位 |
 
