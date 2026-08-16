@@ -14,10 +14,10 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/geeknowgrok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/grok"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancehuabu"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancemagica"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancehuabu"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -39,6 +39,8 @@ func TestRouterAdaptor_DelegateFor(t *testing.T) {
 		{"cy-sd8-seedance-2.0", "sd2.0-933", "seedance-huabu"},
 		{"cy-sd8-seedance-2.0-fast", "sd-2.0-fast-v1", "seedance-huabu"},
 		{"cy-sd4-minimax-h3-2k", "hailuo-03", "seedance-leonardo"},
+		{"cy-sd4-minimax-h3-768p", "hailuo-03", "seedance-leonardo"},
+		{"cy-sd4-minimax-h3-4k", "hailuo-03", "seedance-leonardo"},
 		{"cy-sd5-seedance-2.0-fast", "seedance-2.0-fast", "adobe"},
 		{"cy-sd2-seedance-2.0", "manxue-2.0", "seedance-tengda"},
 		{"cy-vid2-sora-2", "cy-vid2-sora-2", "chat"},

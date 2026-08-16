@@ -30,7 +30,8 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 }
 
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
-	if _, ok := seedance25Resolution(info.OriginModelName); !ok {
+	resolution, ok := seedance25Resolution(info.OriginModelName)
+	if !ok {
 		return nil
 	}
 	req, err := relaycommon.GetTaskRequest(c)
@@ -41,11 +42,22 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	if seconds <= 0 {
 		seconds = 8
 	}
-	return map[string]float64{"seconds": float64(seconds)}
+	ratios := map[string]float64{"seconds": float64(seconds)}
+	if len(req.ReferenceVideos) > 0 {
+		// Leonardo changes the output rate when a reference video is present.
+		// Keep this model-specific multiplier in OtherRatios so settlement uses
+		// the same rate as the web quote without affecting other video models.
+		if resolution == "480p" {
+			ratios["reference_video_rate"] = 258.0 / 180.0
+		} else {
+			ratios["reference_video_rate"] = 466.0 / 292.0
+		}
+	}
+	return ratios
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
-	forcedResolution, forceResolution := seedance25Resolution(info.OriginModelName)
+	forcedResolution, forceResolution := fixedResolution(info.OriginModelName)
 	contentType := strings.ToLower(c.Request.Header.Get("Content-Type"))
 	if strings.HasPrefix(contentType, "application/json") {
 		req, err := relaycommon.GetTaskRequest(c)

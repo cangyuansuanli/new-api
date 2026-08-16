@@ -75,17 +75,18 @@ SELECT
             jsonb_build_object('name', 'duration', 'description', '成片时长，3–15 秒整数。'),
             jsonb_build_object('name', 'resolution', 'description', '720p 或 1080p。'),
             jsonb_build_object('name', 'aspect_ratio', 'description', '16:9、9:16、1:1、3:4 或 4:3。'),
-            jsonb_build_object('name', 'audio', 'description', '是否生成原生音频，默认 true。'),
-            jsonb_build_object('name', 'reference_image_urls', 'description', v.image_help),
+            jsonb_build_object('name', 'generate_audio', 'description', '是否生成原生音频，默认 true。'),
+            jsonb_build_object('name', 'reference_image_urls', 'description', v.image_help)
+        ) || CASE WHEN v.supports_video THEN jsonb_build_array(
             jsonb_build_object('name', 'reference_videos', 'description', v.video_help)
-        ),
+        ) ELSE '[]'::jsonb END,
         'basic_request_json', jsonb_build_object(
             'model', v.public_name,
             'prompt', '雨夜城市街道，镜头平稳向前推进，电影感光影',
             'duration', 4,
             'resolution', '720p',
             'aspect_ratio', '16:9',
-            'audio', true
+            'generate_audio', true
         ),
         'request_json', jsonb_build_object(
             'model', v.public_name,
@@ -93,7 +94,7 @@ SELECT
             'duration', 4,
             'resolution', '720p',
             'aspect_ratio', '16:9',
-            'audio', true
+            'generate_audio', true
         ),
         'create_response_json', jsonb_build_object('id', 'video_42', 'status', 'queued', 'progress', 0),
         'query_response_json', jsonb_build_object('id', 'video_42', 'status', 'completed', 'progress', 100, 'video_url', 'https://example.com/output.mp4')
@@ -106,7 +107,7 @@ FROM (VALUES
         'video,audio,multi-reference',
         'Happy House 1.1 异步视频。按条计费；失败不计费。',
         '参考图 URL 数组，最多 9 张；支持 PNG/JPG/WEBP，单张不超过 25MB。',
-        '不支持，请勿传此字段。'
+        '不支持，请勿传此字段。', false
     ),
     (
         'cy-sd4-happyhouse-1.0', 'happyhouse-1.0', 'video-tpl-happyhouse-1.0-async',
@@ -114,9 +115,9 @@ FROM (VALUES
         'video,audio,multi-reference',
         'Happy House 1.0 异步视频。按条计费；失败不计费。',
         '参考图 URL 数组，最多 9 张；带参考视频时最多 5 张。支持 PNG/JPG/WEBP，单张不超过 25MB。',
-        '可选 1 个 MP4/MOV 公网 HTTPS 直链，不超过 200MB，3–10 秒。'
+        '可选 1 个 MP4/MOV 公网 HTTPS 直链，不超过 200MB，3–10 秒。', true
     )
-) AS v(model_name, public_name, profile_id, description, tags, intro, image_help, video_help)
+) AS v(model_name, public_name, profile_id, description, tags, intro, image_help, video_help, supports_video)
 WHERE NOT EXISTS (
     SELECT 1 FROM models m WHERE m.model_name = v.model_name AND m.deleted_at IS NULL
 );

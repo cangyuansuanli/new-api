@@ -24,10 +24,10 @@ INSERT INTO model_ui_param_profiles (
     FALSE,
     '',
     '{}',
-    '{"images":10,"videos":3,"audios":1,"imageMaxBytes":26214400,"videoMaxBytes":209715200,"audioMaxBytes":15728640,"video":{"maxDurationMs":30200,"totalMaxDurationMs":30200},"audio":{"maxDurationMs":30200},"fullReferenceMode":{"label":"多模态","descriptionWithImages":"多模态：图 + 可选视频/音频"},"validationHint":"参考图 png/jpg/webp ≤25MB（最多 10）；参考视频 mp4/mov ≤200MB，最多 3 条且单条/总时长 ≤30.2 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、最多 1 条且 ≤30.2 秒。","showTempMediaHint":true,"prependReferenceGuide":true}',
+    '{"images":30,"videos":10,"audios":10,"imageMaxBytes":26214400,"videoMaxBytes":209715200,"audioMaxBytes":15728640,"video":{"maxDurationMs":30200,"totalMaxDurationMs":30200},"audio":{"maxDurationMs":30200,"totalMaxDurationMs":30200},"fullReferenceMode":{"label":"多模态","descriptionWithImages":"多模态：图 + 可选视频/音频"},"validationHint":"参考图 png/jpg/webp ≤25MB（最多 30）；参考视频 mp4/mov ≤200MB，最多 10 条且单条/总时长 ≤30.2 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、最多 10 条且单条/总时长 ≤30.2 秒。","showTempMediaHint":true,"prependReferenceGuide":true}',
     '{"resolution":{"enabled":false},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"21:9","label":"宽银幕"},{"value":"3:4","label":"3:4"},{"value":"4:3","label":"4:3"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29],"min":4,"max":29},"generateAudio":{"enabled":true,"hint":"是否生成原生音频，默认开启"},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧与多模态（参考图/视频/音频）二选一；成对指定 first + last"}}',
     '[]',
-    '[{"text":"模型名决定固定清晰度，按秒计费；480p 最长 30 秒（API），720p 最长 29 秒。"},{"text":"最多 10 图 / 3 视频 / 1 音频；参考视频和音频单条及合计均不超过 30.2 秒。"}]',
+    '[{"text":"模型名决定固定清晰度，按秒计费；480p 最长 30 秒（API），720p 最长 29 秒。"},{"text":"最多 30 图 / 10 视频 / 10 音频；参考视频和音频单条及合计均不超过 30.2 秒。"}]',
     'Seedance 2.5 两档固定清晰度 SKU；exact model match。',
     EXTRACT(EPOCH FROM NOW())::BIGINT,
     EXTRACT(EPOCH FROM NOW())::BIGINT
@@ -138,18 +138,19 @@ UPDATE models AS m SET
         'params', jsonb_build_array(
             jsonb_build_object('name', 'model', 'description', format('必填，当前固定 %s 的模型名称。', v.resolution)),
             jsonb_build_object('name', 'prompt', 'description', '必填，视频内容描述，最多 5000 个 Unicode 字符。'),
-            jsonb_build_object('name', 'duration / seconds', 'description', format('整数 4–%s 秒，默认 8；两个字段是兼容别名。', v.max_seconds)),
+            jsonb_build_object('name', 'duration', 'description', format('整数 4–%s 秒，默认 8。', v.max_seconds)),
             jsonb_build_object('name', 'aspect_ratio', 'description', '21:9、16:9、4:3、1:1、3:4 或 9:16。'),
             jsonb_build_object('name', 'generate_audio', 'description', '是否生成原生音频，布尔值，默认 true。'),
-            jsonb_build_object('name', 'reference_image_urls', 'description', '参考图 URL 数组，最多 10 张。'),
-            jsonb_build_object('name', 'reference_videos', 'description', '参考视频 URL 数组，最多 3 条，单条和合计均不超过 30.2 秒。'),
-            jsonb_build_object('name', 'reference_audios', 'description', '参考音频 URL 数组，最多 1 条，不超过 30.2 秒。'),
-            jsonb_build_object('name', 'first_image_url / last_image_url', 'description', '首尾帧必须成对提供，并与多模态参考素材互斥。')
+            jsonb_build_object('name', 'reference_image_urls', 'description', '参考图 URL 数组，最多 30 张。'),
+            jsonb_build_object('name', 'reference_videos', 'description', '参考视频 URL 数组，最多 10 条，单条和合计均不超过 30.2 秒。'),
+            jsonb_build_object('name', 'reference_audios', 'description', '参考音频 URL 数组，最多 10 条，单条和合计均不超过 30.2 秒。'),
+            jsonb_build_object('name', 'first_image_url', 'description', '首帧 URL；必须与 last_image_url 成对提供，并与多模态参考素材互斥。'),
+            jsonb_build_object('name', 'last_image_url', 'description', '尾帧 URL；必须与 first_image_url 成对提供，并与多模态参考素材互斥。')
         ),
         'basic_request_json', jsonb_build_object(
             'model', '{{model}}',
             'prompt', 'A calm blue sphere floating in a white studio',
-            'seconds', '4',
+            'duration', 4,
             'aspect_ratio', '16:9',
             'generate_audio', false
         ),

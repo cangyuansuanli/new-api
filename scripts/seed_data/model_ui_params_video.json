@@ -2687,9 +2687,9 @@
                 "cy-sd4-seedance-2.5-720p"
             ],
             "referenceLimits": {
-                "images": 10,
-                "videos": 3,
-                "audios": 1,
+                "images": 30,
+                "videos": 10,
+                "audios": 10,
                 "imageMaxBytes": 26214400,
                 "videoMaxBytes": 209715200,
                 "audioMaxBytes": 15728640,
@@ -2698,13 +2698,14 @@
                     "totalMaxDurationMs": 30200
                 },
                 "audio": {
-                    "maxDurationMs": 30200
+                    "maxDurationMs": 30200,
+                    "totalMaxDurationMs": 30200
                 },
                 "fullReferenceMode": {
                     "label": "多模态",
                     "descriptionWithImages": "多模态：图 + 可选视频/音频"
                 },
-                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 10）；参考视频 mp4/mov ≤200MB，最多 3 条且单条/总时长 ≤30.2 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、最多 1 条且 ≤30.2 秒。",
+                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 30）；参考视频 mp4/mov ≤200MB，最多 10 条且单条/总时长 ≤30.2 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、最多 10 条且单条/总时长 ≤30.2 秒。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -2797,7 +2798,7 @@
                     "text": "模型名决定固定清晰度，按秒计费；480p 最长 30 秒（API），720p 最长 29 秒。"
                 },
                 {
-                    "text": "最多 10 图 / 3 视频 / 1 音频；参考视频和音频单条及合计均不超过 30.2 秒。"
+                    "text": "最多 30 图 / 10 视频 / 10 音频；参考视频和音频单条及合计均不超过 30.2 秒。"
                 }
             ],
             "wireFormat": "json-flat",
@@ -3038,36 +3039,40 @@
             "id": "video-tpl-minimax-h3-2k-async",
             "apiMode": "videos-json-async",
             "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
             "match": [
-                "cy-sd4-minimax-h3"
+                "cy-sd4-minimax-h3-768p",
+                "cy-sd4-minimax-h3-2k",
+                "cy-sd4-minimax-h3-4k"
             ],
             "referenceLimits": {
                 "images": 5,
-                "videos": 0,
+                "videos": 3,
                 "audios": 3,
                 "imageMaxBytes": 26214400,
+                "videoMaxBytes": 209715200,
                 "audioMaxBytes": 15728640,
+                "video": {
+                    "minDurationMs": 2000,
+                    "maxDurationMs": 15000,
+                    "totalMaxDurationMs": 15000
+                },
                 "audio": {
+                    "minDurationMs": 2000,
                     "maxDurationMs": 15000,
                     "totalMaxDurationMs": 15000
                 },
                 "fullReferenceMode": {
                     "label": "多模态",
-                    "descriptionWithImages": "多模态：参考图 + 可选参考音频（不支持参考视频）"
+                    "descriptionWithImages": "多模态：参考图/视频 + 可选参考音频"
                 },
-                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 5）；参考音频 mp3/wav ≤15MB，最多 3 段、合计 ≤15 秒。不支持参考视频。提交后由平台校验。",
+                "validationHint": "参考图 png/jpg/webp ≤25MB（最多 5）；参考视频 mp4/mov ≤200MB，最多 3 条，单条 2–15 秒、合计 ≤15 秒，宽高各 432–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB，最多 3 条，单条 2–15 秒、合计 ≤15 秒。使用参考音频时，必须同时提供至少 1 条参考视频。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
             "params": {
                 "resolution": {
-                    "enabled": true,
-                    "options": [
-                        {
-                            "value": "2k",
-                            "label": "2K"
-                        }
-                    ]
+                    "enabled": false
                 },
                 "ratio": {
                     "enabled": true,
@@ -3131,12 +3136,15 @@
                 },
                 "frameInputs": {
                     "enabled": true,
-                    "hint": "首尾帧与多模态（参考图/音频）二选一；首尾帧下不可开原生音频"
+                    "hint": "首尾帧与多模态（参考图/视频/音频）二选一；首尾帧下不可开原生音频"
                 }
             },
             "hints": [
                 {
-                    "text": "2K 成片，约 140 积分/秒；多模态 5 图 / 3 音频（合计 ≤15 秒）；与首尾帧互斥。"
+                    "text": "模型名决定固定清晰度：768p / 2K / 4K；多模态最多 5 图 / 3 视频 / 3 音频。"
+                },
+                {
+                    "text": "视频与音频单条均 2–15 秒、各自合计 ≤15 秒；使用参考音频时必须同时提供至少 1 条参考视频。"
                 }
             ],
             "wireFormat": "json-flat",

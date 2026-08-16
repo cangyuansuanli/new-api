@@ -90,20 +90,26 @@ func TestBuildUpstreamBody_UsesNormalizedReferenceImages(t *testing.T) {
 }
 
 func TestIsRelay(t *testing.T) {
-	if !IsRelay("cy-sd4-seedance-2.0") {
+	if !IsRelay("cy-sd4-seedance-2.0", "seedance-2.0") {
 		t.Fatal("expected leonardo relay")
 	}
-	if !IsRelay("cy-sd4-minimax-h3-2k") {
+	if !IsRelay("cy-sd4-minimax-h3-2k", "hailuo-03") {
 		t.Fatal("expected minimax h3 relay")
 	}
-	if !IsRelay("cy-sd4-happyhouse-1.0") || !IsRelay("cy-sd4-happyhouse-1.1") {
+	if !IsRelay("cy-sd4-minimax-h3-768p", "hailuo-03") || !IsRelay("cy-sd4-minimax-h3-4k", "hailuo-03") {
+		t.Fatal("expected all minimax3 resolution SKUs to use leonardo relay")
+	}
+	if !IsRelay("cy-sd4-happyhouse-1.0", "happy-horse") || !IsRelay("cy-sd4-happyhouse-1.1", "happy-horse-1.1") {
 		t.Fatal("expected happyhouse relay")
 	}
-	if IsRelay("cy-sd4-happyhouse") {
+	if IsRelay("cy-sd4-happyhouse", "happy-horse") {
 		t.Fatal("happyhouse family without a version must not match")
 	}
-	if IsRelay("cy-sd1-seedance-2.0-720p") {
+	if IsRelay("cy-sd1-seedance-2.0-720p", "seedance-2.0") {
 		t.Fatal("cy-sd1 must not match leonardo")
+	}
+	if IsRelay("cy-sd4-seedance-2.0", "seedance-2.0-fast") || IsRelay("cy-sd4-minimax-h3-4k", "seedance-2.5") {
+		t.Fatal("mismatched internal/upstream pair must not use leonardo relay")
 	}
 }
 
@@ -121,6 +127,21 @@ func TestEstimateBilling_Seedance25UsesSecondsOnly(t *testing.T) {
 	}
 }
 
+func TestEstimateBilling_Seedance25ReferenceVideoRate(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 10, ReferenceVideos: []string{"https://cdn.example/ref.mp4"}})
+	adaptor := &TaskAdaptor{}
+
+	got := adaptor.EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: seedance25Model480})
+	if got["seconds"] != 10 || got["reference_video_rate"] != 258.0/180.0 {
+		t.Fatalf("unexpected 480p reference billing ratios: %#v", got)
+	}
+	got = adaptor.EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: seedance25Model720})
+	if got["seconds"] != 10 || got["reference_video_rate"] != 466.0/292.0 {
+		t.Fatalf("unexpected 720p reference billing ratios: %#v", got)
+	}
+}
+
 func TestEstimateBilling_Seedance25DefaultsToEightSeconds(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Set("task_request", relaycommon.TaskSubmitReq{})
@@ -130,14 +151,18 @@ func TestEstimateBilling_Seedance25DefaultsToEightSeconds(t *testing.T) {
 	}
 }
 
-func TestBuildRequestBody_Seedance25ForcesJSONResolution(t *testing.T) {
+func TestBuildRequestBody_FixedSKUForcesJSONResolution(t *testing.T) {
 	for _, tc := range []struct {
 		model      string
+		upstream   string
 		requested  string
 		resolution string
 	}{
-		{seedance25Model480, "720p", "480p"},
-		{seedance25Model720, "480p", "720p"},
+		{seedance25Model480, "seedance-2.5", "720p", "480p"},
+		{seedance25Model720, "seedance-2.5", "480p", "720p"},
+		{minimax3Model768, "hailuo-03", "4k", "768p"},
+		{minimax3Model2K, "hailuo-03", "768p", "2k"},
+		{minimax3Model4K, "hailuo-03", "2k", "4k"},
 	} {
 		t.Run(tc.model, func(t *testing.T) {
 			body := []byte(`{"model":"ignored","prompt":"test","duration":4,"resolution":"` + tc.requested + `"}`)
@@ -149,7 +174,7 @@ func TestBuildRequestBody_Seedance25ForcesJSONResolution(t *testing.T) {
 			reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
 				OriginModelName: tc.model,
 				ChannelMeta: &relaycommon.ChannelMeta{
-					UpstreamModelName: "seedance-2.5",
+					UpstreamModelName: tc.upstream,
 				},
 			})
 			if err != nil {
@@ -170,7 +195,7 @@ func TestBuildRequestBody_Seedance25ForcesJSONResolution(t *testing.T) {
 	}
 }
 
-func TestBuildRequestBody_Seedance25ForcesMultipartResolution(t *testing.T) {
+func TestBuildRequestBody_FixedSKUForcesMultipartResolution(t *testing.T) {
 	c := multipartContextWithFields(t, "4", map[string][]string{"resolution": {"720p"}})
 	c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 4, Resolution: "720p"})
 	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
@@ -193,6 +218,32 @@ func TestBuildRequestBody_Seedance25ForcesMultipartResolution(t *testing.T) {
 	}
 	if got := req.FormValue("resolution"); got != "480p" {
 		t.Fatalf("resolution = %q, want 480p", got)
+	}
+}
+
+func TestBuildRequestBody_Minimax4KForcesMultipartResolution(t *testing.T) {
+	c := multipartContextWithFields(t, "5", map[string][]string{"resolution": {"768p"}})
+	c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 5, Resolution: "768p"})
+	reader, err := (&TaskAdaptor{}).BuildRequestBody(c, &relaycommon.RelayInfo{
+		OriginModelName: minimax3Model4K,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "hailuo-03",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	raw, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	req := httptest.NewRequest("POST", "/v1/videos", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	if err := req.ParseMultipartForm(1 << 20); err != nil {
+		t.Fatalf("parse output: %v", err)
+	}
+	if got := req.FormValue("resolution"); got != "4k" {
+		t.Fatalf("resolution = %q, want 4k", got)
 	}
 }
 
