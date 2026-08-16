@@ -17,16 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-export interface ModelChannelPrefix {
-  id: number
-  prefix: string
-  note?: string
-  enabled: boolean
-  sort_order: number
-  created_time: number
-  updated_time: number
-}
-
 export interface ModelPublicAlias {
   id: number
   internal_name: string
@@ -35,14 +25,25 @@ export interface ModelPublicAlias {
   updated_time: number
 }
 
+export interface ModelRoutingAlias {
+  id: number
+  public_name: string
+  internal_name: string
+  note?: string
+  created_time: number
+  updated_time: number
+}
+
 export interface ModelPublicNameRegistryStatus {
   ready: boolean
   collisions: Record<string, string[]>
+  missing_aliases: string[]
 }
 
 export const modelNamingQueryKeys = {
   all: ['model-naming'] as const,
-  prefixes: () => [...modelNamingQueryKeys.all, 'prefixes'] as const,
   aliases: () => [...modelNamingQueryKeys.all, 'aliases'] as const,
+  routingAliases: () =>
+    [...modelNamingQueryKeys.all, 'routing-aliases'] as const,
   status: () => [...modelNamingQueryKeys.all, 'status'] as const,
 }

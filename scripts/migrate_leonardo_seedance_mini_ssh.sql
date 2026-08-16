@@ -58,4 +58,17 @@ FROM (VALUES
 ) AS v(model_name, description, tags, endpoints, video_profile_id)
 WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 
+-- 与 SD4 standard / fast 保持一致的模型广场展示名。
+INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
+VALUES (
+    'cy-sd4-seedance-2.0-mini',
+    'sd4-seedance-2.0-mini',
+    EXTRACT(EPOCH FROM NOW())::BIGINT,
+    EXTRACT(EPOCH FROM NOW())::BIGINT
+)
+ON CONFLICT (internal_name) DO UPDATE SET
+    public_name = EXCLUDED.public_name,
+    deleted_at = NULL,
+    updated_time = EXCLUDED.updated_time;
+
 COMMIT;

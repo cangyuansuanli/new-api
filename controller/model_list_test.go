@@ -51,6 +51,7 @@ func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
 		&model.Model{},
 		&model.Vendor{},
 		&model.ModelPublicAlias{},
+		&model.ModelRoutingAlias{},
 		&model.ModelChannelPrefix{},
 	))
 	require.NoError(t, db.Create(&model.Channel{
@@ -223,6 +224,31 @@ func TestListModelsIncludesTieredBillingModel(t *testing.T) {
 	require.True(t, ok)
 	require.Empty(t, missingExprPricing.BillingMode)
 	require.Empty(t, missingExprPricing.BillingExpr)
+}
+
+func TestRegisteredInternalPrefixRequiresExplicitPublicAlias(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.ModelChannelPrefix{
+		Prefix: "cy-test-", Enabled: true, SortOrder: 100,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "cy-test-video", ChannelId: 1, Enabled: true,
+	}).Error)
+
+	require.NoError(t, service.RefreshModelPublicNameRegistry())
+	require.Empty(t, service.ToPublicModelName("cy-test-video"))
+	_, missingAliases, ready := service.GetModelPublicNameRegistryStatus()
+	require.True(t, ready)
+	require.Equal(t, []string{"cy-test-video"}, missingAliases)
+
+	require.NoError(t, db.Create(&model.ModelPublicAlias{
+		InternalName: "cy-test-video", PublicName: "test-video",
+	}).Error)
+	require.NoError(t, service.RefreshModelPublicNameRegistry())
+	require.Equal(t, "test-video", service.ToPublicModelName("cy-test-video"))
+	_, missingAliases, ready = service.GetModelPublicNameRegistryStatus()
+	require.True(t, ready)
+	require.Empty(t, missingAliases)
 }
 
 func TestPricingAndModelListIgnoreEnabledAbilitiesFromDisabledChannels(t *testing.T) {

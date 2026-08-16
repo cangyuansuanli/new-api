@@ -18,13 +18,21 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Pencil,
+  Plus,
+  Route,
+  Server,
+  Store,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -37,82 +45,89 @@ import {
 } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
-import { StatusBadge } from '@/components/status-badge'
 import {
-  createModelChannelPrefix,
   createModelPublicAlias,
-  deleteModelChannelPrefix,
   deleteModelPublicAlias,
   getModelPublicNameRegistryStatus,
-  listModelChannelPrefixes,
   listModelPublicAliases,
-  updateModelChannelPrefix,
   updateModelPublicAlias,
 } from '../model-naming-api'
 import {
   modelNamingQueryKeys,
-  type ModelChannelPrefix,
   type ModelPublicAlias,
 } from '../model-naming-types'
-
-type PrefixFormState = {
-  prefix: string
-  note: string
-  enabled: boolean
-  sort_order: string
-}
+import { RoutingAliasesCard } from './routing-aliases-card'
 
 type AliasFormState = {
   internal_name: string
   public_name: string
 }
 
-const emptyPrefixForm = (): PrefixFormState => ({
-  prefix: '',
-  note: '',
-  enabled: true,
-  sort_order: '0',
-})
-
 const emptyAliasForm = (): AliasFormState => ({
   internal_name: '',
   public_name: '',
 })
 
+function NamingModelGuide() {
+  const { t } = useTranslation()
+
+  return (
+    <section className='bg-muted/30 border-y px-4 py-4 sm:px-6'>
+      <div className='mb-3'>
+        <h2 className='text-base font-semibold'>{t('How model names work')}</h2>
+        <p className='text-muted-foreground mt-1 text-sm'>
+          {t(
+            'These are two independent mappings. They do not overwrite each other.'
+          )}
+        </p>
+      </div>
+      <div className='grid gap-3 lg:grid-cols-2'>
+        <div className='bg-background flex min-w-0 items-center gap-2 border-l-2 border-emerald-500 px-3 py-3'>
+          <Store className='size-4 shrink-0 text-emerald-600' />
+          <div className='min-w-0'>
+            <p className='text-xs font-medium text-emerald-700 dark:text-emerald-400'>
+              {t('Marketplace and responses')}
+            </p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 font-mono text-xs sm:text-sm'>
+              <span>{t('Internal ability')}</span>
+              <ArrowRight className='text-muted-foreground size-3.5' />
+              <span>{t('Marketplace name')}</span>
+            </div>
+          </div>
+        </div>
+        <div className='bg-background flex min-w-0 items-center gap-2 border-l-2 border-sky-500 px-3 py-3'>
+          <Route className='size-4 shrink-0 text-sky-600' />
+          <div className='min-w-0'>
+            <p className='text-xs font-medium text-sky-700 dark:text-sky-400'>
+              {t('Client API requests')}
+            </p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 font-mono text-xs sm:text-sm'>
+              <span>{t('Inbound model name')}</span>
+              <ArrowRight className='text-muted-foreground size-3.5' />
+              <span>{t('Internal ability')}</span>
+              <Server className='text-muted-foreground size-3.5' />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function ModelNamingSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-
-  const [prefixDialogOpen, setPrefixDialogOpen] = useState(false)
-  const [editingPrefix, setEditingPrefix] = useState<ModelChannelPrefix | null>(
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingAlias, setEditingAlias] = useState<ModelPublicAlias | null>(
     null
   )
-  const [prefixForm, setPrefixForm] = useState<PrefixFormState>(emptyPrefixForm)
-  const [deletePrefixId, setDeletePrefixId] = useState<number | null>(null)
+  const [form, setForm] = useState<AliasFormState>(emptyAliasForm)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
 
-  const [aliasDialogOpen, setAliasDialogOpen] = useState(false)
-  const [editingAlias, setEditingAlias] = useState<ModelPublicAlias | null>(null)
-  const [aliasForm, setAliasForm] = useState<AliasFormState>(emptyAliasForm)
-  const [deleteAliasId, setDeleteAliasId] = useState<number | null>(null)
-
-  const invalidateAll = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: modelNamingQueryKeys.prefixes() }),
-      queryClient.invalidateQueries({ queryKey: modelNamingQueryKeys.aliases() }),
-      queryClient.invalidateQueries({ queryKey: modelNamingQueryKeys.status() }),
-    ])
-  }
-
-  const { data: prefixes = [], isLoading: prefixesLoading } = useQuery({
-    queryKey: modelNamingQueryKeys.prefixes(),
-    queryFn: listModelChannelPrefixes,
-  })
-
-  const { data: aliases = [], isLoading: aliasesLoading } = useQuery({
+  const { data: aliases = [], isLoading } = useQuery({
     queryKey: modelNamingQueryKeys.aliases(),
     queryFn: listModelPublicAliases,
   })
-
   const { data: registryStatus } = useQuery({
     queryKey: modelNamingQueryKeys.status(),
     queryFn: getModelPublicNameRegistryStatus,
@@ -122,61 +137,24 @@ export function ModelNamingSection() {
     () => Object.entries(registryStatus?.collisions ?? {}),
     [registryStatus?.collisions]
   )
+  const missingAliases = registryStatus?.missing_aliases ?? []
 
-  const prefixMutation = useMutation({
+  const invalidateRegistry = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: modelNamingQueryKeys.aliases(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: modelNamingQueryKeys.status(),
+      }),
+    ])
+  }
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
-        prefix: prefixForm.prefix.trim(),
-        note: prefixForm.note.trim(),
-        enabled: prefixForm.enabled,
-        sort_order: Number(prefixForm.sort_order) || 0,
-      }
-      if (editingPrefix) {
-        return updateModelChannelPrefix({ id: editingPrefix.id, ...payload })
-      }
-      return createModelChannelPrefix(payload)
-    },
-    onSuccess: async (response) => {
-      if (!response.success) {
-        toast.error(response.message || t('Operation failed'))
-        return
-      }
-      toast.success(
-        editingPrefix
-          ? t('Channel prefix updated')
-          : t('Channel prefix created')
-      )
-      setPrefixDialogOpen(false)
-      setEditingPrefix(null)
-      setPrefixForm(emptyPrefixForm())
-      await invalidateAll()
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t('Operation failed'))
-    },
-  })
-
-  const deletePrefixMutation = useMutation({
-    mutationFn: (id: number) => deleteModelChannelPrefix(id),
-    onSuccess: async (response) => {
-      if (!response.success) {
-        toast.error(response.message || t('Operation failed'))
-        return
-      }
-      toast.success(t('Channel prefix deleted'))
-      setDeletePrefixId(null)
-      await invalidateAll()
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t('Operation failed'))
-    },
-  })
-
-  const aliasMutation = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        internal_name: aliasForm.internal_name.trim(),
-        public_name: aliasForm.public_name.trim(),
+        internal_name: form.internal_name.trim(),
+        public_name: form.public_name.trim(),
       }
       if (editingAlias) {
         return updateModelPublicAlias({ id: editingAlias.id, ...payload })
@@ -189,78 +167,77 @@ export function ModelNamingSection() {
         return
       }
       toast.success(
-        editingAlias ? t('Public alias updated') : t('Public alias created')
+        editingAlias ? t('Display name updated') : t('Display name created')
       )
-      setAliasDialogOpen(false)
+      setDialogOpen(false)
       setEditingAlias(null)
-      setAliasForm(emptyAliasForm())
-      await invalidateAll()
+      setForm(emptyAliasForm())
+      await invalidateRegistry()
     },
     onError: (error: Error) => {
       toast.error(error.message || t('Operation failed'))
     },
   })
 
-  const deleteAliasMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteModelPublicAlias(id),
     onSuccess: async (response) => {
       if (!response.success) {
         toast.error(response.message || t('Operation failed'))
         return
       }
-      toast.success(t('Public alias deleted'))
-      setDeleteAliasId(null)
-      await invalidateAll()
+      toast.success(t('Display name deleted'))
+      setDeleteId(null)
+      await invalidateRegistry()
     },
     onError: (error: Error) => {
       toast.error(error.message || t('Operation failed'))
     },
   })
 
-  const openCreatePrefix = () => {
-    setEditingPrefix(null)
-    setPrefixForm(emptyPrefixForm())
-    setPrefixDialogOpen(true)
-  }
-
-  const openEditPrefix = (item: ModelChannelPrefix) => {
-    setEditingPrefix(item)
-    setPrefixForm({
-      prefix: item.prefix,
-      note: item.note ?? '',
-      enabled: item.enabled,
-      sort_order: String(item.sort_order ?? 0),
-    })
-    setPrefixDialogOpen(true)
-  }
-
-  const openCreateAlias = () => {
+  const openCreate = () => {
     setEditingAlias(null)
-    setAliasForm(emptyAliasForm())
-    setAliasDialogOpen(true)
+    setForm(emptyAliasForm())
+    setDialogOpen(true)
   }
 
-  const openEditAlias = (item: ModelPublicAlias) => {
-    setEditingAlias(item)
-    setAliasForm({
-      internal_name: item.internal_name,
-      public_name: item.public_name,
+  const openEdit = (alias: ModelPublicAlias) => {
+    setEditingAlias(alias)
+    setForm({
+      internal_name: alias.internal_name,
+      public_name: alias.public_name,
     })
-    setAliasDialogOpen(true)
+    setDialogOpen(true)
   }
 
   return (
-    <div className='space-y-4 pb-4'>
-      {collisionEntries.length > 0 ? (
+    <div className='flex flex-col gap-4 pb-4'>
+      <NamingModelGuide />
+
+      {missingAliases.length > 0 ? (
         <Alert variant='destructive'>
           <AlertTriangle className='h-4 w-4' />
-          <AlertTitle>{t('Public name collisions detected')}</AlertTitle>
+          <AlertTitle>{t('Explicit marketplace names required')}</AlertTitle>
           <AlertDescription>
             <p className='mb-2'>
               {t(
-                'Multiple internal models map to the same public name. Add aliases to resolve ambiguity.'
+                'These internal abilities are hidden from public model lists until a marketplace name is configured.'
               )}
             </p>
+            <ul className='list-disc space-y-1 pl-5 font-mono text-sm'>
+              {missingAliases.map((internal) => (
+                <li key={internal}>{internal}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {collisionEntries.length > 0 ? (
+        <Alert variant='destructive'>
+          <AlertTriangle className='h-4 w-4' />
+          <AlertTitle>{t('Marketplace name collisions detected')}</AlertTitle>
+          <AlertDescription>
             <ul className='list-disc space-y-1 pl-5 text-sm'>
               {collisionEntries.map(([publicName, internals]) => (
                 <li key={publicName}>
@@ -271,124 +248,45 @@ export function ModelNamingSection() {
             </ul>
           </AlertDescription>
         </Alert>
-      ) : (
+      ) : null}
+
+      {missingAliases.length === 0 && collisionEntries.length === 0 ? (
         <Alert>
-          <AlertTitle>{t('No public name collisions')}</AlertTitle>
+          <AlertTitle>
+            {t('Public naming configuration is complete')}
+          </AlertTitle>
           <AlertDescription>
-            {t(
-              'Registry is ready. Prefix stripping and aliases are applied to inbound and outbound model names.'
-            )}
+            {t('No implicit prefix stripping is used.')}
           </AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       <Card>
-        <CardHeader className='flex flex-row items-center justify-between space-y-0'>
+        <CardHeader className='flex flex-col items-start justify-between gap-3 space-y-0 sm:flex-row sm:items-center'>
           <div>
-            <CardTitle>{t('Channel prefixes')}</CardTitle>
+            <CardTitle>{t('Marketplace display names')}</CardTitle>
             <p className='text-muted-foreground mt-1 text-sm'>
               {t(
-                'Strip these prefixes from internal ability names when exposing public model names.'
+                'Controls the model name shown in the marketplace, pricing, and API responses.'
               )}
             </p>
           </div>
-          <Button size='sm' onClick={openCreatePrefix}>
+          <Button size='sm' onClick={openCreate}>
             <Plus className='h-4 w-4' />
-            {t('Add prefix')}
+            {t('Add display name')}
           </Button>
         </CardHeader>
         <CardContent className='overflow-x-auto'>
           <Table className='min-w-[640px]'>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('Prefix')}</TableHead>
-                <TableHead>{t('Note')}</TableHead>
-                <TableHead>{t('Sort')}</TableHead>
-                <TableHead>{t('Status')}</TableHead>
+                <TableHead>{t('Internal ability')}</TableHead>
+                <TableHead>{t('Marketplace name')}</TableHead>
                 <TableHead className='w-[100px]'>{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {prefixesLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className='text-muted-foreground'>
-                    {t('Loading...')}
-                  </TableCell>
-                </TableRow>
-              ) : prefixes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className='text-muted-foreground'>
-                    {t('No channel prefixes configured')}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                prefixes.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className='font-mono text-sm'>
-                      {item.prefix}
-                    </TableCell>
-                    <TableCell>{item.note || '—'}</TableCell>
-                    <TableCell>{item.sort_order}</TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        label={item.enabled ? t('Enabled') : t('Disabled')}
-                        variant={item.enabled ? 'success' : 'neutral'}
-                        showDot
-                        copyable={false}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className='flex gap-1'>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          onClick={() => openEditPrefix(item)}
-                        >
-                          <Pencil className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          onClick={() => setDeletePrefixId(item.id)}
-                        >
-                          <Trash2 className='h-4 w-4 text-destructive' />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className='flex flex-row items-center justify-between space-y-0'>
-          <div>
-            <CardTitle>{t('Public aliases')}</CardTitle>
-            <p className='text-muted-foreground mt-1 text-sm'>
-              {t(
-                'Override automatic prefix stripping when multiple internals share a public name.'
-              )}
-            </p>
-          </div>
-          <Button size='sm' onClick={openCreateAlias}>
-            <Plus className='h-4 w-4' />
-            {t('Add alias')}
-          </Button>
-        </CardHeader>
-        <CardContent className='overflow-x-auto'>
-          <Table className='min-w-[640px]'>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('Internal name')}</TableHead>
-                <TableHead>{t('Public name')}</TableHead>
-                <TableHead className='w-[100px]'>{t('Actions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {aliasesLoading ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={3} className='text-muted-foreground'>
                     {t('Loading...')}
@@ -397,33 +295,37 @@ export function ModelNamingSection() {
               ) : aliases.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className='text-muted-foreground'>
-                    {t('No public aliases configured')}
+                    {t('No marketplace display names configured')}
                   </TableCell>
                 </TableRow>
               ) : (
-                aliases.map((item) => (
-                  <TableRow key={item.id}>
+                aliases.map((alias) => (
+                  <TableRow key={alias.id}>
                     <TableCell className='font-mono text-sm'>
-                      {item.internal_name}
+                      {alias.internal_name}
                     </TableCell>
                     <TableCell className='font-mono text-sm'>
-                      {item.public_name}
+                      {alias.public_name}
                     </TableCell>
                     <TableCell>
                       <div className='flex gap-1'>
                         <Button
                           variant='ghost'
                           size='icon'
-                          onClick={() => openEditAlias(item)}
+                          aria-label={t('Edit marketplace name')}
+                          title={t('Edit marketplace name')}
+                          onClick={() => openEdit(alias)}
                         >
                           <Pencil className='h-4 w-4' />
                         </Button>
                         <Button
                           variant='ghost'
                           size='icon'
-                          onClick={() => setDeleteAliasId(item.id)}
+                          aria-label={t('Delete marketplace name')}
+                          title={t('Delete marketplace name')}
+                          onClick={() => setDeleteId(alias.id)}
                         >
-                          <Trash2 className='h-4 w-4 text-destructive' />
+                          <Trash2 className='text-destructive h-4 w-4' />
                         </Button>
                       </div>
                     </TableCell>
@@ -435,93 +337,25 @@ export function ModelNamingSection() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={prefixDialogOpen}
-        onOpenChange={setPrefixDialogOpen}
-        title={
-          editingPrefix ? t('Edit channel prefix') : t('Add channel prefix')
-        }
-        footer={
-          <>
-            <Button variant='outline' onClick={() => setPrefixDialogOpen(false)}>
-              {t('Cancel')}
-            </Button>
-            <Button
-              onClick={() => prefixMutation.mutate()}
-              disabled={prefixMutation.isPending || !prefixForm.prefix.trim()}
-            >
-              {t('Save')}
-            </Button>
-          </>
-        }
-      >
-        <div className='space-y-4'>
-          <div className='space-y-2'>
-            <Label htmlFor='prefix'>{t('Prefix')}</Label>
-            <Input
-              id='prefix'
-              placeholder='go2api-'
-              value={prefixForm.prefix}
-              onChange={(e) =>
-                setPrefixForm((prev) => ({ ...prev, prefix: e.target.value }))
-              }
-            />
-          </div>
-          <div className='space-y-2'>
-            <Label htmlFor='prefix-note'>{t('Note')}</Label>
-            <Input
-              id='prefix-note'
-              value={prefixForm.note}
-              onChange={(e) =>
-                setPrefixForm((prev) => ({ ...prev, note: e.target.value }))
-              }
-            />
-          </div>
-          <div className='space-y-2'>
-            <Label htmlFor='prefix-sort'>{t('Sort order')}</Label>
-            <Input
-              id='prefix-sort'
-              type='number'
-              value={prefixForm.sort_order}
-              onChange={(e) =>
-                setPrefixForm((prev) => ({
-                  ...prev,
-                  sort_order: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className='flex items-center gap-2'>
-            <Checkbox
-              id='prefix-enabled'
-              checked={prefixForm.enabled}
-              onCheckedChange={(checked) =>
-                setPrefixForm((prev) => ({
-                  ...prev,
-                  enabled: checked === true,
-                }))
-              }
-            />
-            <Label htmlFor='prefix-enabled'>{t('Enabled')}</Label>
-          </div>
-        </div>
-      </Dialog>
+      <RoutingAliasesCard />
 
       <Dialog
-        open={aliasDialogOpen}
-        onOpenChange={setAliasDialogOpen}
-        title={editingAlias ? t('Edit public alias') : t('Add public alias')}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={
+          editingAlias ? t('Edit marketplace name') : t('Add marketplace name')
+        }
         footer={
           <>
-            <Button variant='outline' onClick={() => setAliasDialogOpen(false)}>
+            <Button variant='outline' onClick={() => setDialogOpen(false)}>
               {t('Cancel')}
             </Button>
             <Button
-              onClick={() => aliasMutation.mutate()}
+              onClick={() => saveMutation.mutate()}
               disabled={
-                aliasMutation.isPending ||
-                !aliasForm.internal_name.trim() ||
-                !aliasForm.public_name.trim()
+                saveMutation.isPending ||
+                !form.internal_name.trim() ||
+                !form.public_name.trim()
               }
             >
               {t('Save')}
@@ -531,29 +365,29 @@ export function ModelNamingSection() {
       >
         <div className='space-y-4'>
           <div className='space-y-2'>
-            <Label htmlFor='internal-name'>{t('Internal name')}</Label>
+            <Label htmlFor='internal-name'>{t('Internal ability')}</Label>
             <Input
               id='internal-name'
-              placeholder='go2api-gpt-image-2-1k'
-              value={aliasForm.internal_name}
-              onChange={(e) =>
-                setAliasForm((prev) => ({
-                  ...prev,
-                  internal_name: e.target.value,
+              placeholder='cy-sd4-seedance-2.5-480p'
+              value={form.internal_name}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  internal_name: event.target.value,
                 }))
               }
             />
           </div>
           <div className='space-y-2'>
-            <Label htmlFor='public-name'>{t('Public name')}</Label>
+            <Label htmlFor='public-name'>{t('Marketplace name')}</Label>
             <Input
               id='public-name'
-              placeholder='gpt-image-2-1k'
-              value={aliasForm.public_name}
-              onChange={(e) =>
-                setAliasForm((prev) => ({
-                  ...prev,
-                  public_name: e.target.value,
+              placeholder='sd4-seedance-2.5-480p'
+              value={form.public_name}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  public_name: event.target.value,
                 }))
               }
             />
@@ -562,31 +396,17 @@ export function ModelNamingSection() {
       </Dialog>
 
       <ConfirmDialog
-        open={deletePrefixId !== null}
-        onOpenChange={(open) => !open && setDeletePrefixId(null)}
-        title={t('Delete channel prefix')}
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title={t('Delete marketplace name')}
         desc={t(
-          'Removing a prefix stops automatic stripping for matching internal names.'
+          'Internal models that require an explicit marketplace name will be hidden after deletion.'
         )}
         confirmText={t('Delete')}
         destructive
         handleConfirm={() => {
-          if (deletePrefixId !== null) {
-            deletePrefixMutation.mutate(deletePrefixId)
-          }
-        }}
-      />
-
-      <ConfirmDialog
-        open={deleteAliasId !== null}
-        onOpenChange={(open) => !open && setDeleteAliasId(null)}
-        title={t('Delete public alias')}
-        desc={t('This internal model will fall back to prefix stripping rules.')}
-        confirmText={t('Delete')}
-        destructive
-        handleConfirm={() => {
-          if (deleteAliasId !== null) {
-            deleteAliasMutation.mutate(deleteAliasId)
+          if (deleteId !== null) {
+            deleteMutation.mutate(deleteId)
           }
         }}
       />

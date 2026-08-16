@@ -26,7 +26,7 @@ func ClientFacingModelFromContext(c *gin.Context) string {
 }
 
 // ClientFacingModelFromTask 返回异步 task 响应对客户端展示的 public 模型名。
-// 优先持久化的 ClientModelName；legacy 任务回退前缀剥离。
+// 优先持久化的 ClientModelName；legacy 任务回退显式展示名。
 func ClientFacingModelFromTask(task *model.Task) string {
 	if task == nil {
 		return ""

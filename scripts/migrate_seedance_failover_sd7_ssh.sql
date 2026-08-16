@@ -4,7 +4,7 @@
 --   sd7-seedance-2.0-720p / sd4-seedance-2.0 / sd4-seedance-2.0-fast
 -- 路由名（model_routing_aliases，可随时切换指向不同 internal）：
 --   seedance-2.0 → cy-sd7-seedance-2.0-720p
---   seedance-2.0-fast → cy-sd8-seedance-2.0-fast
+--   seedance-2.0-fast → cy-sd4-seedance-2.0-fast
 --
 -- 源站: ssh cy-origin 'docker exec -i newapi-postgres psql -U root -d new-api -v ON_ERROR_STOP=1' < migrate_seedance_failover_sd7_ssh.sql
 -- 需 new-api 代码支持 model_routing_aliases 后再滚动重启
@@ -55,8 +55,8 @@ VALUES
     ),
     (
         'seedance-2.0-fast',
-        'cy-sd8-seedance-2.0-fast',
-        'Legacy neutral fast name; switch internal to change active sdx route.',
+        'cy-sd4-seedance-2.0-fast',
+        'Legacy neutral fast -> SD4 Leonardo',
         EXTRACT(EPOCH FROM NOW())::BIGINT,
         EXTRACT(EPOCH FROM NOW())::BIGINT
     )

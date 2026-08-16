@@ -58,11 +58,18 @@ func GetPricing(c *gin.Context) {
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
 	pricing = service.AppendRoutingAliasPricing(pricing)
+	publicPricing := make([]model.Pricing, 0, len(pricing))
 	for i := range pricing {
 		if service.ModelPublicNameEnabled() {
-			pricing[i].ModelName = service.ToPublicModelName(pricing[i].ModelName)
+			publicName := service.ToPublicModelName(pricing[i].ModelName)
+			if publicName == "" {
+				continue
+			}
+			pricing[i].ModelName = publicName
 		}
+		publicPricing = append(publicPricing, pricing[i])
 	}
+	pricing = publicPricing
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {
 		if _, ok := usableGroup[group]; !ok {

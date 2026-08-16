@@ -18,43 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 import type {
-  ModelChannelPrefix,
   ModelPublicAlias,
   ModelPublicNameRegistryStatus,
+  ModelRoutingAlias,
 } from './model-naming-types'
 
 type ApiListResponse<T> = {
   success: boolean
   message?: string
   data?: T
-}
-
-export async function listModelChannelPrefixes(): Promise<ModelChannelPrefix[]> {
-  const res = await api.get<ApiListResponse<ModelChannelPrefix[]>>(
-    '/api/model_channel_prefixes/'
-  )
-  return res.data.data ?? []
-}
-
-export async function createModelChannelPrefix(
-  data: Partial<ModelChannelPrefix>
-): Promise<ApiListResponse<ModelChannelPrefix>> {
-  const res = await api.post('/api/model_channel_prefixes/', data)
-  return res.data
-}
-
-export async function updateModelChannelPrefix(
-  data: Partial<ModelChannelPrefix> & { id: number }
-): Promise<ApiListResponse<ModelChannelPrefix>> {
-  const res = await api.put('/api/model_channel_prefixes/', data)
-  return res.data
-}
-
-export async function deleteModelChannelPrefix(
-  id: number
-): Promise<ApiListResponse<null>> {
-  const res = await api.delete(`/api/model_channel_prefixes/${id}`)
-  return res.data
 }
 
 export async function listModelPublicAliases(): Promise<ModelPublicAlias[]> {
@@ -85,9 +57,37 @@ export async function deleteModelPublicAlias(
   return res.data
 }
 
+export async function listModelRoutingAliases(): Promise<ModelRoutingAlias[]> {
+  const res = await api.get<ApiListResponse<ModelRoutingAlias[]>>(
+    '/api/model_routing_aliases/'
+  )
+  return res.data.data ?? []
+}
+
+export async function createModelRoutingAlias(
+  data: Pick<ModelRoutingAlias, 'public_name' | 'internal_name' | 'note'>
+): Promise<ApiListResponse<ModelRoutingAlias>> {
+  const res = await api.post('/api/model_routing_aliases/', data)
+  return res.data
+}
+
+export async function updateModelRoutingAlias(
+  data: Pick<ModelRoutingAlias, 'id' | 'public_name' | 'internal_name' | 'note'>
+): Promise<ApiListResponse<ModelRoutingAlias>> {
+  const res = await api.put('/api/model_routing_aliases/', data)
+  return res.data
+}
+
+export async function deleteModelRoutingAlias(
+  id: number
+): Promise<ApiListResponse<null>> {
+  const res = await api.delete(`/api/model_routing_aliases/${id}`)
+  return res.data
+}
+
 export async function getModelPublicNameRegistryStatus(): Promise<ModelPublicNameRegistryStatus> {
   const res = await api.get<ApiListResponse<ModelPublicNameRegistryStatus>>(
     '/api/model_public_name_registry/status'
   )
-  return res.data.data ?? { ready: false, collisions: {} }
+  return res.data.data ?? { ready: false, collisions: {}, missing_aliases: [] }
 }
