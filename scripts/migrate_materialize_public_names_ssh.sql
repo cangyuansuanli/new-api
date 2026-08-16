@@ -9,7 +9,7 @@ VALUES
     ('cy-au1-gemini-music',       'au1-gemini-music',       EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-gv2-grok-video',         'gv2-grok-video',         EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-gv2-grok-video-1.5',     'gv2-grok-video-1.5',     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
-    ('cy-img1-gpt-image-2',       'img1-gpt-image-2',       EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('cy-img1-gpt-image-2',       'gpt-image-2',            EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-sd1-omni-fast',          'sd1-omni-fast',          EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-sd1-omni-fast-no-water', 'sd1-omni-fast-no-water', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-sd1-omni-v2v',           'sd1-omni-v2v',           EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
