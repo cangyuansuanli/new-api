@@ -101,6 +101,56 @@ func TestValidateRequestRejectsInvalidDuration(t *testing.T) {
 	}
 }
 
+func TestBuildRequestBodyForwardsPairedFramesForStandardAndFast(t *testing.T) {
+	for _, tc := range []struct {
+		origin   string
+		upstream string
+	}{
+		{ModelStandard, UpstreamStandard},
+		{ModelFast, UpstreamFast},
+	} {
+		body := `{"model":"ignored","prompt":"transition","duration":10,"first_image_url":"https://img/first.png","last_image_url":"https://img/last.png"}`
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		info := &relaycommon.RelayInfo{
+			OriginModelName: tc.origin,
+			TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+			ChannelMeta:     &relaycommon.ChannelMeta{UpstreamModelName: tc.upstream},
+		}
+		a := &TaskAdaptor{}
+		if taskErr := a.ValidateRequestAndSetAction(c, info); taskErr != nil {
+			t.Fatalf("validate %s: %#v", tc.origin, taskErr)
+		}
+		reader, err := a.BuildRequestBody(c, info)
+		if err != nil {
+			t.Fatalf("build %s: %v", tc.origin, err)
+		}
+		encoded, _ := io.ReadAll(reader)
+		var got map[string]any
+		if err := common.Unmarshal(encoded, &got); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if got["first_image_url"] != "https://img/first.png" || got["last_image_url"] != "https://img/last.png" {
+			t.Fatalf("paired frames not forwarded for %s: %#v", tc.origin, got)
+		}
+	}
+}
+
+func TestValidateRequestRejectsInvalidFrameCombinations(t *testing.T) {
+	for _, body := range []string{
+		`{"model":"ignored","prompt":"test","duration":10,"last_image_url":"https://img/last.png"}`,
+		`{"model":"ignored","prompt":"test","duration":10,"first_image_url":"https://img/first.png","last_image_url":"https://img/last.png","reference_image_urls":["https://img/ref.png"]}`,
+	} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, &relaycommon.RelayInfo{OriginModelName: ModelStandard}); taskErr == nil {
+			t.Fatalf("expected invalid frame combination for %s", body)
+		}
+	}
+}
+
 func TestParseTaskResultUsesResultURL(t *testing.T) {
 	resp := []byte(`{"id":"task_1","status":"completed","result_url":"https://cdn.example.com/video.mp4"}`)
 	a := &TaskAdaptor{}

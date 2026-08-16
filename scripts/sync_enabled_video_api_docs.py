@@ -55,13 +55,13 @@ SPECS = (
     s("cy-sd4-seedance-2.0-mini", "sd4-seedance-2.0-mini", "video-tpl-seedance-subscription-async", "aspect_ratio duration resolution generate_audio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd4-seedance-2.5-480p", "sd4-seedance-2.5-480p", "video-tpl-seedance-2.5-subscription-async", "aspect_ratio duration resolution generate_audio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd4-seedance-2.5-720p", "sd4-seedance-2.5-720p", "video-tpl-seedance-2.5-subscription-async", "aspect_ratio duration resolution generate_audio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
-    s("cy-sd7-seedance-2.0-720p", "sd7-seedance-2.0-720p", "video-tpl-magica-seedance-720p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios generate_audio"),
+    s("cy-sd7-seedance-2.0-720p", "sd7-seedance-2.0-720p", "video-tpl-magica-seedance-720p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios first_image_url last_image_url generate_audio"),
     s("cy-sd5-seedance-2.0", "sd5-seedance-2.0", "video-tpl-seedance-fullref-async", "duration aspect_ratio generate_audio resolution reference_image_urls first_image_url last_image_url reference_videos reference_audios seed"),
     s("cy-sd5-seedance-2.0-fast", "sd5-seedance-2.0-fast", "video-tpl-seedance-fullref-async", "duration aspect_ratio generate_audio resolution reference_image_urls first_image_url last_image_url reference_videos reference_audios seed"),
     s("cy-sd6-seedance-2.0-1080p", "sd6-seedance-2.0-1080p", "video-tpl-heygen-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd6-seedance-2.0-720p", "sd6-seedance-2.0-720p", "video-tpl-heygen-seedance-720p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
-    s("cy-sd7-seedance-2.0-1080p", "sd7-seedance-2.0-1080p", "video-tpl-magica-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios generate_audio"),
-    s("cy-sd8-seedance-2.0", "sd8-seedance-2.0", "video-tpl-sd8-seedance-facepass-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios"),
+    s("cy-sd7-seedance-2.0-1080p", "sd7-seedance-2.0-1080p", "video-tpl-magica-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url generate_audio"),
+    s("cy-sd8-seedance-2.0", "sd8-seedance-2.0", "video-tpl-sd8-seedance-facepass-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
 )
 
 ALIASES = {
@@ -76,8 +76,9 @@ FALLBACK = {
     "resolution": "输出清晰度。", "size": "输出尺寸。", "seed": "可复现种子。",
     "generate_audio": "是否生成音频。",
     "reference_image_urls": "参考图 HTTPS URL 数组。", "reference_videos": "参考视频 HTTPS URL 数组。",
-    "reference_audios": "参考音频 HTTPS URL 数组。", "first_image_url": "首帧 HTTPS URL。",
-    "last_image_url": "尾帧 HTTPS URL。",
+    "reference_audios": "参考音频 HTTPS URL 数组。",
+    "first_image_url": "首帧 HTTPS URL；必须与 last_image_url 成对提供，并与普通参考素材互斥。",
+    "last_image_url": "尾帧 HTTPS URL；必须与 first_image_url 成对提供，并与普通参考素材互斥。",
 }
 FORBIDDEN = re.compile(
     r"multipart|data:image|input_reference|兼容别名|chat/completions|stream|"
@@ -102,12 +103,17 @@ def clean(text: str) -> str:
     return "".join(kept).strip()
 
 
-def source_rows() -> dict[str, tuple[str, dict]]:
-    raw = psql("SELECT model_name||E'\\t'||video_profile_id||E'\\t'||encode(convert_to(api_doc,'UTF8'),'hex') FROM models WHERE status=1 AND deleted_at IS NULL AND COALESCE(video_profile_id,'')<>'' ORDER BY model_name;", True)
+def source_rows() -> dict[str, tuple[str, dict, dict, dict]]:
+    raw = psql("SELECT m.model_name||E'\\t'||m.video_profile_id||E'\\t'||encode(convert_to(m.api_doc,'UTF8'),'hex')||E'\\t'||encode(convert_to(COALESCE(p.params,'{}'),'UTF8'),'hex')||E'\\t'||encode(convert_to(COALESCE(p.reference_limits,'{}'),'UTF8'),'hex') FROM models m LEFT JOIN model_ui_param_profiles p ON p.capability='video' AND p.profile_id=m.video_profile_id AND p.deleted_at IS NULL WHERE m.status=1 AND m.deleted_at IS NULL AND COALESCE(m.video_profile_id,'')<>'' ORDER BY m.model_name;", True)
     rows = {}
     for line in raw.splitlines():
-        name, profile, encoded = line.split("\t", 2)
-        rows[name] = (profile, json.loads(bytes.fromhex(encoded).decode()))
+        name, profile, encoded, params_encoded, limits_encoded = line.split("\t", 4)
+        rows[name] = (
+            profile,
+            json.loads(bytes.fromhex(encoded).decode()),
+            json.loads(bytes.fromhex(params_encoded).decode()),
+            json.loads(bytes.fromhex(limits_encoded).decode()),
+        )
     return rows
 
 
@@ -128,10 +134,37 @@ def request_value(field: str):
     return {"model": "", "prompt": "电影感城市夜景", "duration": 8, "aspect_ratio": "16:9", "resolution": "720p", "size": "1280x720", "seed": 12345, "generate_audio": True, "reference_image_urls": ["https://cdn.example.com/reference.png"], "reference_videos": ["https://cdn.example.com/reference.mp4"], "reference_audios": ["https://cdn.example.com/reference.mp3"], "first_image_url": "https://cdn.example.com/first.png", "last_image_url": "https://cdn.example.com/last.png"}[field]
 
 
+def request_body(spec: Spec, selected_fields: tuple[str, ...]) -> dict:
+    return {
+        field: (spec.public if field == "model" else request_value(field))
+        for field in ("model", "prompt", *selected_fields)
+    }
+
+
 def build(spec: Spec, old_doc: dict) -> dict:
     old = old_param_map(old_doc)
     fields = ("model", "prompt", *spec.fields)
-    body = {field: (spec.public if field == "model" else request_value(field)) for field in fields}
+    scalar_fields = tuple(field for field in spec.fields if field not in {
+        "reference_image_urls", "reference_videos", "reference_audios",
+        "first_image_url", "last_image_url",
+    })
+    basic_body = request_body(spec, scalar_fields)
+    reference_fields = tuple(field for field in (
+        "reference_image_urls", "reference_videos", "reference_audios",
+    ) if field in spec.fields)
+    has_frames = "first_image_url" in spec.fields and "last_image_url" in spec.fields
+    examples = []
+    if reference_fields:
+        examples.append({
+            "title": "参考素材",
+            "request_json": request_body(spec, (*scalar_fields, *reference_fields)),
+        })
+    if has_frames:
+        examples.append({
+            "title": "首尾帧",
+            "request_json": request_body(spec, (*scalar_fields, "first_image_url", "last_image_url")),
+        })
+    request_json = examples[0]["request_json"] if examples else basic_body
     intro = clean(str(old_doc.get("intro", ""))) or f"{spec.public} 异步视频模型。"
     return {
         "dispatch_mode": "async", "intro": intro + " 仅使用本页列出的字段，未列字段不要发送。",
@@ -140,22 +173,46 @@ def build(spec: Spec, old_doc: dict) -> dict:
             {"method": "GET", "path": "{{base}}/videos/{task_id}", "description": "查询任务状态与结果。"},
             {"method": "GET", "path": "{{base}}/videos/{task_id}/content", "description": "下载已完成任务。"},
         ],
-        "basic_request_json": body, "request_json": body,
+        "basic_request_json": basic_body, "request_json": request_json,
+        "examples": examples,
         "params": [{"name": field, "description": description(field, old)} for field in fields],
         "create_response_json": {"id": "task_video_01HZX8A2...", "status": "queued", "model": spec.public},
         "query_response_json": {"id": "task_video_01HZX8A2...", "status": "completed", "data": [{"url": "https://example.com/video.mp4"}]},
     }
 
 
-def validate(spec: Spec, doc: dict) -> None:
+def validate(spec: Spec, doc: dict, profile_params: dict, reference_limits: dict) -> None:
     expected = {"model", "prompt", *spec.fields}
     actual = {row["name"] for row in doc["params"]}
-    if actual != expected or set(doc["request_json"]) != expected:
+    if actual != expected:
         raise SystemExit(f"{spec.internal}: fields mismatch")
+    example_bodies = [doc["basic_request_json"], doc["request_json"]]
+    example_bodies.extend(example.get("request_json", {}) for example in doc.get("examples", []))
+    covered = set()
+    for body in example_bodies:
+        body_fields = set(body)
+        if not {"model", "prompt"} <= body_fields or not body_fields <= expected:
+            raise SystemExit(f"{spec.internal}: example fields mismatch")
+        covered.update(body_fields)
+    if covered != expected:
+        raise SystemExit(f"{spec.internal}: examples do not cover {sorted(expected-covered)}")
     if not actual <= CANONICAL_FIELDS:
         raise SystemExit(f"{spec.internal}: non-canonical fields {sorted(actual-CANONICAL_FIELDS)}")
     if FORBIDDEN.search(json.dumps(doc, ensure_ascii=False)):
         raise SystemExit(f"{spec.internal}: forbidden compatibility text")
+    frame_fields = {"first_image_url", "last_image_url"} & expected
+    if frame_fields and frame_fields != {"first_image_url", "last_image_url"}:
+        raise SystemExit(f"{spec.internal}: first/last frame fields must be declared together")
+    if profile_params.get("frameInputs", {}).get("enabled") and not frame_fields:
+        raise SystemExit(f"{spec.internal}: profile enables frame inputs but api_doc omits them")
+    for example in doc.get("examples", []):
+        body = example.get("request_json", {})
+        has_frame_input = bool(body.get("first_image_url") or body.get("last_image_url"))
+        has_references = any(body.get(field) for field in (
+            "reference_image_urls", "reference_videos", "reference_audios",
+        ))
+        if has_frame_input and has_references:
+            raise SystemExit(f"{spec.internal}: example mixes frame and reference modes")
 
 
 def main() -> None:
@@ -168,11 +225,11 @@ def main() -> None:
         raise SystemExit(f"video specs mismatch: missing={sorted(set(live)-set(specs))}, stale={sorted(set(specs)-set(live))}")
     docs = {}
     for name, spec in specs.items():
-        profile, old = live[name]
+        profile, old, profile_params, reference_limits = live[name]
         if profile != spec.profile:
             raise SystemExit(f"{name}: profile {profile!r} != {spec.profile!r}")
         docs[name] = build(spec, old)
-        validate(spec, docs[name])
+        validate(spec, docs[name], profile_params, reference_limits)
     if args.check:
         print(f"validated {len(docs)} independent video api_doc specs")
         return

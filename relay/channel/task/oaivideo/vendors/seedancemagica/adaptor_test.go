@@ -77,3 +77,50 @@ func TestBuildRequestBodyStandardWhenNoReference(t *testing.T) {
 		t.Fatalf("expected standard upstream, got %#v", got)
 	}
 }
+
+func TestBuildRequestBodyForwardsPairedFrames(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{"model":"cy-sd7-seedance-2.0-720p","prompt":"transition","duration":5,"first_image_url":"https://img/first.png","last_image_url":"https://img/last.png"}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	info := &relaycommon.RelayInfo{
+		OriginModelName: Model720p,
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+		ChannelMeta:     &relaycommon.ChannelMeta{UpstreamModelName: ChannelUpstreamSlug},
+	}
+	a := &TaskAdaptor{}
+	if taskErr := a.ValidateRequestAndSetAction(c, info); taskErr != nil {
+		t.Fatalf("validate: %#v", taskErr)
+	}
+	reader, err := a.BuildRequestBody(c, info)
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	encoded, _ := io.ReadAll(reader)
+	var got map[string]any
+	if err := common.Unmarshal(encoded, &got); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if got["first_image_url"] != "https://img/first.png" || got["last_image_url"] != "https://img/last.png" {
+		t.Fatalf("paired frames not forwarded: %#v", got)
+	}
+	if got["model"] != UpstreamStandard {
+		t.Fatalf("frame mode must use standard upstream model: %#v", got)
+	}
+}
+
+func TestValidateRequestRejectsInvalidFrameCombinations(t *testing.T) {
+	for _, body := range []string{
+		`{"model":"cy-sd7-seedance-2.0-720p","prompt":"test","duration":5,"first_image_url":"https://img/first.png"}`,
+		`{"model":"cy-sd7-seedance-2.0-720p","prompt":"test","duration":5,"first_image_url":"https://img/first.png","last_image_url":"https://img/last.png","reference_videos":["https://vid/ref.mp4"]}`,
+	} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		info := &relaycommon.RelayInfo{OriginModelName: Model720p, TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+		if taskErr := (&TaskAdaptor{}).ValidateRequestAndSetAction(c, info); taskErr == nil {
+			t.Fatalf("expected invalid frame combination for %s", body)
+		}
+	}
+}

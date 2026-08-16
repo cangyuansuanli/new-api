@@ -5,7 +5,7 @@ BEGIN;
 
 UPDATE model_ui_param_profiles
 SET reference_limits = '{"images":30,"videos":10,"audios":10,"imageMaxBytes":26214400,"videoMaxBytes":209715200,"audioMaxBytes":15728640,"video":{"maxDurationMs":30200,"totalMaxDurationMs":30200},"audio":{"maxDurationMs":30200,"totalMaxDurationMs":30200},"fullReferenceMode":{"label":"多模态","descriptionWithImages":"多模态：图 + 可选视频/音频"},"validationHint":"参考图 png/jpg/webp ≤25MB（最多 30）；参考视频 mp4/mov ≤200MB，最多 10 条且单条/总时长 ≤30.2 秒，宽高各 720–2160px、24–60 FPS；参考音频 mp3/wav ≤15MB、最多 10 条且单条/总时长 ≤30.2 秒。","showTempMediaHint":true,"prependReferenceGuide":true}',
-    hints = '[{"text":"模型名决定固定清晰度，按秒计费；480p 最长 30 秒（API），720p 最长 29 秒。"},{"text":"最多 30 图 / 10 视频 / 10 音频；参考视频和音频单条及合计均不超过 30.2 秒。"}]',
+    hints = '[{"text":"模型名决定固定清晰度，按秒计费；480p 最长 30 秒；720p 无参考视频最长 29 秒，带参考视频最长 18 秒。"},{"text":"最多 30 图 / 10 视频 / 10 音频；参考视频和音频单条及合计均不超过 30.2 秒。"}]',
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 WHERE capability = 'video'
   AND profile_id = 'video-tpl-seedance-2.5-subscription-async'

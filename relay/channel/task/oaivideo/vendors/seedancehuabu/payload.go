@@ -27,6 +27,8 @@ func buildUpstreamBody(body map[string]interface{}, originModel, upstreamModel s
 	if size := resolveSize(body); size != "" {
 		out["size"] = size
 	}
+	copyStringField(out, body, "first_image_url")
+	copyStringField(out, body, "last_image_url")
 
 	imgs := collectImages(body, images)
 	if len(imgs) > maxReferenceImages {
@@ -61,6 +63,12 @@ func buildUpstreamBody(body map[string]interface{}, originModel, upstreamModel s
 		}
 	}
 	return out
+}
+
+func copyStringField(out, body map[string]interface{}, key string) {
+	if value := strings.TrimSpace(oaivideo.AsString(body[key])); value != "" {
+		out[key] = value
+	}
 }
 
 func resolveSize(body map[string]interface{}) string {

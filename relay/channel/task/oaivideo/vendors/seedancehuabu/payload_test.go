@@ -62,3 +62,14 @@ func TestResolveSizePrefersAspectRatio(t *testing.T) {
 		t.Fatalf("size = %q", got)
 	}
 }
+
+func TestBuildUpstreamBodyCopiesPairedFrames(t *testing.T) {
+	got := buildUpstreamBody(map[string]any{
+		"prompt":          "transition",
+		"first_image_url": "https://img/first.png",
+		"last_image_url":  "https://img/last.png",
+	}, ModelFast, UpstreamFast, 10, nil, nil, nil)
+	if got["first_image_url"] != "https://img/first.png" || got["last_image_url"] != "https://img/last.png" {
+		t.Fatalf("paired frames not copied: %#v", got)
+	}
+}

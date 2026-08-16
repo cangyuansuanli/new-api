@@ -2795,7 +2795,7 @@
             },
             "hints": [
                 {
-                    "text": "模型名决定固定清晰度，按秒计费；480p 最长 30 秒（API），720p 最长 29 秒。"
+                    "text": "模型名决定固定清晰度，按秒计费；480p 最长 30 秒；720p 无参考视频最长 29 秒，带参考视频最长 18 秒。"
                 },
                 {
                     "text": "最多 30 图 / 10 视频 / 10 音频；参考视频和音频单条及合计均不超过 30.2 秒。"
@@ -3487,6 +3487,114 @@
             ]
         },
         {
+            "id": "video-tpl-magica-seedance-720p-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd7-seedance-2.0-720p"
+            ],
+            "referenceLimits": {
+                "images": 5,
+                "videos": 3,
+                "audios": 3,
+                "total": 11,
+                "fullReferenceMode": {
+                    "label": "多参参考",
+                    "descriptionWithImages": "最多 5 图、3 视频、3 音频；prompt 可用 @Image1 引用"
+                },
+                "validationHint": "固定 720p；最多 5 张参考图、3 段参考视频、3 段参考音频；首尾帧须成对提供，且与普通参考素材互斥。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": false,
+                    "fixedLabel": "720p"
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        { "value": "16:9", "label": "横屏" },
+                        { "value": "9:16", "label": "竖屏" },
+                        { "value": "1:1", "label": "方形" },
+                        { "value": "4:3", "label": "4:3" },
+                        { "value": "3:4", "label": "3:4" },
+                        { "value": "21:9", "label": "21:9" }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": { "enabled": true },
+                "watermark": { "enabled": false },
+                "seed": { "enabled": false },
+                "widthHeight": { "enabled": false },
+                "frameInputs": { "enabled": true, "hint": "首尾帧须成对提供，且与参考图、参考视频、参考音频互斥" }
+            },
+            "hints": [
+                { "text": "固定 720p，按条计费；支持 4–15 秒与多种画幅比例。" },
+                { "text": "支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）及成对首尾帧；两种参考模式互斥。" }
+            ]
+        },
+        {
+            "id": "video-tpl-magica-seedance-1080p-async",
+            "apiMode": "videos-json-async",
+            "payloadBuilder": "seedance-flat",
+            "match_mode": "exact",
+            "match": [
+                "cy-sd7-seedance-2.0-1080p"
+            ],
+            "referenceLimits": {
+                "images": 5,
+                "videos": 3,
+                "audios": 3,
+                "total": 11,
+                "fullReferenceMode": {
+                    "label": "多参参考",
+                    "descriptionWithImages": "最多 5 图、3 视频、3 音频；prompt 可用 @Image1 引用"
+                },
+                "validationHint": "固定 1080p；最多 5 张参考图、3 段参考视频、3 段参考音频；首尾帧须成对提供，且与普通参考素材互斥。",
+                "showTempMediaHint": true,
+                "prependReferenceGuide": true
+            },
+            "params": {
+                "resolution": {
+                    "enabled": false,
+                    "fixedLabel": "1080p"
+                },
+                "ratio": {
+                    "enabled": true,
+                    "options": [
+                        { "value": "16:9", "label": "横屏" },
+                        { "value": "9:16", "label": "竖屏" },
+                        { "value": "1:1", "label": "方形" },
+                        { "value": "4:3", "label": "4:3" },
+                        { "value": "3:4", "label": "3:4" },
+                        { "value": "21:9", "label": "21:9" }
+                    ]
+                },
+                "duration": {
+                    "enabled": true,
+                    "numericOptions": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                    "min": 4,
+                    "max": 15
+                },
+                "generateAudio": { "enabled": true },
+                "watermark": { "enabled": false },
+                "seed": { "enabled": false },
+                "widthHeight": { "enabled": false },
+                "frameInputs": { "enabled": true, "hint": "首尾帧须成对提供，且与参考图、参考视频、参考音频互斥" }
+            },
+            "hints": [
+                { "text": "固定 1080p，按条计费；支持 4–15 秒与多种画幅比例。" },
+                { "text": "支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）及成对首尾帧；两种参考模式互斥。" }
+            ]
+        },
+        {
             "id": "video-tpl-sd8-seedance-facepass-async",
             "apiMode": "videos-json-async",
             "payloadBuilder": "seedance-flat",
@@ -3559,7 +3667,8 @@
                     "enabled": false
                 },
                 "frameInputs": {
-                    "enabled": false
+                    "enabled": true,
+                    "hint": "首尾帧须成对提供，且与参考图、参考视频、参考音频互斥"
                 }
             },
             "hints": [
@@ -3570,7 +3679,7 @@
                     "text": "卡脸线路：含人物参考图须遮眼（贴纸/马赛克遮挡眼部）后再上传。"
                 },
                 {
-                    "text": "支持最多 9 图、3 视频、3 音频；素材须为公网 HTTPS URL。"
+                    "text": "支持最多 9 图、3 视频、3 音频及成对首尾帧；首尾帧与普通参考素材互斥。"
                 }
             ],
             "fieldAliases": {
@@ -3592,7 +3701,7 @@
                 "videos": 0,
                 "audios": 0,
                 "total": 9,
-                "validationHint": "仅支持参考图，最多 9 张；不支持参考视频与参考音频。",
+                "validationHint": "支持最多 9 张普通参考图或成对首尾帧，两种模式互斥；不支持参考视频、参考音频。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -3648,7 +3757,8 @@
                     "enabled": false
                 },
                 "frameInputs": {
-                    "enabled": false
+                    "enabled": true,
+                    "hint": "首尾帧须成对提供，且与普通参考图互斥"
                 }
             },
             "hints": [
@@ -3656,7 +3766,7 @@
                     "text": "¥1.9/条；时长仅支持 5、10、15 秒。"
                 },
                 {
-                    "text": "仅支持参考图，最多 9 张；不支持参考视频与参考音频。"
+                    "text": "支持最多 9 张普通参考图或成对首尾帧；不支持参考视频、参考音频。"
                 }
             ],
             "fieldAliases": {
