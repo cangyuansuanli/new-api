@@ -22,18 +22,9 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-type TaskAdaptor struct {
-	taskcommon.BaseBilling
-	ChannelType int
-	apiKey      string
-	baseURL     string
-}
+type TaskAdaptor struct{ taskcommon.BaseBilling }
 
-func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
-	a.ChannelType = info.ChannelType
-	a.baseURL = info.ChannelBaseUrl
-	a.apiKey = info.ApiKey
-}
+func (*TaskAdaptor) Init(*relaycommon.RelayInfo) {}
 
 func validateRemixRequest(c *gin.Context) *dto.TaskError {
 	var req relaycommon.TaskSubmitReq
@@ -83,14 +74,21 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if info.Action == constant.TaskActionRemix {
-		return fmt.Sprintf("%s/v1/videos/%s/remix", a.baseURL, info.OriginTaskID), nil
+	if info == nil || strings.TrimSpace(info.ChannelBaseUrl) == "" {
+		return "", fmt.Errorf("video channel base url is empty")
 	}
-	return fmt.Sprintf("%s/v1/videos", a.baseURL), nil
+	baseURL := strings.TrimRight(info.ChannelBaseUrl, "/")
+	if info.Action == constant.TaskActionRemix {
+		return fmt.Sprintf("%s/v1/videos/%s/remix", baseURL, info.OriginTaskID), nil
+	}
+	return baseURL + "/v1/videos", nil
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
-	req.Header.Set("Authorization", "Bearer "+a.apiKey)
+	if info == nil {
+		return fmt.Errorf("video relay info is nil")
+	}
+	req.Header.Set("Authorization", "Bearer "+info.ApiKey)
 	req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
 	return nil
 }

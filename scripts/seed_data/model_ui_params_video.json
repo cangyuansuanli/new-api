@@ -3122,8 +3122,7 @@
                     "max": 15
                 },
                 "generateAudio": {
-                    "enabled": true,
-                    "hint": "是否生成原生音频（首尾帧模式下不可用）"
+                    "enabled": false
                 },
                 "watermark": {
                     "enabled": false
@@ -3136,7 +3135,7 @@
                 },
                 "frameInputs": {
                     "enabled": true,
-                    "hint": "首尾帧与多模态（参考图/视频/音频）二选一；首尾帧下不可开原生音频"
+                    "hint": "首尾帧与多模态（参考图/视频/音频）二选一"
                 }
             },
             "hints": [
