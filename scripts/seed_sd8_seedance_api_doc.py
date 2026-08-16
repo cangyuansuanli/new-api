@@ -21,6 +21,7 @@ MODELS = {
         "intro_extra": (
             "支持文生视频与多参参考：参考图最多 9 张、参考视频最多 3 段、参考音频最多 3 段。"
             "卡脸线路：含人物参考图须先遮眼（贴纸/马赛克遮挡眼部）后再上传公网 URL。"
+            "支持成对 first_image_url + last_image_url 首尾帧模式，并与多参参考素材互斥。"
         ),
         "params": [
             {"name": "model", "description": "必填，传模型广场展示名 sd8-seedance-2.0。"},
@@ -33,6 +34,8 @@ MODELS = {
             },
             {"name": "reference_videos", "description": "参考视频 HTTPS URL 数组，最多 3 段。"},
             {"name": "reference_audios", "description": "参考音频 HTTPS URL 数组，最多 3 段。"},
+            {"name": "first_image_url", "description": "首帧 HTTPS URL；必须与 last_image_url 成对提供，并与多参参考素材互斥。"},
+            {"name": "last_image_url", "description": "尾帧 HTTPS URL；必须与 first_image_url 成对提供，并与多参参考素材互斥。"},
         ],
     },
     "cy-sd8-seedance-2.0-fast": {
@@ -42,7 +45,7 @@ MODELS = {
         "public_name": "sd8-seedance-2.0-fast",
         "billing_text": "¥1.9/条",
         "variant": "快速版",
-        "intro_extra": "支持文生视频与参考图，最多 9 张；不支持参考视频与参考音频。",
+        "intro_extra": "支持文生视频、最多 9 张参考图及成对首尾帧；首尾帧与普通参考图互斥，不支持参考视频与参考音频。",
         "params": [
             {"name": "model", "description": "必填，传模型广场展示名 sd8-seedance-2.0-fast。"},
             {"name": "prompt", "description": "必填，视频内容描述。"},
@@ -52,6 +55,8 @@ MODELS = {
                 "name": "reference_image_urls",
                 "description": "参考图 HTTPS URL 数组，最多 9 张；单图为图生视频，多图为多参参考。",
             },
+            {"name": "first_image_url", "description": "首帧 HTTPS URL；必须与 last_image_url 成对提供，并与普通参考图互斥。"},
+            {"name": "last_image_url", "description": "尾帧 HTTPS URL；必须与 first_image_url 成对提供，并与普通参考图互斥。"},
         ],
     },
 }

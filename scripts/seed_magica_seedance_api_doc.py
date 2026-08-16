@@ -41,6 +41,8 @@ COMMON_PARAMS = [
     {"name": "reference_image_urls", "description": "参考图 URL 数组，最多 5 张；多张时为多参参考。"},
     {"name": "reference_videos", "description": "参考视频 URL 数组，最多 3 段。"},
     {"name": "reference_audios", "description": "参考音频 URL 数组，最多 3 段。"},
+    {"name": "first_image_url", "description": "首帧 HTTPS URL；必须与 last_image_url 成对提供，并与多参参考素材互斥。"},
+    {"name": "last_image_url", "description": "尾帧 HTTPS URL；必须与 first_image_url 成对提供，并与多参参考素材互斥。"},
     {"name": "generate_audio", "description": "是否生成音频。"},
 ]
 
@@ -53,6 +55,7 @@ def build_doc(model_name: str, config: dict[str, object]) -> dict[str, object]:
             f"Seedance 2.0 {resolution}，{config['billing_text']}。"
             "固定清晰度，通过统一 /v1/videos API 调用。"
             "支持文生、图生与多参参考（参考图、参考视频、参考音频）。"
+            "支持成对 first_image_url + last_image_url 首尾帧模式，并与多参参考素材互斥。"
             "计费以模型广场为准；失败任务通常不计费。"
         ),
         "endpoints": ENDPOINTS,

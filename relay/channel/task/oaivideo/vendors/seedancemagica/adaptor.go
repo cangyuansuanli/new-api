@@ -27,7 +27,29 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if !strings.HasPrefix(strings.ToLower(c.GetHeader("Content-Type")), "application/json") {
 		return service.TaskErrorWrapperLocal(fmt.Errorf("Magica Seedance requests must use application/json"), "invalid_request", http.StatusBadRequest)
 	}
-	return a.TaskAdaptor.ValidateRequestAndSetAction(c, info)
+	if taskErr := a.TaskAdaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
+		return taskErr
+	}
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+	}
+	if err := validateFrameInputs(req); err != nil {
+		return service.TaskErrorWrapperLocal(err, "invalid_reference", http.StatusBadRequest)
+	}
+	return nil
+}
+
+func validateFrameInputs(req relaycommon.TaskSubmitReq) error {
+	first := strings.TrimSpace(req.FirstImageUrl)
+	last := strings.TrimSpace(req.LastImageUrl)
+	if (first == "") != (last == "") {
+		return fmt.Errorf("first_image_url and last_image_url must be provided together")
+	}
+	if first != "" && (len(req.Images) > 0 || len(req.ReferenceVideos) > 0 || len(req.ReferenceAudios) > 0) {
+		return fmt.Errorf("first/last frame mode cannot be combined with reference images, videos, or audios")
+	}
+	return nil
 }
 
 func (*TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -80,6 +102,12 @@ func (*TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo
 	}
 	if len(req.ReferenceAudios) > 0 {
 		out["reference_audios"] = append([]string(nil), req.ReferenceAudios...)
+	}
+	if value := strings.TrimSpace(req.FirstImageUrl); value != "" {
+		out["first_image_url"] = value
+	}
+	if value := strings.TrimSpace(req.LastImageUrl); value != "" {
+		out["last_image_url"] = value
 	}
 	body, err := common.Marshal(out)
 	if err != nil {

@@ -24,18 +24,18 @@ VALUES
     'video', 'video-tpl-magica-seedance-720p-async', 'videos-json-async', 'seedance-flat', FALSE,
     '{}', NULL,
     '{"images":5,"videos":3,"audios":3,"total":11,"fullReferenceMode":{"label":"多参参考","descriptionWithImages":"最多 5 图、3 视频、3 音频；prompt 可用 @Image1 引用"},"validationHint":"固定 720p；最多 5 张参考图、3 段参考视频、3 段参考音频。","showTempMediaHint":true,"prependReferenceGuide":true}',
-    '{"resolution":{"enabled":false,"fixedLabel":"720p"},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"},{"value":"21:9","label":"21:9"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":false}}',
+    '{"resolution":{"enabled":false,"fixedLabel":"720p"},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"},{"value":"21:9","label":"21:9"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧须成对提供，且与参考图、参考视频、参考音频互斥"}}',
     '[]',
-    '[{"text":"固定 720p，按条计费；支持 4–15 秒与多种画幅比例。"},{"text":"支持文生、图生与多参参考（5 图 / 3 视频 / 3 音频）。"}]',
+    '[{"text":"固定 720p，按条计费；支持 4–15 秒与多种画幅比例。"},{"text":"支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）及成对首尾帧；两种参考模式互斥。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 ),
 (
     'video', 'video-tpl-magica-seedance-1080p-async', 'videos-json-async', 'seedance-flat', FALSE,
     '{}', NULL,
     '{"images":5,"videos":3,"audios":3,"total":11,"fullReferenceMode":{"label":"多参参考","descriptionWithImages":"最多 5 图、3 视频、3 音频；prompt 可用 @Image1 引用"},"validationHint":"固定 1080p；最多 5 张参考图、3 段参考视频、3 段参考音频。","showTempMediaHint":true,"prependReferenceGuide":true}',
-    '{"resolution":{"enabled":false,"fixedLabel":"1080p"},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"},{"value":"21:9","label":"21:9"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":false}}',
+    '{"resolution":{"enabled":false,"fixedLabel":"1080p"},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"},{"value":"21:9","label":"21:9"}]},"duration":{"enabled":true,"numericOptions":[4,5,6,7,8,9,10,11,12,13,14,15],"min":4,"max":15},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧须成对提供，且与参考图、参考视频、参考音频互斥"}}',
     '[]',
-    '[{"text":"固定 1080p，按条计费；支持 4–15 秒与多种画幅比例。"},{"text":"支持文生、图生与多参参考（5 图 / 3 视频 / 3 音频）。"}]',
+    '[{"text":"固定 1080p，按条计费；支持 4–15 秒与多种画幅比例。"},{"text":"支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）及成对首尾帧；两种参考模式互斥。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 )
 ON CONFLICT (capability, profile_id) DO UPDATE SET
@@ -97,8 +97,8 @@ SELECT
     v.profile_id,
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('cy-sd7-seedance-2.0-720p', 'Seedance 2.0 720p：固定 720p，按条计费；支持文生、图生与多参参考。', 'video-tpl-magica-seedance-720p-async'),
-    ('cy-sd7-seedance-2.0-1080p', 'Seedance 2.0 1080p：固定 1080p，按条计费；支持文生、图生与多参参考。', 'video-tpl-magica-seedance-1080p-async')
+    ('cy-sd7-seedance-2.0-720p', 'Seedance 2.0 720p：固定 720p，按条计费；支持文生、图生、多参参考与成对首尾帧。', 'video-tpl-magica-seedance-720p-async'),
+    ('cy-sd7-seedance-2.0-1080p', 'Seedance 2.0 1080p：固定 1080p，按条计费；支持文生、图生、多参参考与成对首尾帧。', 'video-tpl-magica-seedance-1080p-async')
 ) AS v(model_name, description, profile_id)
 WHERE NOT EXISTS (
     SELECT 1 FROM models m WHERE m.model_name = v.model_name AND m.deleted_at IS NULL
@@ -112,8 +112,8 @@ UPDATE models AS m SET
     video_profile_id = v.profile_id,
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
-    ('cy-sd7-seedance-2.0-720p', 'Seedance 2.0 720p：固定 720p，按条计费；支持文生、图生与多参参考。', 'video-tpl-magica-seedance-720p-async'),
-    ('cy-sd7-seedance-2.0-1080p', 'Seedance 2.0 1080p：固定 1080p，按条计费；支持文生、图生与多参参考。', 'video-tpl-magica-seedance-1080p-async')
+    ('cy-sd7-seedance-2.0-720p', 'Seedance 2.0 720p：固定 720p，按条计费；支持文生、图生、多参参考与成对首尾帧。', 'video-tpl-magica-seedance-720p-async'),
+    ('cy-sd7-seedance-2.0-1080p', 'Seedance 2.0 1080p：固定 1080p，按条计费；支持文生、图生、多参参考与成对首尾帧。', 'video-tpl-magica-seedance-1080p-async')
 ) AS v(model_name, description, profile_id)
 WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 

@@ -58,7 +58,7 @@ SELECT v.model_name, v.description, v.tags, 4,
        EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
     ('cy-sd4-seedance-2.5-480p', 'Seedance 2.5 标准 480p。支持 4–30 秒、原生音频和多模态参考，按秒计费。', 'video,seedance,subscription,2.5,480p'),
-    ('cy-sd4-seedance-2.5-720p', 'Seedance 2.5 HD 720p。支持 4–29 秒、原生音频和多模态参考，按秒计费。', 'video,seedance,subscription,2.5,720p')
+    ('cy-sd4-seedance-2.5-720p', 'Seedance 2.5 HD 720p。无参考视频支持 4–29 秒，带参考视频支持 4–18 秒；支持原生音频和多模态参考，按秒计费。', 'video,seedance,subscription,2.5,720p')
 ) AS v(model_name, description, tags)
 WHERE NOT EXISTS (
     SELECT 1 FROM models m WHERE m.model_name = v.model_name AND m.deleted_at IS NULL
@@ -75,7 +75,7 @@ UPDATE models AS m SET
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
 FROM (VALUES
     ('cy-sd4-seedance-2.5-480p', 'Seedance 2.5 标准 480p。支持 4–30 秒、原生音频和多模态参考，按秒计费。', 'video,seedance,subscription,2.5,480p'),
-    ('cy-sd4-seedance-2.5-720p', 'Seedance 2.5 HD 720p。支持 4–29 秒、原生音频和多模态参考，按秒计费。', 'video,seedance,subscription,2.5,720p')
+    ('cy-sd4-seedance-2.5-720p', 'Seedance 2.5 HD 720p。无参考视频支持 4–29 秒，带参考视频支持 4–18 秒；支持原生音频和多模态参考，按秒计费。', 'video,seedance,subscription,2.5,720p')
 ) AS v(model_name, description, tags)
 WHERE m.model_name = v.model_name AND m.deleted_at IS NULL;
 

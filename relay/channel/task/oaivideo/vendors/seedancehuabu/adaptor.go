@@ -52,6 +52,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if err != nil {
 		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 	}
+	if err := validateFrameInputs(req); err != nil {
+		return service.TaskErrorWrapperLocal(err, "invalid_reference", http.StatusBadRequest)
+	}
 	if seconds := req.RequestedDurationSeconds(); seconds != 0 {
 		if _, ok := allowedDurations[seconds]; !ok {
 			return service.TaskErrorWrapperLocal(
@@ -76,6 +79,18 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 				http.StatusBadRequest,
 			)
 		}
+	}
+	return nil
+}
+
+func validateFrameInputs(req relaycommon.TaskSubmitReq) error {
+	first := strings.TrimSpace(req.FirstImageUrl)
+	last := strings.TrimSpace(req.LastImageUrl)
+	if (first == "") != (last == "") {
+		return fmt.Errorf("first_image_url and last_image_url must be provided together")
+	}
+	if first != "" && (len(req.Images) > 0 || len(req.ReferenceVideos) > 0 || len(req.ReferenceAudios) > 0) {
+		return fmt.Errorf("first/last frame mode cannot be combined with reference images, videos, or audios")
 	}
 	return nil
 }

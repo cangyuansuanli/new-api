@@ -48,18 +48,18 @@ VALUES
     'video', 'video-tpl-sd8-seedance-facepass-async', 'videos-json-async', 'seedance-flat', FALSE,
     '{}', NULL,
     '{"images":9,"videos":3,"audios":3,"total":15,"fullReferenceMode":{"label":"多模态参考","descriptionWithImages":"图片、视频与音频参考素材须为公网 HTTPS URL"},"validationHint":"最多 9 张参考图、3 段参考视频、3 段参考音频；含人物参考图须遮眼后再上传。","showTempMediaHint":true,"prependReferenceGuide":true}',
-    '{"resolution":{"enabled":false},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"}]},"duration":{"enabled":true,"numericOptions":[5,10,15],"min":5,"max":15},"generateAudio":{"enabled":false},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":false}}',
+    '{"resolution":{"enabled":false},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"}]},"duration":{"enabled":true,"numericOptions":[5,10,15],"min":5,"max":15},"generateAudio":{"enabled":false},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧须成对提供，且与参考图、参考视频、参考音频互斥"}}',
     '[]',
-    '[{"text":"¥2.9/条；时长仅支持 5、10、15 秒。"},{"text":"卡脸线路：含人物参考图须遮眼（贴纸/马赛克遮挡眼部）后再上传。"},{"text":"支持最多 9 图、3 视频、3 音频；素材须为公网 HTTPS URL。"}]',
+    '[{"text":"¥2.9/条；时长仅支持 5、10、15 秒。"},{"text":"卡脸线路：含人物参考图须遮眼（贴纸/马赛克遮挡眼部）后再上传。"},{"text":"支持最多 9 图、3 视频、3 音频及成对首尾帧；首尾帧与普通参考素材互斥。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 ),
 (
     'video', 'video-tpl-sd8-seedance-fast-async', 'videos-json-async', 'seedance-flat', FALSE,
     '{}', NULL,
-    '{"images":9,"videos":0,"audios":0,"total":9,"validationHint":"仅支持参考图，最多 9 张；不支持参考视频与参考音频。","showTempMediaHint":true,"prependReferenceGuide":true}',
-    '{"resolution":{"enabled":false},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"}]},"duration":{"enabled":true,"numericOptions":[5,10,15],"min":5,"max":15},"generateAudio":{"enabled":false},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":false}}',
+    '{"images":9,"videos":0,"audios":0,"total":9,"validationHint":"支持最多 9 张普通参考图或成对首尾帧，两种模式互斥；不支持参考视频、参考音频。","showTempMediaHint":true,"prependReferenceGuide":true}',
+    '{"resolution":{"enabled":false},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"},{"value":"1:1","label":"方形"},{"value":"4:3","label":"4:3"},{"value":"3:4","label":"3:4"}]},"duration":{"enabled":true,"numericOptions":[5,10,15],"min":5,"max":15},"generateAudio":{"enabled":false},"watermark":{"enabled":false},"seed":{"enabled":false},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧须成对提供，且与普通参考图互斥"}}',
     '[]',
-    '[{"text":"¥1.9/条；时长仅支持 5、10、15 秒。"},{"text":"仅支持参考图，最多 9 张；不支持参考视频与参考音频。"}]',
+    '[{"text":"¥1.9/条；时长仅支持 5、10、15 秒。"},{"text":"支持最多 9 张普通参考图或成对首尾帧；不支持参考视频、参考音频。"}]',
     EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT
 )
 ON CONFLICT (capability, profile_id) DO UPDATE SET

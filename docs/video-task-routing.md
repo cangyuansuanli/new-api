@@ -151,6 +151,8 @@ Seedance 2.0 的参考图统一使用 `reference_image_urls`（单图 vendor 可
 
 公共图片别名必须在 `relay/common.TaskSubmitReq` 入口合并、去空并去重到 `Images`，vendor 只能消费该标准字段并渲染上游协议，不得再次从原始 JSON body 解析 `image` / `image_url` / `images` / `image_urls` / `reference_images` / `reference_image_urls`。`first_image_url` / `last_image_url` 是独立的首尾帧控制字段，不进入通用参考图归一化。
 
+Seedance 各线路均声明成对 `first_image_url` + `last_image_url` 首尾帧能力，并在 vendor 出站层显式透传；首尾帧与普通参考图、参考视频、参考音频互斥。公共 `seedance-2.0` 路由继承当前目标线路的同一契约。文档同步脚本会校验 profile 已启用但文档漏字段、只声明单边帧字段，以及示例混用首尾帧和普通参考素材三类错误。
+
 完整出站链路固定为：客户 JSON / multipart → `TaskSubmitReq.UnmarshalJSON` 兼容解析 → `Canonicalize` 清除别名 → `CanonicalVideoBody` 标准视图 → registry vendor 白名单映射 → 上游协议。当前 registry 的所有 vendor 都必须从标准 DTO 读取业务字段；新增 vendor 必须补充 canonical 输入到上游字段的测试。
 
 Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/videos` + `GET /v1/videos/{id}`，Adobe vendor 内部将创建请求映射为上游 `POST /v1/videos/generations`，并使用上游 `GET /v1/videos/{id}` 轮询。Adobe 任务直接进入通用任务表和通用轮询，不再创建独立 worker，也不再包装成 chat。
