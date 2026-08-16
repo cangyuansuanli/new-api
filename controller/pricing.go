@@ -61,6 +61,9 @@ func GetPricing(c *gin.Context) {
 	publicPricing := make([]model.Pricing, 0, len(pricing))
 	for i := range pricing {
 		if service.ModelPublicNameEnabled() {
+			if !service.IsModelPublicModelVisible(pricing[i].ModelName) {
+				continue
+			}
 			publicName := service.ToPublicModelName(pricing[i].ModelName)
 			if publicName == "" {
 				continue

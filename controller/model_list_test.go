@@ -313,6 +313,50 @@ func TestListModelsKeepsEndpointTypesWhenDisplayingPublicAlias(t *testing.T) {
 	require.Equal(t, []constant.EndpointType{constant.EndpointTypeOpenAI}, payload.Data[0].SupportedEndpointTypes)
 }
 
+func TestListModelsUsesRouteWhenChannelDisplayAliasIsHidden(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1004,
+		Username: "routing-model-list-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+		Setting:  `{"accept_unset_model_ratio_model":true}`,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "cy-gv2-grok-video-1.5", ChannelId: 1, Enabled: true,
+	}).Error)
+	require.NoError(t, db.Create(&model.ModelPublicAlias{
+		InternalName: "cy-gv2-grok-video-1.5", PublicName: "gv2-grok-video-1.5",
+		HiddenFromMarketplace: true,
+	}).Error)
+	require.NoError(t, db.Create(&model.ModelRoutingAlias{
+		PublicName: "grok-video-1.5", InternalName: "cy-gv2-grok-video-1.5",
+	}).Error)
+
+	model.InvalidatePricingCache()
+	require.NoError(t, service.RefreshModelPublicNameRegistry())
+	require.False(t, service.IsModelPublicModelVisible("cy-gv2-grok-video-1.5"))
+	require.False(t, service.IsPublicCatalogNameVisible("gv2-grok-video-1.5"))
+	require.True(t, service.IsPublicCatalogNameVisible("grok-video-1.5"))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set("id", 1004)
+	ListModels(ctx, constant.ChannelTypeOpenAI)
+
+	ids := decodeListModelsResponse(t, recorder)
+	require.Contains(t, ids, "grok-video-1.5")
+	require.NotContains(t, ids, "gv2-grok-video-1.5")
+	require.NotContains(t, ids, "cy-gv2-grok-video-1.5")
+
+	internal, clientName, err := service.ResolveInternalModelName("cy-gv2-grok-video-1.5")
+	require.NoError(t, err)
+	require.Equal(t, "cy-gv2-grok-video-1.5", internal)
+	require.Equal(t, "gv2-grok-video-1.5", clientName)
+}
+
 func TestListModelsAnthropicEmptyListDoesNotPanic(t *testing.T) {
 	withSelfUseModeDisabled(t)
 
