@@ -43,6 +43,8 @@
 
 ## 示例
 
+`gpt-image-2` 是稳定的 API 入站路由，当前绑定 `cy-img1-gpt-image-2`；模型广场使用独立展示名 `img1-gpt-image-2`。后续切换渠道只更新 routing alias，不改客户请求模型名。
+
 ```bash
 curl -X POST "https://newapi.example.com/v1/images/generations" \
   -H "Authorization: Bearer sk-xxx" \
