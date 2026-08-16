@@ -105,8 +105,13 @@ Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonard
 |------------|------------------|----------|
 | `seedance-2.0` | `cy-sd7-seedance-2.0-720p` | Magica SD7 |
 | `seedance-2.0-fast` | `cy-sd4-seedance-2.0-fast` | Leonardo SD4 |
+| `seedance-2.0-mini` | `cy-sd4-seedance-2.0-mini` | Leonardo SD4 |
+| `seedance-2.0-720p` | `cy-sd7-seedance-2.0-720p` | Magica SD7 |
+| `seedance-2.0-1080p` | `cy-sd7-seedance-2.0-1080p` | Magica SD7 |
 | `seedance-2.5-480p` | `cy-sd4-seedance-2.5-480p` | Leonardo SD4 |
 | `seedance-2.5-720p` | `cy-sd4-seedance-2.5-720p` | Leonardo SD4 |
+
+其他历史中性名也必须作为入站路由维护，而不是占用品牌展示名：`grok-video*` 当前绑定 GV2、`omni-*` / `veo-clean` 当前绑定 SD1、`gemini-music` 当前绑定 AU1。模型广场分别保留 `gv2-*`、`sd1-*`、`au1-*` 卡片；切换供应渠道时只更新 routing alias 的 `internal_name`。
 
 修改路由别名后 controller 会同步刷新内存 registry；直接执行 SQL 时则等待定时刷新或滚动重启。第一版仅提供显式 CRUD，不根据上游错误自动 failover。
 
