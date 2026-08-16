@@ -102,6 +102,26 @@ CROSS JOIN (VALUES
     ('cy-sd4-seedance-2.5-720p')
 ) AS m(model);
 
+-- SD4 品牌名用于模型广场；中性名保留为可切换的 API 入站路由。
+INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
+VALUES
+    ('cy-sd4-seedance-2.5-480p', 'sd4-seedance-2.5-480p', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('cy-sd4-seedance-2.5-720p', 'sd4-seedance-2.5-720p', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
+ON CONFLICT (internal_name) DO UPDATE SET
+    public_name = EXCLUDED.public_name,
+    deleted_at = NULL,
+    updated_time = EXCLUDED.updated_time;
+
+INSERT INTO model_routing_aliases (public_name, internal_name, note, created_time, updated_time)
+VALUES
+    ('seedance-2.5-480p', 'cy-sd4-seedance-2.5-480p', 'Neutral Seedance 2.5 480p -> SD4 Leonardo', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('seedance-2.5-720p', 'cy-sd4-seedance-2.5-720p', 'Neutral Seedance 2.5 720p -> SD4 Leonardo', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
+ON CONFLICT (public_name) DO UPDATE SET
+    internal_name = EXCLUDED.internal_name,
+    note = EXCLUDED.note,
+    deleted_at = NULL,
+    updated_time = EXCLUDED.updated_time;
+
 -- API 文档与售价和模型上架保持同一事务。
 UPDATE models AS m SET
     api_doc = jsonb_build_object(

@@ -399,6 +399,15 @@ func SetApiRouter(router *gin.Engine) {
 			modelPublicAliasRoute.DELETE("/:id", controller.DeleteModelPublicAlias)
 		}
 
+		modelRoutingAliasRoute := apiRouter.Group("/model_routing_aliases")
+		modelRoutingAliasRoute.Use(middleware.AdminAuth())
+		{
+			modelRoutingAliasRoute.GET("/", controller.GetAllModelRoutingAliases)
+			modelRoutingAliasRoute.POST("/", controller.CreateModelRoutingAlias)
+			modelRoutingAliasRoute.PUT("/", controller.UpdateModelRoutingAlias)
+			modelRoutingAliasRoute.DELETE("/:id", controller.DeleteModelRoutingAlias)
+		}
+
 		modelChannelPrefixRoute := apiRouter.Group("/model_channel_prefixes")
 		modelChannelPrefixRoute.Use(middleware.AdminAuth())
 		{

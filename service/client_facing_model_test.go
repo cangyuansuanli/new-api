@@ -18,10 +18,12 @@ func TestClientFacingModelFromTaskPrefersClientModelName(t *testing.T) {
 	require.Equal(t, "gemini-banana-pro-4k", ClientFacingModelFromTask(task))
 }
 
-func TestClientFacingModelFromTaskLegacyFallbackStripsPrefix(t *testing.T) {
+func TestClientFacingModelFromTaskLegacyFallbackUsesExplicitAlias(t *testing.T) {
 	modelPublicRegistryMu.Lock()
 	previousRegistry := modelPublicRegistryData
-	modelPublicRegistryData.channelPrefixes = []string{"manju-"}
+	modelPublicRegistryData.internalToPublic = map[string]string{
+		"manju-gemini-banana-pro-4k": "gemini-banana-pro-4k",
+	}
 	modelPublicRegistryMu.Unlock()
 	t.Cleanup(func() {
 		modelPublicRegistryMu.Lock()
@@ -119,7 +121,9 @@ func TestClientFacingTaskPropertiesHidesInternalNames(t *testing.T) {
 func TestApplyClientFacingModelNamesToLogs(t *testing.T) {
 	modelPublicRegistryMu.Lock()
 	previousRegistry := modelPublicRegistryData
-	modelPublicRegistryData.channelPrefixes = []string{"cy-img1-"}
+	modelPublicRegistryData.internalToPublic = map[string]string{
+		"cy-img1-gpt-image-2": "gpt-image-2",
+	}
 	modelPublicRegistryMu.Unlock()
 	t.Cleanup(func() {
 		modelPublicRegistryMu.Lock()

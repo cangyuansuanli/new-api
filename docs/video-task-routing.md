@@ -93,6 +93,25 @@ JSON 示例：
 
 Leonardo **`cy-sd4-seedance*`**：参考素材校验与失败文案在 **leonardo-web2api**（`referencemedia` + `clienterror`）；NewAPI **不重写** 任务 `fail_reason` 与轮询 JSON 中的 `error.message`（见 [`channel-seedance-leonardo.md`](channel-seedance-leonardo.md)、[`leonardo-web2api/docs/models/seedance-2.0.md`](../../leonardo-web2api/docs/models/seedance-2.0.md)）。其他渠道或非 cy-sd4 路径仍走 `service/clienterror` 单点翻译。
 
+## 公共名与路由别名
+
+模型命名分为两个独立边界：`model_public_aliases` 控制模型广场和响应中的展示名，`model_routing_aliases` 只把 legacy 入站名解析为实际 internal ability。管理后台“模型命名与路由”区可维护两类映射；路由名写入时要求目标已存在于 `abilities`，且入站名不得占用展示名。渠道间的 `priority`、`weight` 和 retry 仍在渠道管理中配置。
+
+`model_channel_prefixes` 仅用于识别必须配置显式展示名的 internal 命名空间，不再自动剥离或生成公开名。匹配这些前缀但缺少 `model_public_aliases` 的 enabled model 会从 `/pricing` 与 `/v1/models` 隐藏，并在 registry 状态和管理页列出。任何新的渠道 internal 模型必须在启用 ability 前写入明确展示名。
+
+当前 Seedance 中性路由基线如下：
+
+| 入站模型名 | internal ability | 上游线路 |
+|------------|------------------|----------|
+| `seedance-2.0` | `cy-sd7-seedance-2.0-720p` | Magica SD7 |
+| `seedance-2.0-fast` | `cy-sd4-seedance-2.0-fast` | Leonardo SD4 |
+| `seedance-2.5-480p` | `cy-sd4-seedance-2.5-480p` | Leonardo SD4 |
+| `seedance-2.5-720p` | `cy-sd4-seedance-2.5-720p` | Leonardo SD4 |
+
+修改路由别名后 controller 会同步刷新内存 registry；直接执行 SQL 时则等待定时刷新或滚动重启。第一版仅提供显式 CRUD，不根据上游错误自动 failover。
+
+Seedance 2.5 的广场展示名固定为 `sd4-seedance-2.5-480p` / `sd4-seedance-2.5-720p`；对应中性名 `seedance-2.5-480p` / `seedance-2.5-720p` 仅作为入站路由。两类名称不得同名，创建和更新接口会双向拒绝冲突。
+
 时间字段对外统一为整数 Unix 秒。上游若返回带小数的 Unix 秒，`oaivideo/shared` 会在协议边界截断为整数，不能因供应商时间精度差异导致任务提交或轮询失败。
 
 `/v1/chat/completions`、`/v1/video/generations`、`/v1/videos/generations` 等均是部分供应商的内部上游协议，不属于公开视频 API，也不得出现在客户调用示例中。

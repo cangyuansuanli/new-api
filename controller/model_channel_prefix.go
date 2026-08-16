@@ -105,9 +105,10 @@ func DeleteModelChannelPrefix(c *gin.Context) {
 }
 
 func GetModelPublicNameRegistryStatus(c *gin.Context) {
-	collisions, ready := service.GetModelPublicNameRegistryStatus()
+	collisions, missingAliases, ready := service.GetModelPublicNameRegistryStatus()
 	common.ApiSuccess(c, gin.H{
-		"ready":      ready,
-		"collisions": collisions,
+		"ready":           ready,
+		"collisions":      collisions,
+		"missing_aliases": missingAliases,
 	})
 }

@@ -374,6 +374,7 @@ func migrateDBFast() error {
 		{&UserOAuthBinding{}, "UserOAuthBinding"},
 		{&PerfMetric{}, "PerfMetric"},
 		{&ModelPublicAlias{}, "ModelPublicAlias"},
+		{&ModelRoutingAlias{}, "ModelRoutingAlias"},
 		{&ModelChannelPrefix{}, "ModelChannelPrefix"},
 		{&ModelUiParamRegistry{}, "ModelUiParamRegistry"},
 		{&ModelUiParamProfile{}, "ModelUiParamProfile"},

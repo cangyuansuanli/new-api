@@ -49,6 +49,15 @@ func CreateModelPublicAlias(c *gin.Context) {
 		common.ApiErrorMsg(c, "public_name already exists")
 		return
 	}
+	dup, err = model.IsModelRoutingAliasDuplicated(0, alias.PublicName)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if dup {
+		common.ApiErrorMsg(c, "public_name conflicts with a model routing alias")
+		return
+	}
 	if err := alias.Insert(); err != nil {
 		common.ApiError(c, err)
 		return
@@ -92,6 +101,15 @@ func UpdateModelPublicAlias(c *gin.Context) {
 	}
 	if dup {
 		common.ApiErrorMsg(c, "public_name already exists")
+		return
+	}
+	dup, err = model.IsModelRoutingAliasDuplicated(0, alias.PublicName)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if dup {
+		common.ApiErrorMsg(c, "public_name conflicts with a model routing alias")
 		return
 	}
 	if err := alias.Update(); err != nil {

@@ -65,6 +65,14 @@ func IsModelRoutingAliasDuplicated(id int, publicName string) (bool, error) {
 	return count > 0, nil
 }
 
+func ModelRoutingAliasTargetExists(internalName string) (bool, error) {
+	var count int64
+	if err := DB.Model(&Ability{}).Where("model = ?", internalName).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func DeleteModelRoutingAlias(id int) error {
 	result := DB.Delete(&ModelRoutingAlias{}, id)
 	if result.Error != nil {

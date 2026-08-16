@@ -29,6 +29,9 @@ func AppendRoutingAliasPricing(pricing []model.Pricing) []model.Pricing {
 		if _, exists := seenPublic[public]; exists {
 			continue
 		}
+		if ToPublicModelName(internal) == "" {
+			continue
+		}
 		source, ok := byInternal[internal]
 		if !ok {
 			continue

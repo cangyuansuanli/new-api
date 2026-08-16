@@ -1,4 +1,6 @@
-# 渠道前缀中性化（源站执行）
+# 渠道前缀中性化（历史源站流程）
+
+> 当前系统不再通过 `model_channel_prefixes` 自动剥离公开名。所有匹配渠道 internal 前缀的模型必须写入显式 `model_public_aliases`；现网遗留结果已由 `migrate_materialize_public_names_ssh.sql` 固化。
 
 将 internal 注册名从 `oairegbox-` / `119337-` 等改为 `cy-*` 路由码；**public 名与 upstream `model_mapping` 值不变**，下游继续用 `seedance-2.0-480p`、`grok-video` 等即可。
 

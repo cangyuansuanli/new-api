@@ -639,7 +639,7 @@ func TestPublicChannelMonitorViewsExcludeDisabledChannels(t *testing.T) {
 func TestPublicChannelMonitorViewsIncludeEnabledTextGroupsWithoutMonitor(t *testing.T) {
 	setupChannelMonitorTest(t)
 	setChannelMonitorUserUsableGroups(t, map[string]string{
-		"LLM-GPT-快速": "快速分组",
+		"LLM-GPT-快速":   "快速分组",
 		"LLM-GPT-plus": "Plus 分组",
 	})
 	channel := &model.Channel{
@@ -719,7 +719,6 @@ func TestPublicChannelMonitorViewsGroupTextAndExposePublicMediaModels(t *testing
 
 	modelPublicRegistryMu.Lock()
 	previousRegistry := modelPublicRegistryData
-	modelPublicRegistryData.channelPrefixes = []string{"cy-img1-", "cy-sd4-"}
 	modelPublicRegistryData.internalToPublic = map[string]string{
 		"cy-img1-seedream-4":       "seedream-4",
 		"cy-img1-gpt-image-2":      "gpt-image-2",
