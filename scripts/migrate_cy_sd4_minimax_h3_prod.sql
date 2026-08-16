@@ -1,4 +1,4 @@
--- MiniMax H3 2K（Leonardo leonardo-france / leonardo-web2api hailuo-03）
+-- MiniMax H3 2K 首次上架脚本；三档升级请继续执行 migrate_cy_sd4_minimax3_upgrade_ssh.sql。
 -- contabo: docker exec -i newapi-postgres psql -U root -d new-api < migrate_cy_sd4_minimax_h3_prod.sql
 -- api_doc（与 seedance-2.0 同结构）: migrate_cy_sd4_minimax_h3_api_doc.sql
 --  regenerate: python3 scripts/apply_model_api_doc_from_json.py cy-sd4-minimax-h3-2k scripts/seed_data/api_doc_cy_sd4_minimax_h3_2k.json > scripts/migrate_cy_sd4_minimax_h3_api_doc.sql
@@ -21,19 +21,26 @@ INSERT INTO model_ui_param_profiles (
     '{}',
     '{
       "images": 5,
-      "videos": 0,
+      "videos": 3,
       "audios": 3,
       "imageMaxBytes": 26214400,
+      "videoMaxBytes": 209715200,
       "audioMaxBytes": 15728640,
+      "video": {
+        "minDurationMs": 2000,
+        "maxDurationMs": 15000,
+        "totalMaxDurationMs": 15000
+      },
       "audio": {
+        "minDurationMs": 2000,
         "maxDurationMs": 15000,
         "totalMaxDurationMs": 15000
       },
       "fullReferenceMode": {
         "label": "多模态",
-        "descriptionWithImages": "多模态：参考图 + 可选参考音频（不支持参考视频）"
+        "descriptionWithImages": "多模态：参考图/视频 + 可选参考音频"
       },
-      "validationHint": "参考图 png/jpg/webp ≤25MB（最多 5）；参考音频 mp3/wav ≤15MB，最多 3 段、合计 ≤15 秒。不支持参考视频。提交后由平台校验。",
+      "validationHint": "参考图最多 5 张；参考视频最多 3 条，单条 2–15 秒、合计 ≤15 秒；参考音频最多 3 条，单条 2–15 秒、合计 ≤15 秒。使用参考音频时必须同时提供至少 1 条参考视频。",
       "showTempMediaHint": true,
       "prependReferenceGuide": true
     }',
@@ -72,7 +79,7 @@ INSERT INTO model_ui_param_profiles (
       }
     }',
     '[]',
-    '[{"text": "2K 成片；多模态 5 图 / 3 音频（合计 ≤15 秒）；与首尾帧互斥。"}]',
+    '[{"text": "2K 成片；多模态 5 图 / 3 视频 / 3 音频；使用参考音频时必须同时提供至少 1 条参考视频。"}]',
     'MiniMax H3 2K 异步视频；按条计费。',
     EXTRACT(EPOCH FROM NOW())::BIGINT,
     EXTRACT(EPOCH FROM NOW())::BIGINT
@@ -167,13 +174,13 @@ WHERE ch.name = 'leonardo-minimax-h3-2k'
 
 INSERT INTO options (key, value)
 VALUES
-    ('ModelPrice', jsonb_build_object('cy-sd4-minimax-h3-2k', 4.9)::text),
+    ('ModelPrice', jsonb_build_object('cy-sd4-minimax-h3-2k', 3.9)::text),
     ('billing_setting.billing_mode', jsonb_build_object('cy-sd4-minimax-h3-2k', 'per_request')::text),
     ('billing_setting.request_unit', jsonb_build_object('cy-sd4-minimax-h3-2k', 'generation')::text)
 ON CONFLICT (key) DO UPDATE SET
     value = CASE
         WHEN options.key = 'ModelPrice' THEN
-            jsonb_set(options.value::jsonb, '{cy-sd4-minimax-h3-2k}', '4.9'::jsonb, true)::text
+            jsonb_set(options.value::jsonb, '{cy-sd4-minimax-h3-2k}', '3.9'::jsonb, true)::text
         WHEN options.key = 'billing_setting.billing_mode' THEN
             jsonb_set(options.value::jsonb, '{cy-sd4-minimax-h3-2k}', '"per_request"'::jsonb, true)::text
         ELSE

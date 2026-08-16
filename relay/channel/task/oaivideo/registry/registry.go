@@ -12,10 +12,10 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omnii2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/omniv2v"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceheygen"
+	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancehuabu"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceleonardo"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancemagica"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedanceoairegbox"
-	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancehuabu"
 	"github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seedancetengda"
 	seqnode "github.com/QuantumNous/new-api/relay/channel/task/oaivideo/vendors/seqnode"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -114,7 +114,7 @@ func ResolveSubmission(originModel, upstreamModel string, channelID int, baseURL
 	if seedancetengda.IsRelay(originModel, upstreamModel) {
 		return VendorSeedanceTengda
 	}
-	if seedanceleonardo.IsRelay(originModel) {
+	if seedanceleonardo.IsRelay(originModel, upstreamModel) {
 		return VendorSeedanceLeonardo
 	}
 	if seedanceoairegbox.IsRelay(originModel) {
