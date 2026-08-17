@@ -127,6 +127,13 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	firstImage := strings.TrimSpace(req.FirstImageUrl)
 	lastImage := strings.TrimSpace(req.LastImageUrl)
 	mode := relaycommon.InferReferenceMode(req, "", contract.allowMedia)
+	// The public contract only exposes canonical image references. Adobe's
+	// Kling Omni lane calls that image group "style" upstream, so infer the
+	// vendor mode at this boundary instead of requiring clients to send the
+	// vendor-only reference_mode field.
+	if mode == "asset" && contract.allowStyles && !contract.allowAssets {
+		mode = "style"
+	}
 	if mode == "frame" {
 		if len(referenceVideos)+len(referenceAudios) > 0 {
 			return nil, fmt.Errorf("%s frame references cannot be combined with video or audio references", modelName)

@@ -41,7 +41,7 @@ oaivideo/
     └── defaultvideo/ # 兜底：sora-2 等标准 OpenAI Video
 ```
 
-Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`，vendor 内部提交到 `/v1/videos/generations`，轮询复用 `/v1/videos/{id}`，不再使用独立 worker 或 chat 包装。`cy-sd5` 也由 Adobe vendor 按内部模型契约处理：普通参考素材明确输出 `reference_mode=media`，支持 9 图 + 3 个视频/音频共享源位且全部素材最多 12；仅成对首尾帧输出 `reference_mode=frame`，两种模式互斥。
+Adobe2API 视频属于 `oaivideo` 的标准任务族：对外使用 `/v1/videos`，vendor 内部提交到 `/v1/videos/generations`，轮询复用 `/v1/videos/{id}`，不再使用独立 worker 或 chat 包装。Veo 标准版支持 3 张普通参考图或成对首尾帧；Veo Fast / Kling 3.0 仅支持成对首尾帧；Kling Omni 的 canonical `reference_image_urls` 在 vendor 边界映射为上游 style 模式。`cy-sd5` 也由 Adobe vendor 按内部模型契约处理：普通参考素材明确输出 `reference_mode=media`，支持 9 图 + 3 个视频/音频共享源位且全部素材最多 12；仅成对首尾帧输出 `reference_mode=frame`，两种模式互斥。
 
 对外 canonical 时长字段是 `duration`；历史 `seconds` 仅在 `relay/common` 入站兼容并归一化。业务层统一读取 `TaskSubmitReq.Duration`，上游字段由 vendor 选择：default / Grok 输出 `seconds`，Seedance / Adobe 输出 `duration`。禁止绕过 vendor 边界透传别名。
 

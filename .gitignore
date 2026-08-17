@@ -22,6 +22,8 @@ tiktoken_cache
 .gocache
 .gomodcache/
 .cache
+__pycache__/
+*.py[cod]
 plans
 .claude
 .cursor
