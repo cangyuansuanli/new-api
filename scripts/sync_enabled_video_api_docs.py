@@ -55,12 +55,12 @@ SPECS = (
     s("cy-sd4-seedance-2.0-mini", "sd4-seedance-2.0-mini", "video-tpl-seedance-subscription-async", "aspect_ratio duration resolution generate_audio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd4-seedance-2.5-480p", "sd4-seedance-2.5-480p", "video-tpl-seedance-2.5-subscription-async", "aspect_ratio duration resolution generate_audio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd4-seedance-2.5-720p", "sd4-seedance-2.5-720p", "video-tpl-seedance-2.5-subscription-async", "aspect_ratio duration resolution generate_audio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
-    s("cy-sd7-seedance-2.0-720p", "sd7-seedance-2.0-720p", "video-tpl-magica-seedance-720p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios first_image_url last_image_url generate_audio"),
+    s("cy-sd7-seedance-2.0-720p", "sd7-seedance-2.0-720p", "video-tpl-magica-seedance-720p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios generate_audio"),
     s("cy-sd5-seedance-2.0", "sd5-seedance-2.0", "video-tpl-seedance-fullref-async", "duration aspect_ratio generate_audio resolution reference_image_urls first_image_url last_image_url reference_videos reference_audios seed"),
     s("cy-sd5-seedance-2.0-fast", "sd5-seedance-2.0-fast", "video-tpl-seedance-fullref-async", "duration aspect_ratio generate_audio resolution reference_image_urls first_image_url last_image_url reference_videos reference_audios seed"),
     s("cy-sd6-seedance-2.0-1080p", "sd6-seedance-2.0-1080p", "video-tpl-heygen-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd6-seedance-2.0-720p", "sd6-seedance-2.0-720p", "video-tpl-heygen-seedance-720p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
-    s("cy-sd7-seedance-2.0-1080p", "sd7-seedance-2.0-1080p", "video-tpl-magica-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url generate_audio"),
+    s("cy-sd7-seedance-2.0-1080p", "sd7-seedance-2.0-1080p", "video-tpl-magica-seedance-1080p-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios generate_audio"),
     s("cy-sd8-seedance-2.0", "sd8-seedance-2.0", "video-tpl-sd8-seedance-facepass-async", "duration aspect_ratio reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
 )
 

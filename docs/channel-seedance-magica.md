@@ -26,6 +26,8 @@
 - 有 `reference_videos` / `reference_audios` / ≥2 张参考图 → `seedance-2.0-reference`
 - 否则 → `seedance-2.0`（文生或单图 `image_url`）
 
+**不支持** `first_image_url` / `last_image_url` 首尾帧；请求携带时将由 NewAPI adaptor 拒绝。
+
 ## 生产渠道
 
 | 字段 | 值 |
@@ -45,12 +47,15 @@
 ## 源站执行
 
 ```bash
-# 沧元源站
-scp scripts/migrate_magica_seedance_prod.sql cy-origin:/tmp/
-ssh cy-origin "docker exec -i newapi-postgres psql -U root -d new-api -v ON_ERROR_STOP=1 < /tmp/migrate_magica_seedance_prod.sql"
+# 沧元源站 — 修正 profile / 模型描述（已上线环境）
+scp scripts/migrate_sd7_no_frame_ssh.sql cy-origin:/tmp/
+ssh cy-origin "docker exec -i newapi-postgres psql -U root -d new-api -v ON_ERROR_STOP=1 < /tmp/migrate_sd7_no_frame_ssh.sql"
 
 scp scripts/seed_magica_seedance_api_doc.py cy-origin:/tmp/
 ssh cy-origin "python3 /tmp/seed_magica_seedance_api_doc.py"
+
+# 刷新 generation_modes（去掉首尾帧字段）
+ssh cy-origin "cd /path/to/new-api/scripts && python3 sync_enabled_video_api_docs.py"
 ```
 
 勿重启 new-api；等待渠道缓存自动同步（约 1–2 分钟）。

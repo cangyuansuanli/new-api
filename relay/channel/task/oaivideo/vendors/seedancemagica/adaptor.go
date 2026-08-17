@@ -41,13 +41,8 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 }
 
 func validateFrameInputs(req relaycommon.TaskSubmitReq) error {
-	first := strings.TrimSpace(req.FirstImageUrl)
-	last := strings.TrimSpace(req.LastImageUrl)
-	if (first == "") != (last == "") {
-		return fmt.Errorf("first_image_url and last_image_url must be provided together")
-	}
-	if first != "" && (len(req.Images) > 0 || len(req.ReferenceVideos) > 0 || len(req.ReferenceAudios) > 0) {
-		return fmt.Errorf("first/last frame mode cannot be combined with reference images, videos, or audios")
+	if strings.TrimSpace(req.FirstImageUrl) != "" || strings.TrimSpace(req.LastImageUrl) != "" {
+		return fmt.Errorf("Magica Seedance does not support first_image_url or last_image_url")
 	}
 	return nil
 }
@@ -102,12 +97,6 @@ func (*TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo
 	}
 	if len(req.ReferenceAudios) > 0 {
 		out["reference_audios"] = append([]string(nil), req.ReferenceAudios...)
-	}
-	if value := strings.TrimSpace(req.FirstImageUrl); value != "" {
-		out["first_image_url"] = value
-	}
-	if value := strings.TrimSpace(req.LastImageUrl); value != "" {
-		out["last_image_url"] = value
 	}
 	body, err := common.Marshal(out)
 	if err != nil {
