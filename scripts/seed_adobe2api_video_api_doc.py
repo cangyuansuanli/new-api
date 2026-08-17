@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""写入 Adobe2API 渠道 75 的标准视频 API 文档与按次定价。"""
+"""写入 Adobe2API 渠道 86 的标准视频 API 文档与按次定价。"""
 
 from __future__ import annotations
 
@@ -17,10 +17,11 @@ MODELS = {
         "tags": "video,veo,adobe,firefly",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
-        "reference_mode": "asset 或 frame",
-        "max_images": 3,
-        "supports_negative_prompt": False,
-        "variant": "标准引擎；普通参考图最多 3 张（asset），首尾帧模式传 2 张（frame）。",
+        "max_reference_images": 3,
+        "supports_frames": True,
+        "supports_seed": True,
+        "supports_generate_audio": True,
+        "variant": "标准引擎；普通参考图最多 3 张，或使用成对首尾帧；两种模式互斥。",
     },
     "cy-adobe-veo-3.1-fast": {
         "public": "veo-3.1-fast",
@@ -29,14 +30,15 @@ MODELS = {
         "tags": "video,veo,adobe,firefly,fast",
         "duration": [4, 6, 8],
         "resolution": ["720p", "1080p"],
-        "reference_mode": "frame",
-        "max_images": 2,
-        "supports_negative_prompt": False,
-        "variant": "快速引擎；参数与标准版一致，适合低延迟或批量生成。",
+        "max_reference_images": 0,
+        "supports_frames": True,
+        "supports_seed": True,
+        "supports_generate_audio": True,
+        "variant": "快速引擎；仅支持成对首尾帧，不支持普通参考图。",
     },
-    "cy-adobe-kling-3.0": {"public": "kling-3.0", "profile": "video-tpl-adobe-kling3-json-async", "description": "Kling 3.0 视频生成。", "tags": "video,kling,adobe,firefly", "duration": list(range(3, 16)), "resolution": ["720p", "1080p"], "reference_mode": "frame", "max_images": 2, "supports_negative_prompt": False, "variant": "支持首尾帧参考图。"},
-    "cy-adobe-kling-3.0-omni": {"public": "kling-3.0-omni", "profile": "video-tpl-adobe-kling3-omni-json-async", "description": "Kling 3.0 Omni 多模态视频生成。", "tags": "video,kling,adobe,firefly,omni", "duration": list(range(3, 16)), "resolution": ["720p", "1080p"], "reference_mode": "style", "max_images": 3, "supports_negative_prompt": False, "variant": "支持多模态参考图和首尾帧。"},
-    "cy-adobe-gemini-omni-flash": {"public": "gemini-omni-flash", "profile": "video-tpl-adobe-gemini-omni-json-async", "description": "Gemini Omni Flash 视频生成，支持 3–10 秒。", "tags": "video,gemini,adobe,firefly,omni", "duration": list(range(3, 11)), "resolution": ["720p"], "reference_mode": "style 或 frame", "max_images": 4, "supports_negative_prompt": True, "variant": "支持 16:9/9:16；单张图可作为首帧，参考图组最多 4 张 style 图。"},
+    "cy-adobe-kling-3.0": {"public": "kling-3.0", "profile": "video-tpl-adobe-kling3-json-async", "description": "Kling 3.0 视频生成。", "tags": "video,kling,adobe,firefly", "duration": list(range(3, 16)), "resolution": ["720p", "1080p"], "max_reference_images": 0, "supports_frames": True, "supports_seed": True, "supports_generate_audio": True, "variant": "仅支持成对首尾帧，不支持普通参考图。"},
+    "cy-adobe-kling-3.0-omni": {"public": "kling-3.0-omni", "profile": "video-tpl-adobe-kling3-omni-json-async", "description": "Kling 3.0 Omni 多模态视频生成。", "tags": "video,kling,adobe,firefly,omni", "duration": list(range(3, 16)), "resolution": ["720p", "1080p"], "max_reference_images": 3, "supports_frames": True, "supports_seed": True, "supports_generate_audio": True, "variant": "支持最多 3 张风格参考图，或使用成对首尾帧。"},
+    "cy-adobe-gemini-omni-flash": {"public": "gemini-omni-flash", "profile": "video-tpl-adobe-gemini-omni-json-async", "description": "Gemini Omni Flash 视频生成，支持 3–10 秒。", "tags": "video,gemini,adobe,firefly,omni", "duration": list(range(3, 11)), "resolution": ["720p"], "default_resolution": "720p", "max_reference_images": 4, "supports_frames": True, "supports_single_frame": True, "supports_seed": False, "supports_generate_audio": False, "variant": "支持最多 4 张风格参考图，也可单独提供首帧。"},
 }
 
 PRICE_USD = {
@@ -50,90 +52,62 @@ PRICE_USD = {
 
 def build_api_doc(conf: dict) -> dict:
     public_model = conf["public"]
-    is_veo = conf["resolution"] is not None
-    supports_references = "reference_mode" in conf
     default_duration = conf.get("default_duration", conf["duration"][-1])
     default_resolution = conf.get("default_resolution", "1080p")
     params = [
         {"name": "model", "description": f"必填，固定传 {public_model}。"},
         {"name": "prompt", "description": "必填，视频提示词，最多 1200 字符。"},
         {"name": "duration", "description": f"视频时长（秒），可选值：{conf['duration']}；默认 {default_duration}。"},
-        {"name": "seconds", "description": "duration 的兼容别名；两者不要同时传。"},
         {"name": "aspect_ratio", "description": "画幅比例：16:9 或 9:16；默认 9:16。"},
-        {"name": "generate_audio", "description": "是否生成声音，布尔值；默认 true。"},
+        {"name": "resolution", "description": f"视频分辨率，可选值：{conf['resolution']}；默认 {default_resolution}。"},
     ]
-    if is_veo:
-        params.append(
-            {
-                "name": "resolution",
-                "description": f"视频分辨率，可选值：{conf['resolution']}；默认 {default_resolution}。",
-            }
-        )
-    if supports_references:
-        params.extend(
-            [
-                {
-                    "name": "reference_mode",
-                    "description": f"固定传 {conf['reference_mode']}；{conf['variant']}",
-                },
-                {
-                    "name": "images",
-                    "description": (
-                        f"可选，最多 {conf['max_images']} 张；支持 JPEG/PNG/WebP 的公网 URL 或 data URI，"
-                        f"单张不超过 30MB。{conf['variant']}"
-                    ),
-                },
-            ]
-        )
-    if conf.get("supports_negative_prompt"):
-        params.append(
-            {
-                "name": "negative_prompt",
-                "description": "可选，负面提示词，最多 1200 字符。",
-            }
-        )
+    if conf.get("supports_generate_audio"):
+        params.append({"name": "generate_audio", "description": "是否生成声音，布尔值；默认 true。"})
+    if conf.get("supports_seed"):
+        params.append({"name": "seed", "description": "可选，非负整数随机种子；相同参数可提高结果可复现性。"})
+    max_reference_images = conf.get("max_reference_images", 0)
+    if max_reference_images:
+        params.append({"name": "reference_image_urls", "description": f"可选，最多 {max_reference_images} 张 JPEG/PNG/WebP 公网 HTTPS 图片，单张不超过 30MB。{conf['variant']}"})
+    if conf.get("supports_frames"):
+        pair_hint = "首尾帧须成对提供。" if not conf.get("supports_single_frame") else "可仅提供首帧，也可同时提供首尾帧。"
+        params.extend([
+            {"name": "first_image_url", "description": f"首帧公网 HTTPS URL。{pair_hint}"},
+            {"name": "last_image_url", "description": f"尾帧公网 HTTPS URL。{pair_hint}"},
+        ])
 
     request = {
         "model": public_model,
         "prompt": "一辆跑车穿过雨夜城市",
         "duration": default_duration,
         "aspect_ratio": "16:9",
-        "generate_audio": True,
+        "resolution": default_resolution,
     }
-    if is_veo:
-        request["resolution"] = default_resolution
+    if conf.get("supports_generate_audio"):
+        request["generate_audio"] = True
 
     full_request = dict(request)
-    if supports_references:
-        full_request["reference_mode"] = conf["reference_mode"]
-        if conf["reference_mode"] == "image":
-            full_request["images"] = [
-                "https://example.com/character.png",
-                "https://example.com/product.png",
-                "https://example.com/style.png",
-            ]
-        elif conf["max_images"] == 2:
-            full_request["images"] = [
-                "https://example.com/first-frame.png",
-                "https://example.com/last-frame.png",
-            ]
-        elif conf["max_images"] > 2:
-            full_request["images"] = [
-                f"https://example.com/reference-{index}.png"
-                for index in range(1, conf["max_images"] + 1)
-            ]
-        else:
-            full_request["images"] = ["https://example.com/reference-frame.png"]
-    if conf.get("supports_negative_prompt"):
-        full_request["negative_prompt"] = "画面抖动、主体变形、文字水印"
+    if conf.get("supports_seed"):
+        full_request["seed"] = 42
+    if max_reference_images:
+        full_request["reference_image_urls"] = [f"https://example.com/reference-{index}.png" for index in range(1, max_reference_images + 1)]
+    elif conf.get("supports_frames"):
+        full_request["first_image_url"] = "https://example.com/first-frame.png"
+        if not conf.get("supports_single_frame"):
+            full_request["last_image_url"] = "https://example.com/last-frame.png"
+
+    examples = []
+    if max_reference_images:
+        examples.append({"title": "参考图", "request_json": full_request})
+    if conf.get("supports_frames"):
+        frame_request = dict(request)
+        frame_request["first_image_url"] = "https://example.com/first-frame.png"
+        if not conf.get("supports_single_frame"):
+            frame_request["last_image_url"] = "https://example.com/last-frame.png"
+        examples.append({"title": "首尾帧" if not conf.get("supports_single_frame") else "首帧", "request_json": frame_request})
 
     intro = "OpenAI Video 兼容接口：POST /v1/videos 创建异步任务，GET /v1/videos/{task_id} 查询结果。"
-    if supports_references:
-        intro += conf["variant"]
-    unsupported = "seed、n、音频参考或 response_format"
-    if not conf.get("supports_negative_prompt"):
-        unsupported = "negative_prompt、" + unsupported
-    intro += f" 不支持 {unsupported}。"
+    intro += conf["variant"]
+    intro += " 客户端只提交统一字段，模型专属参考模式由 NewAPI 出站适配。"
 
     result = {
         "dispatch_mode": "async",
@@ -157,6 +131,7 @@ def build_api_doc(conf: dict) -> dict:
         ],
         "basic_request_json": request,
         "request_json": full_request,
+        "examples": examples,
         "params": params,
         "create_response_json": {
             "id": "task_adobe_video_01",

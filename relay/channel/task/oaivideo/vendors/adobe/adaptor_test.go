@@ -108,6 +108,21 @@ func TestVeoFastRejectsUnsupportedReferencesWithoutClientMode(t *testing.T) {
 	}
 }
 
+func TestKlingOmniMapsCanonicalImagesToStyleReferences(t *testing.T) {
+	payload, err := buildAdobeTestPayload(t, `{"model":"kling-3.0-omni","prompt":"test","duration":8,"reference_image_urls":["a","b"]}`, relaycommon.TaskSubmitReq{
+		Model: "kling-3.0-omni", Prompt: "test", Duration: 8, Images: []string{"a", "b"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload["reference_mode"] != "style" {
+		t.Fatalf("reference_mode = %#v, want style", payload["reference_mode"])
+	}
+	if got := stringListFromPayload(t, payload["images"]); !reflect.DeepEqual(got, []string{"a", "b"}) {
+		t.Fatalf("images = %#v", got)
+	}
+}
+
 func TestGeminiOmniAllowsThreeToTenSecondsAndSingleFirstFrame(t *testing.T) {
 	c := gin.CreateTestContextOnly(httptest.NewRecorder(), gin.New())
 	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(`{"model":"gemini-omni-flash","prompt":"test","duration":6,"first_image_url":"first.png"}`))

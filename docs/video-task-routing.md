@@ -147,7 +147,7 @@ JSON 业务字段不得从原始 body 透传。入站先生成 canonical `TaskSu
 SD5 出站契约同时保留 `duration`、`aspect_ratio`、`resolution`、`generate_audio`、
 参考图、参考视频和参考音频。vendor 根据模型能力自动为普通参考素材选择并发送 `reference_mode=media`；仅显式 `first_image_url` / `last_image_url` 选择 `frame`。首尾帧与 media 全能参考互斥，验收必须
 分别使用合法组合，不能把互斥字段拼成一个“全参数”请求。
-Adobe Sora/Veo 模型继续过滤不支持的 seed。
+Adobe Sora 与 Gemini Omni 继续过滤不支持的 `seed`；当前 `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` 支持非负整数 `seed`，并由 Adobe vendor 严格按模型白名单出站。
 
 Seedance 2.0 的参考图统一使用 `reference_image_urls`（单图 vendor 可映射为 `image_url`）；`image`、`images`、`image_urls` 和 `image_url` 是等价的公开别名，均会归一化为参考图。Relay 在 registry 层按线路拆分：`seedance-oairegbox`（cy-sd1）、`seedance-tengda`（cy-sd2）、`seedance-leonardo`（cy-sd4）、`adobe`（cy-sd5，与其他 Adobe 视频共用）、`seedance-heygen`（cy-sd6）、`seedance-magica`（cy-sd7）、`seedance-huabu`（cy-sd8）。`cy-sd6-seedance-2.0-720p` 与 `cy-sd6-seedance-2.0-1080p` 都映射上游 `seedance-2.0`，但由 vendor 分别强制 `resolution=720p` / `1080p`；不得让客户通过请求字段跨档。cy-sd6 支持最多 9 图、3 视频、1 音频且合计最多 12 个，音频不能单独使用，首尾帧必须成对并与多模态参考互斥。**cy-sd1 / cy-sd2 / cy-sd5** 仍在 NewAPI profile 或 adaptor 侧做数量/大小/互斥等出站校验；**cy-sd4 / cy-sd6** 业务规则分别由对应 web2api 上游校验。
 
@@ -182,7 +182,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-sd8-seedance-2.0` → `sd2.0-933`；`cy-sd8-seedance-2.0-fast` → `sd-2.0-fast-v1` | seedance-huabu | 精确 internal/upstream 配对；卡脸版 9 图+3 视频+3 音频（参考图须遮眼）；快速版仅 9 图；`aspect_ratio`→`size`；单图→上游 `image` 字符串，多图→上游 `images` 数组 | `/v1/videos/{id}` + `result_url`；有 `result_url` 时 rehost 直链，否则回退鉴权 `/content` |
 | `cy-sd5-seedance*` | Adobe2API Seedance | 与 Adobe 视频共用 `adobe` vendor；按内部模型契约输出 `media` 或 `frame`，支持 9 图 + 3 个视频/音频共享源位、全部素材最多 12；mapping 使用 `seedance-2.0` / `seedance-2.0-fast` | `video.generation` → OpenAI Video 形 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | seedance-tengda | Tengda flat → `content[]` JSON | OpenAI Video 形 |
-| `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` / `cy-adobe-gemini-omni-flash` | Adobe2API | 渠道 86 统一使用 Adobe2API 视频出站；渠道 75 仅保留图片池；严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
+| `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` / `cy-adobe-gemini-omni-flash` | Adobe2API | 渠道 86 统一使用 Adobe2API 视频出站；Veo 标准版支持 3 张普通参考图或成对首尾帧，Veo Fast / Kling 3.0 仅支持成对首尾帧，Kling Omni 的 canonical `reference_image_urls` 在 vendor 边界映射为 style 参考；严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
 | 其他（Sora 等） | default | 标准 OpenAI Video | OpenAI Video 形 |
 
 门面适配器：[`relay/channel/task/oaivideo/router/adaptor.go`](../relay/channel/task/oaivideo/router/adaptor.go)
