@@ -127,17 +127,17 @@ func TestEstimateBilling_Seedance25UsesSecondsOnly(t *testing.T) {
 	}
 }
 
-func TestEstimateBilling_Seedance25ReferenceVideoRate(t *testing.T) {
+func TestEstimateBilling_Seedance25ReferenceVideoUsesSecondsOnly(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Set("task_request", relaycommon.TaskSubmitReq{Duration: 10, ReferenceVideos: []string{"https://cdn.example/ref.mp4"}})
 	adaptor := &TaskAdaptor{}
 
 	got := adaptor.EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: seedance25Model480})
-	if got["seconds"] != 10 || got["reference_video_rate"] != 258.0/180.0 {
+	if got["seconds"] != 10 || len(got) != 1 {
 		t.Fatalf("unexpected 480p reference billing ratios: %#v", got)
 	}
 	got = adaptor.EstimateBilling(c, &relaycommon.RelayInfo{OriginModelName: seedance25Model720})
-	if got["seconds"] != 10 || got["reference_video_rate"] != 466.0/292.0 {
+	if got["seconds"] != 10 || len(got) != 1 {
 		t.Fatalf("unexpected 720p reference billing ratios: %#v", got)
 	}
 }

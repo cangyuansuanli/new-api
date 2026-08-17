@@ -103,7 +103,7 @@ leonardo-web2api 在入队与 worker 阶段校验；NewAPI 只负责 flat 请求
 
 Web2API 会在 HTTP 入站和 worker 执行前按上述组合各校验一次：720p 仅在存在
 `reference_videos` 时收紧到 18 秒；480p 带参考视频仍可到 30 秒。NewAPI 不重复
-这条业务校验，只按同一条件计算预扣倍率并透传 Web2API 的 400 错误。
+这条业务校验，只按客户配置的按秒单价计费并透传 Web2API 的 400 错误。
 
 ## 计费规则
 
@@ -119,13 +119,14 @@ Web2API 会在 HTTP 入站和 worker 执行前按上述组合各校验一次：7
 | Happy Horse 1.1 | HD 150/s；Full HD 190/s | 不支持参考视频 |
 | Happy Horse 1.0 | HD 140/s；Full HD 280/s | 280 × 参考视频秒数 |
 
-NewAPI 对 Seedance 2.5 按秒结算：无参考视频使用基础 `ModelPrice`，有参考视频
-自动附加 480p `258/180` 或 720p `466/292` 的倍率；2.0、MiniMax3 和 Happy Horse
-仍按各自渠道的按次/上游积分逻辑处理。`8500 积分 = 3 元`，积分成本为
-`积分 × 3 / 8500`，不应把上游积分直接当作人民币售价。
+NewAPI 对 Seedance 2.5 统一按 `ModelPrice × seconds × groupRatio` 结算，参考视频
+不会改变客户单价。480p 的 180/258 与 720p 的 292/466 是 Leonardo 上游积分
+费率，只用于成本核算和号池容量约束，不得写入用户计费 `OtherRatios`。2.0、
+MiniMax3 和 Happy Horse 仍按各自渠道的按次/上游积分逻辑处理。`8500 积分 = 3 元`，
+积分成本为 `积分 × 3 / 8500`，不应把上游积分直接当作人民币售价。
 
 参考视频、音频数量、格式、尺寸、FPS、时长合计和互斥条件由 leonardo-web2api
-的模型专属 policy 校验；NewAPI 只负责统一字段归一化、SKU 分辨率锁定、计费倍率、
+的模型专属 policy 校验；NewAPI 只负责统一字段归一化、SKU 分辨率锁定、按秒计费、
 异步轮询和错误透传。
 
 ## 相关代码
