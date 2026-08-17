@@ -3502,7 +3502,7 @@
                     "label": "多参参考",
                     "descriptionWithImages": "最多 5 图、3 视频、3 音频；prompt 可用 @Image1 引用"
                 },
-                "validationHint": "固定 720p；最多 5 张参考图、3 段参考视频、3 段参考音频；首尾帧须成对提供，且与普通参考素材互斥。",
+                "validationHint": "固定 720p；最多 5 张参考图、3 段参考视频、3 段参考音频；不支持首尾帧。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -3532,11 +3532,11 @@
                 "watermark": { "enabled": false },
                 "seed": { "enabled": false },
                 "widthHeight": { "enabled": false },
-                "frameInputs": { "enabled": true, "hint": "首尾帧须成对提供，且与参考图、参考视频、参考音频互斥" }
+                "frameInputs": { "enabled": false, "hint": "Magica Seedance 不支持首尾帧" }
             },
             "hints": [
                 { "text": "固定 720p，按条计费；支持 4–15 秒与多种画幅比例。" },
-                { "text": "支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）及成对首尾帧；两种参考模式互斥。" }
+                { "text": "支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）；不支持首尾帧。" }
             ]
         },
         {
@@ -3556,7 +3556,7 @@
                     "label": "多参参考",
                     "descriptionWithImages": "最多 5 图、3 视频、3 音频；prompt 可用 @Image1 引用"
                 },
-                "validationHint": "固定 1080p；最多 5 张参考图、3 段参考视频、3 段参考音频；首尾帧须成对提供，且与普通参考素材互斥。",
+                "validationHint": "固定 1080p；最多 5 张参考图、3 段参考视频、3 段参考音频；不支持首尾帧。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -3586,11 +3586,11 @@
                 "watermark": { "enabled": false },
                 "seed": { "enabled": false },
                 "widthHeight": { "enabled": false },
-                "frameInputs": { "enabled": true, "hint": "首尾帧须成对提供，且与参考图、参考视频、参考音频互斥" }
+                "frameInputs": { "enabled": false, "hint": "Magica Seedance 不支持首尾帧" }
             },
             "hints": [
                 { "text": "固定 1080p，按条计费；支持 4–15 秒与多种画幅比例。" },
-                { "text": "支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）及成对首尾帧；两种参考模式互斥。" }
+                { "text": "支持文生、图生、多参参考（5 图 / 3 视频 / 3 音频）；不支持首尾帧。" }
             ]
         },
         {
