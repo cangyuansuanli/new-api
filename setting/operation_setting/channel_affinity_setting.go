@@ -101,6 +101,10 @@ var channelAffinitySetting = ChannelAffinitySetting{
 			ModelRegex: []string{"^claude-.*$"},
 			PathRegex:  []string{"/v1/messages"},
 			KeySources: []ChannelAffinityKeySource{
+				// The authenticated gateway user is stable across Claude CLI requests.
+				// Keep metadata.user_id as a compatibility fallback for clients that
+				// provide a provider-specific identity but do not rely on it exclusively.
+				{Type: "context_int", Key: "id"},
 				{Type: "gjson", Path: "metadata.user_id"},
 			},
 			ValueRegex:            "",

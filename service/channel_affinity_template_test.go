@@ -190,6 +190,19 @@ func TestExtractChannelAffinityValue_RequestHeader(t *testing.T) {
 	require.Equal(t, "tenant-123", value)
 }
 
+func TestExtractChannelAffinityValue_ContextIntUserID(t *testing.T) {
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Set("id", 573)
+
+	value := extractChannelAffinityValue(ctx, operation_setting.ChannelAffinityKeySource{
+		Type: "context_int",
+		Key:  "id",
+	})
+
+	require.Equal(t, "573", value)
+}
+
 func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
