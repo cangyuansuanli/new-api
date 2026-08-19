@@ -530,6 +530,13 @@ func RelayTask(c *gin.Context) {
 		respondTaskError(c, taskErr)
 		return
 	}
+	if !modelSupportsVideoEndpoint(relayInfo.OriginModelName) {
+		respondTaskError(c, service.TaskErrorWrapperLocal(
+			fmt.Errorf("model %q does not support the video endpoint; use /v1/audio/generations", relayInfo.OriginModelName),
+			"invalid_request", http.StatusBadRequest,
+		))
+		return
+	}
 
 	var result *relay.TaskSubmitResult
 	var taskErr *dto.TaskError
@@ -640,6 +647,20 @@ func RelayTask(c *gin.Context) {
 	if taskErr != nil {
 		respondTaskError(c, taskErr)
 	}
+}
+
+func modelSupportsVideoEndpoint(modelName string) bool {
+	endpoints := model.GetModelSupportEndpointTypes(modelName)
+	if len(endpoints) == 0 {
+		// Legacy models without endpoint metadata retain existing compatibility.
+		return true
+	}
+	for _, endpoint := range endpoints {
+		if endpoint == constant.EndpointTypeOpenAIVideo {
+			return true
+		}
+	}
+	return false
 }
 
 // respondTaskError 统一输出 Task 错误响应。
