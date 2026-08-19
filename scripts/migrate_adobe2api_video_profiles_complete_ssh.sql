@@ -32,9 +32,9 @@ FROM (VALUES
     ),
     (
         'video-tpl-adobe-kling3-omni-json-async',
-        '{"images":3,"videos":0,"audios":0,"imageMaxBytes":31457280,"fullReferenceMode":{"label":"风格参考或首尾帧","descriptionWithImages":"风格参考图最多 3 张；首尾帧须成对提供"},"validationHint":"风格参考图最多 3 张，或使用成对首尾帧；两种模式互斥。","showTempMediaHint":true}',
-        '{"resolution":{"enabled":true,"options":[{"value":"720p","label":"720p"},{"value":"1080p","label":"1080p"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"min":3,"max":15,"numericOptions":[3,4,5,6,7,8,9,10,11,12,13,14,15]},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":true},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"首尾帧须成对提供，且与风格参考图互斥"}}',
-        '[{"text":"Kling 3.0 Omni：支持 3–15 秒、720p/1080p、种子、音频、风格参考图和首尾帧。"}]'
+        '{"images":0,"videos":0,"audios":0,"imageMaxBytes":31457280,"fullReferenceMode":{"label":"首尾帧","descriptionWithImages":"仅支持成对首尾帧，不支持普通参考图"},"validationHint":"仅支持成对首尾帧；普通参考图会被拒绝。","showTempMediaHint":true}',
+        '{"resolution":{"enabled":true,"options":[{"value":"720p","label":"720p"},{"value":"1080p","label":"1080p"}]},"ratio":{"enabled":true,"options":[{"value":"16:9","label":"横屏"},{"value":"9:16","label":"竖屏"}]},"duration":{"enabled":true,"min":3,"max":15,"numericOptions":[3,4,5,6,7,8,9,10,11,12,13,14,15]},"generateAudio":{"enabled":true},"watermark":{"enabled":false},"seed":{"enabled":true},"widthHeight":{"enabled":false},"frameInputs":{"enabled":true,"hint":"仅支持成对首尾帧"}}',
+        '[{"text":"Kling 3.0 Omni：支持 3–15 秒、720p/1080p、种子、音频和成对首尾帧；不支持普通参考图。"}]'
     )
 ) AS v(profile_id, reference_limits, params, hints)
 WHERE p.capability = 'video'

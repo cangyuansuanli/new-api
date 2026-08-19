@@ -55,7 +55,8 @@ var modelContracts = map[string]modelContract{
 	"veo-3.1":           {maxImages: 3, minDuration: 4, maxDuration: 8, allowSeed: true, allowAudio: true, allowAssets: true, allowFrames: true, maxWidth: 1920},
 	"veo-3.1-fast":      {maxImages: 2, minDuration: 4, maxDuration: 8, allowSeed: true, allowAudio: true, allowFrames: true, maxWidth: 1920},
 	"kling-3.0":         {maxImages: 2, minDuration: 3, maxDuration: 15, allowSeed: true, allowAudio: true, allowFrames: true, maxWidth: 1920},
-	"kling-3.0-omni":    {maxImages: 3, minDuration: 3, maxDuration: 15, allowSeed: true, allowAudio: true, allowStyles: true, allowFrames: true, maxWidth: 1920},
+	// Kling 3.0 Omni currently accepts frame references only upstream.
+	"kling-3.0-omni":    {maxImages: 0, minDuration: 3, maxDuration: 15, allowSeed: true, allowAudio: true, allowFrames: true, maxWidth: 1920},
 	"gemini-omni-flash": {maxImages: 4, minDuration: 3, maxDuration: 10, allowStyles: true, allowFrames: true, allowSingleFrame: true, maxWidth: 1280},
 	"seedance-2.0":      {maxImages: 9, maxSourceMedia: 3, maxTotalMedia: 12, minDuration: 4, maxDuration: 15, allowSeed: true, allowAudio: true, allowVideoAudio: true, allowMedia: true, allowFrames: true, maxWidth: 1280},
 	"seedance-2.0-fast": {maxImages: 9, maxSourceMedia: 3, maxTotalMedia: 12, minDuration: 4, maxDuration: 15, allowSeed: true, allowAudio: true, allowVideoAudio: true, allowMedia: true, allowFrames: true, maxWidth: 1280},
@@ -127,13 +128,6 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	firstImage := strings.TrimSpace(req.FirstImageUrl)
 	lastImage := strings.TrimSpace(req.LastImageUrl)
 	mode := relaycommon.InferReferenceMode(req, "", contract.allowMedia)
-	// The public contract only exposes canonical image references. Adobe's
-	// Kling Omni lane calls that image group "style" upstream, so infer the
-	// vendor mode at this boundary instead of requiring clients to send the
-	// vendor-only reference_mode field.
-	if mode == "asset" && contract.allowStyles && !contract.allowAssets {
-		mode = "style"
-	}
 	if mode == "frame" {
 		if len(referenceVideos)+len(referenceAudios) > 0 {
 			return nil, fmt.Errorf("%s frame references cannot be combined with video or audio references", modelName)

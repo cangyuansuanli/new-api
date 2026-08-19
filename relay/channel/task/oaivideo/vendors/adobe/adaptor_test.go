@@ -108,18 +108,24 @@ func TestVeoFastRejectsUnsupportedReferencesWithoutClientMode(t *testing.T) {
 	}
 }
 
-func TestKlingOmniMapsCanonicalImagesToStyleReferences(t *testing.T) {
-	payload, err := buildAdobeTestPayload(t, `{"model":"kling-3.0-omni","prompt":"test","duration":8,"reference_image_urls":["a","b"]}`, relaycommon.TaskSubmitReq{
+func TestKlingOmniRejectsOrdinaryImageReferences(t *testing.T) {
+	_, err := buildAdobeTestPayload(t, `{"model":"kling-3.0-omni","prompt":"test","duration":8,"reference_image_urls":["a","b"]}`, relaycommon.TaskSubmitReq{
 		Model: "kling-3.0-omni", Prompt: "test", Duration: 8, Images: []string{"a", "b"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "does not support asset references") {
+		t.Fatalf("error = %v, want local asset-reference rejection", err)
+	}
+}
+
+func TestKlingOmniUsesFrameReferences(t *testing.T) {
+	payload, err := buildAdobeTestPayload(t, `{"model":"kling-3.0-omni","prompt":"test","duration":8,"first_image_url":"first","last_image_url":"last"}`, relaycommon.TaskSubmitReq{
+		Model: "kling-3.0-omni", Prompt: "test", Duration: 8, FirstImageUrl: "first", LastImageUrl: "last",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if payload["reference_mode"] != "style" {
-		t.Fatalf("reference_mode = %#v, want style", payload["reference_mode"])
-	}
-	if got := stringListFromPayload(t, payload["images"]); !reflect.DeepEqual(got, []string{"a", "b"}) {
-		t.Fatalf("images = %#v", got)
+	if payload["reference_mode"] != "frame" || payload["first_image_url"] != "first" || payload["last_image_url"] != "last" {
+		t.Fatalf("frame payload = %#v", payload)
 	}
 }
 
