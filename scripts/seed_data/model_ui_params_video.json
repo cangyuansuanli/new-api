@@ -2835,7 +2835,7 @@
                     "label": "多图参考",
                     "descriptionWithImages": "最多 9 张参考图"
                 },
-                "validationHint": "参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张。不支持参考视频、参考音频和首尾帧。",
+                "validationHint": "支持单张首帧或参考图；参考图 png/jpg/webp，单张不超过 25MB，最多 9 张。不支持参考视频和参考音频。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -2912,12 +2912,13 @@
                     "enabled": false
                 },
                 "frameInputs": {
-                    "enabled": false
+                    "enabled": true,
+                    "hint": "支持首帧；与多图/视频参考素材二选一"
                 }
             },
             "hints": [
                 {
-                    "text": "720p / 1080p，3–15 秒；支持最多 9 张参考图，不支持参考视频、参考音频和首尾帧。"
+                    "text": "720p / 1080p，3–15 秒；支持单张首帧或最多 9 张参考图，不支持参考音频。"
                 }
             ],
             "wireFormat": "json-flat",
@@ -2951,7 +2952,7 @@
                     "label": "多模态",
                     "descriptionWithImages": "参考图 + 可选 1 个参考视频"
                 },
-                "validationHint": "参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张；带参考视频时最多 5 张图。参考视频支持 mp4/mov，不超过 200MB，宽高各 720–2160px、24–60 FPS、3–10 秒，最多 1 个。不支持参考音频和首尾帧。",
+                "validationHint": "支持单张首帧或参考素材；参考图 png/jpg/webp，单张不超过 25MB，最多 9 张；带参考视频时最多 5 张图。参考视频支持 mp4/mov，不超过 200MB，宽高各 720–2160px、24–60 FPS、3–10 秒，最多 1 个。不支持参考音频。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },
@@ -3028,12 +3029,13 @@
                     "enabled": false
                 },
                 "frameInputs": {
-                    "enabled": false
+                    "enabled": true,
+                    "hint": "支持首帧；与多图/视频参考素材二选一"
                 }
             },
             "hints": [
                 {
-                    "text": "720p / 1080p，3–15 秒；支持最多 9 张参考图或 1 个参考视频，带视频时最多 5 张图。"
+                    "text": "720p / 1080p，3–15 秒；支持单张首帧、最多 9 张参考图或 1 个参考视频，带视频时最多 5 张图。"
                 }
             ],
             "wireFormat": "json-flat",

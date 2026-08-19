@@ -23,6 +23,9 @@ func buildUpstreamBody(body map[string]interface{}, upstreamModel string, durati
 		out["audio"] = oaivideo.AsBool(v)
 	}
 
+	// Keep the unified first/last-frame contract across the Leonardo gateway.
+	// The Web2API server translates these URLs into StartImageURL/EndImageURL
+	// before uploading them and constructing guidances.start_frame/end_frame.
 	copyStringField(out, body, flatKeyFirstImageURL)
 	copyStringField(out, body, flatKeyLastImageURL)
 

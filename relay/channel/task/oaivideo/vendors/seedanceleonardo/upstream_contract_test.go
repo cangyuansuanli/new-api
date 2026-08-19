@@ -39,6 +39,19 @@ func TestBuildUpstreamBody_NewAPIShapeForLeonardo(t *testing.T) {
 	}
 }
 
+func TestBuildUpstreamBody_HappyHousePreservesUnifiedFirstFrame(t *testing.T) {
+	out := buildUpstreamBody(map[string]interface{}{
+		"prompt":          "horse runs",
+		"first_image_url": "https://cdn.example.com/start.jpg",
+	}, "happy-horse-1.1", 5, nil)
+	if out["first_image_url"] != "https://cdn.example.com/start.jpg" {
+		t.Fatalf("expected upstream first_image_url, got %#v", out)
+	}
+	if _, ok := out["image_url"]; ok {
+		t.Fatalf("new adapter must not send legacy image_url: %#v", out)
+	}
+}
+
 func TestBuildUpstreamBody_LeonardoContractGoldenFourVideos(t *testing.T) {
 	out := buildUpstreamBody(map[string]interface{}{
 		"prompt": "x",

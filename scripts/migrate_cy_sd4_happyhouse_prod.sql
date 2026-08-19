@@ -27,14 +27,14 @@ FROM (VALUES
     (
         'video-tpl-happyhouse-1.1-async',
         'cy-sd4-happyhouse-1.1',
-        '{"images":9,"videos":0,"audios":0,"imageMaxBytes":26214400,"fullReferenceMode":{"label":"多图参考","descriptionWithImages":"最多 9 张参考图"},"validationHint":"参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张。不支持参考视频、参考音频和首尾帧。","showTempMediaHint":true,"prependReferenceGuide":true}',
-        '720p / 1080p，3–15 秒；支持最多 9 张参考图，不支持参考视频、参考音频和首尾帧。'
+        '{"images":9,"videos":0,"audios":0,"imageMaxBytes":26214400,"fullReferenceMode":{"label":"多图参考","descriptionWithImages":"最多 9 张参考图"},"validationHint":"支持单张首帧或参考图；参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张。不支持参考视频和参考音频。","showTempMediaHint":true,"prependReferenceGuide":true}',
+        '720p / 1080p，3–15 秒；支持单张首帧或最多 9 张参考图，不支持参考音频。'
     ),
     (
         'video-tpl-happyhouse-1.0-async',
         'cy-sd4-happyhouse-1.0',
-        '{"images":9,"videos":1,"audios":0,"imageMaxBytes":26214400,"videoMaxBytes":209715200,"video":{"minDurationMs":3000,"maxDurationMs":10000,"totalMaxDurationMs":10000},"fullReferenceMode":{"label":"多模态","descriptionWithImages":"参考图 + 可选 1 个参考视频"},"validationHint":"参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张；带参考视频时最多 5 张图。参考视频支持 mp4/mov，不超过 200MB，宽高各 720–2160px、24–60 FPS、3–10 秒，最多 1 个。不支持参考音频和首尾帧。","showTempMediaHint":true,"prependReferenceGuide":true}',
-        '720p / 1080p，3–15 秒；支持最多 9 张参考图或 1 个参考视频，带视频时最多 5 张图。'
+        '{"images":9,"videos":1,"audios":0,"imageMaxBytes":26214400,"videoMaxBytes":209715200,"video":{"minDurationMs":3000,"maxDurationMs":10000,"totalMaxDurationMs":10000},"fullReferenceMode":{"label":"多模态","descriptionWithImages":"参考图 + 可选 1 个参考视频"},"validationHint":"支持单张首帧或参考素材；参考图支持 png/jpg/webp，单张不超过 25MB，最多 9 张；带参考视频时最多 5 张图。参考视频支持 mp4/mov，不超过 200MB，宽高各 720–2160px、24–60 FPS、3–10 秒，最多 1 个。不支持参考音频。","showTempMediaHint":true,"prependReferenceGuide":true}',
+        '720p / 1080p，3–15 秒；支持单张首帧、最多 9 张参考图或 1 个参考视频，带视频时最多 5 张图。'
     )
 ) AS v(profile_id, model_name, reference_limits, hint)
 ON CONFLICT (capability, profile_id) DO UPDATE SET
@@ -76,6 +76,7 @@ SELECT
             jsonb_build_object('name', 'resolution', 'description', '720p 或 1080p。'),
             jsonb_build_object('name', 'aspect_ratio', 'description', '16:9、9:16、1:1、3:4 或 4:3。'),
             jsonb_build_object('name', 'generate_audio', 'description', '是否生成原生音频，默认 true。'),
+            jsonb_build_object('name', 'first_image_url', 'description', '首帧 HTTPS URL；与 reference_image_urls/reference_videos 互斥；Happy House 不支持尾帧。'),
             jsonb_build_object('name', 'reference_image_urls', 'description', v.image_help)
         ) || CASE WHEN v.supports_video THEN jsonb_build_array(
             jsonb_build_object('name', 'reference_videos', 'description', v.video_help)
