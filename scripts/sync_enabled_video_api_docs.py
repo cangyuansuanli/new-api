@@ -17,10 +17,18 @@ class Spec:
     public: str
     profile: str
     fields: tuple[str, ...]
+    single_first_frame: bool = False
 
 
-def s(internal: str, public: str, profile: str, fields: str) -> Spec:
-    return Spec(internal, public, profile, tuple(fields.split()))
+def s(
+    internal: str,
+    public: str,
+    profile: str,
+    fields: str,
+    *,
+    single_first_frame: bool = False,
+) -> Spec:
+    return Spec(internal, public, profile, tuple(fields.split()), single_first_frame)
 
 
 SPECS = (
@@ -45,8 +53,8 @@ SPECS = (
     s("cy-sd1-seedance-2.0-fast-720p", "cy-sd1-seedance-2.0-fast-720p", "video-tpl-seedance-720p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd1-seedance-2.0-mini-480p", "cy-sd1-seedance-2.0-mini-480p", "video-tpl-seedance-480p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd1-seedance-2.0-mini-720p", "cy-sd1-seedance-2.0-mini-720p", "video-tpl-seedance-720p-async", "aspect_ratio duration reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
-    s("cy-sd4-happyhouse-1.0", "happyhouse-1.0", "video-tpl-happyhouse-1.0-async", "duration resolution aspect_ratio generate_audio first_image_url reference_image_urls reference_videos"),
-    s("cy-sd4-happyhouse-1.1", "happyhouse-1.1", "video-tpl-happyhouse-1.1-async", "duration resolution aspect_ratio generate_audio first_image_url reference_image_urls"),
+    s("cy-sd4-happyhouse-1.0", "happyhouse-1.0", "video-tpl-happyhouse-1.0-async", "duration resolution aspect_ratio generate_audio first_image_url reference_image_urls reference_videos", single_first_frame=True),
+    s("cy-sd4-happyhouse-1.1", "happyhouse-1.1", "video-tpl-happyhouse-1.1-async", "duration resolution aspect_ratio generate_audio first_image_url reference_image_urls", single_first_frame=True),
     s("cy-sd4-minimax-h3-768p", "minimax-h3-768p", "video-tpl-minimax-h3-2k-async", "aspect_ratio duration resolution reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd4-minimax-h3-2k", "minimax-h3-2k", "video-tpl-minimax-h3-2k-async", "aspect_ratio duration resolution reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
     s("cy-sd4-minimax-h3-4k", "minimax-h3-4k", "video-tpl-minimax-h3-2k-async", "aspect_ratio duration resolution reference_image_urls reference_videos reference_audios first_image_url last_image_url"),
@@ -121,7 +129,9 @@ def old_param_map(doc: dict) -> dict[str, str]:
     return {str(row.get("name", "")): str(row.get("description", "")) for row in doc.get("params", []) if isinstance(row, dict)}
 
 
-def description(field: str, old: dict[str, str]) -> str:
+def description(field: str, old: dict[str, str], spec: Spec) -> str:
+    if field == "first_image_url" and spec.single_first_frame:
+        return "首帧 HTTPS URL；可单独使用，与 reference_image_urls/reference_videos 互斥；Happy House 不支持尾帧。"
     for candidate in ALIASES.get(field, (field,)):
         if candidate in old:
             value = clean(old[candidate])
@@ -153,6 +163,7 @@ def build(spec: Spec, old_doc: dict) -> dict:
         "reference_image_urls", "reference_videos", "reference_audios",
     ) if field in spec.fields)
     has_frames = "first_image_url" in spec.fields and "last_image_url" in spec.fields
+    has_single_first_frame = "first_image_url" in spec.fields and spec.single_first_frame
     examples = []
     if reference_fields:
         examples.append({
@@ -163,6 +174,11 @@ def build(spec: Spec, old_doc: dict) -> dict:
         examples.append({
             "title": "首尾帧",
             "request_json": request_body(spec, (*scalar_fields, "first_image_url", "last_image_url")),
+        })
+    elif has_single_first_frame:
+        examples.append({
+            "title": "首帧",
+            "request_json": request_body(spec, (*scalar_fields, "first_image_url")),
         })
     request_json = examples[0]["request_json"] if examples else basic_body
     intro = clean(str(old_doc.get("intro", ""))) or f"{spec.public} 异步视频模型。"
@@ -175,7 +191,7 @@ def build(spec: Spec, old_doc: dict) -> dict:
         ],
         "basic_request_json": basic_body, "request_json": request_json,
         "examples": examples,
-        "params": [{"name": field, "description": description(field, old)} for field in fields],
+        "params": [{"name": field, "description": description(field, old, spec)} for field in fields],
         "create_response_json": {"id": "task_video_01HZX8A2...", "status": "queued", "model": spec.public},
         "query_response_json": {"id": "task_video_01HZX8A2...", "status": "completed", "data": [{"url": "https://example.com/video.mp4"}]},
     }
@@ -201,7 +217,8 @@ def validate(spec: Spec, doc: dict, profile_params: dict, reference_limits: dict
     if FORBIDDEN.search(json.dumps(doc, ensure_ascii=False)):
         raise SystemExit(f"{spec.internal}: forbidden compatibility text")
     frame_fields = {"first_image_url", "last_image_url"} & expected
-    if frame_fields and frame_fields != {"first_image_url", "last_image_url"}:
+    valid_single_first = spec.single_first_frame and frame_fields == {"first_image_url"}
+    if frame_fields and frame_fields != {"first_image_url", "last_image_url"} and not valid_single_first:
         raise SystemExit(f"{spec.internal}: first/last frame fields must be declared together")
     if profile_params.get("frameInputs", {}).get("enabled") and not frame_fields:
         raise SystemExit(f"{spec.internal}: profile enables frame inputs but api_doc omits them")
