@@ -477,7 +477,9 @@ func IsLeonardoWeb2APIRelayModel(model string) bool {
 // already owns client-facing task error normalization.
 func IsUpstreamNormalizedVideoModel(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
-	return IsLeonardoWeb2APIRelayModel(model) || strings.HasPrefix(model, "cy-sd5-seedance-2.0")
+	return IsLeonardoWeb2APIRelayModel(model) ||
+		strings.HasPrefix(model, "cy-sd5-seedance-2.0") ||
+		IsMagicaWeb2APIRelayModel(model)
 }
 
 func normalizeLeonardoRelay(preferChinese bool, failure ErrorContext) (string, bool) {

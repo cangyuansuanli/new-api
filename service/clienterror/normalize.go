@@ -15,7 +15,6 @@ func init() {
 	RegisterRaw(normalizeCommon)
 	RegisterRaw(normalizeOmni)
 	Register(normalizeLeonardoRelay)
-	Register(normalizeMagicaRelay)
 	RegisterRaw(normalizeAdobe)
 	RegisterRaw(normalizeGrok)
 	RegisterRaw(normalizeChatVideo)
@@ -61,6 +60,12 @@ func NormalizeError(c *gin.Context, failure ErrorContext) string {
 }
 
 func NormalizeErrorForLang(preferChinese bool, failure ErrorContext) string {
+	// magica-web2api already returns client-facing, actionable guidance. Do not
+	// run New-API's generic/vendor normalizers over it: a second pass can replace
+	// the detailed fix instructions with a less useful generic message.
+	if IsMagicaWeb2APIRelayModel(failure.Model) {
+		return failure.Raw
+	}
 	if len(failure.Payload) == 0 && failure.Raw != "" {
 		failure.Payload = []byte(failure.Raw)
 	}

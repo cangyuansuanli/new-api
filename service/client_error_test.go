@@ -42,6 +42,37 @@ func TestNormalizeClientErrorMessageUsesRequestModelContext(t *testing.T) {
 	}
 }
 
+func TestNormalizeMagicaErrorPassesThroughUpstreamGuidance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", nil)
+	c.Request.Header.Set("Accept-Language", "zh-CN")
+	common.SetContextKey(c, constant.ContextKeyOriginalModel, "cy-sd7-seedance-2.0-720p")
+
+	upstream := "提示词过长或结构不符合要求。请控制在 2500 字符以内，删除重复的角色设定、分镜解释和无关说明，只保留主体、动作、场景、镜头、风格及必要限制后重试"
+	if got := NormalizeClientErrorMessage(c, upstream); got != upstream {
+		t.Fatalf("NormalizeClientErrorMessage() = %q, want exact upstream message %q", got, upstream)
+	}
+
+	taskErr := &dto.TaskError{Code: "generation_failed", Message: upstream, StatusCode: 400}
+	NormalizeTaskErrorMessage(c, taskErr)
+	if taskErr.Message != upstream {
+		t.Fatalf("NormalizeTaskErrorMessage() = %q, want exact upstream message %q", taskErr.Message, upstream)
+	}
+}
+
+func TestNormalizeMagicaVideoResponsePassesThroughUpstreamPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/v1/videos/task_1", nil)
+	c.Request.Header.Set("Accept-Language", "zh-CN")
+	task := &model.Task{Properties: model.Properties{OriginModelName: "cy-sd7-seedance-2.0-720p"}}
+	in := []byte(`{"status":"failed","error":{"message":"提示词过长或结构不符合要求。请控制在 2500 字符以内，删除重复的角色设定、分镜解释和无关说明，只保留主体、动作、场景、镜头、风格及必要限制后重试"}}`)
+	if out := NormalizeOpenAIVideoTaskResponse(c, task, in); string(out) != string(in) {
+		t.Fatalf("expected Magica upstream payload passthrough, got %s", out)
+	}
+}
+
 func TestNormalizeOpenAIVideoTaskResponsePassesThroughSD5Payload(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
