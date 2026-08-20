@@ -3309,7 +3309,7 @@
                     "label": "全能参考",
                     "descriptionWithImages": "最多 9 张参考图，并可添加最多 3 个视频/音频素材（两类共享 3 个名额），全部素材合计不超过 12"
                 },
-                "validationHint": "全能参考最多 9 张图；视频与音频合计最多 3 个，全部素材合计不超过 12；首尾帧与全能参考互斥。",
+                "validationHint": "全能参考最多 9 张图；视频与音频合计最多 3 个，全部素材合计不超过 12；使用参考音频时至少搭配 1 张参考图；首尾帧与全能参考互斥。",
                 "showTempMediaHint": true,
                 "prependReferenceGuide": true
             },

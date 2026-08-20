@@ -95,10 +95,10 @@ func normalizeSD5(preferChinese bool, failure ErrorContext) (string, bool) {
 	// Submission-time errors do not always carry a provider-specific code.
 	// Keep their raw matching inside the SD5 boundary instead of common.go.
 	switch {
-	case strings.Contains(lower, "media video/audio references require at least one image reference"):
+	case strings.Contains(lower, "audio references require at least one image reference"):
 		return sd5Localized(preferChinese,
-			"使用参考视频或音频时，至少需要同时提供 1 张参考图。",
-			"At least one reference image is required when using reference video or audio."), true
+			"使用参考音频时，至少需要同时提供 1 张参考图。",
+			"At least one reference image is required when using reference audio."), true
 	case strings.Contains(lower, "request body too large"):
 		return sd5Localized(preferChinese,
 			"请求体超过 64 MB，请压缩或减少参考素材后重试。",

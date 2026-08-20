@@ -180,7 +180,7 @@ Adobe2API 视频现在属于标准视频任务族：对外使用 `POST /v1/video
 | `cy-sd6-seedance-2.0-720p` / `cy-sd6-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-heygen | 按完整 internal/upstream 模型精确配对，不绑定渠道 ID；严格 JSON 白名单，按 SKU 强制 720p/1080p | `/v1/videos/{id}` + 鉴权 `/content` 成片转存 |
 | `cy-sd7-seedance-2.0-720p` / `cy-sd7-seedance-2.0-1080p` + upstream `seedance-2.0` | seedance-magica | 双 SKU 强制分辨率；有参考素材时 adaptor 自动改发 `seedance-2.0-reference`；**不支持首尾帧** | `/v1/videos/{id}` + 鉴权 `/content` 成片转存（见 [`channel-seedance-magica.md`](channel-seedance-magica.md)） |
 | `cy-sd8-seedance-2.0` → `sd2.0-933`；`cy-sd8-seedance-2.0-fast` → `sd-2.0-fast-v1` | seedance-huabu | 精确 internal/upstream 配对；卡脸版 9 图+3 视频+3 音频（参考图须遮眼）；快速版仅 9 图；`aspect_ratio`→`size`；单图→上游 `image` 字符串，多图→上游 `images` 数组 | `/v1/videos/{id}` + `result_url`；有 `result_url` 时 rehost 直链，否则回退鉴权 `/content` |
-| `cy-sd5-seedance*` | Adobe2API Seedance | 与 Adobe 视频共用 `adobe` vendor；按内部模型契约输出 `media` 或 `frame`，支持 9 图 + 3 个视频/音频共享源位、全部素材最多 12；mapping 使用 `seedance-2.0` / `seedance-2.0-fast` | `video.generation` → OpenAI Video 形 |
+| `cy-sd5-seedance*` | Adobe2API Seedance | 与 Adobe 视频共用 `adobe` vendor；按内部模型契约输出 `media` 或 `frame`，支持 9 图 + 3 个视频/音频共享源位、全部素材最多 12；视频可单独参考，音频参考需至少 1 张图；mapping 使用 `seedance-2.0` / `seedance-2.0-fast` | `video.generation` → OpenAI Video 形 |
 | `cy-sd2-seedance*` / `tengd-seedance*` | seedance-tengda | Tengda flat → `content[]` JSON | OpenAI Video 形 |
 | `cy-adobe-veo-3.1*` / `cy-adobe-kling-3.0*` / `cy-adobe-gemini-omni-flash` | Adobe2API | 渠道 86 统一使用 Adobe2API 视频出站；Veo 标准版支持 3 张普通参考图或成对首尾帧，Veo Fast / Kling 3.0 / Kling 3.0 Omni 仅支持成对首尾帧，Gemini Omni 保留单首帧与风格参考能力；严格 JSON → `/v1/videos/generations` | `video.generation` → OpenAI Video 形 |
 | 其他（Sora 等） | default | 标准 OpenAI Video | OpenAI Video 形 |
