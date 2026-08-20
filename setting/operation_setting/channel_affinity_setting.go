@@ -99,7 +99,14 @@ var channelAffinitySetting = ChannelAffinitySetting{
 		{
 			Name:       "claude cli trace",
 			ModelRegex: []string{"^claude-.*$"},
-			PathRegex:  []string{"/v1/messages"},
+			// Keep one affinity binding across Claude-native Messages and the
+			// OpenAI-compatible Chat/Responses entry points. All three routes
+			// ultimately target the same Claude channel pool.
+			PathRegex: []string{
+				"/v1/messages",
+				"/v1/chat/completions",
+				"/v1/responses",
+			},
 			KeySources: []ChannelAffinityKeySource{
 				// The authenticated gateway user is stable across Claude CLI requests.
 				// Keep metadata.user_id as a compatibility fallback for clients that
