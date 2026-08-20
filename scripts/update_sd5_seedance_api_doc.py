@@ -43,7 +43,7 @@ def update_doc(raw: object) -> dict:
 
     for mode in doc.get("generation_modes") or []:
         if mode.get("label") == "全能参考":
-            mode["notes"] = "最多 9 张参考图；视频与音频合计最多 3 个，全部素材合计最多 12 个；视频/音频至少搭配 1 张参考图；URL 需公网可访问。"
+            mode["notes"] = "最多 9 张参考图；视频与音频合计最多 3 个，全部素材合计最多 12 个；使用参考音频时至少搭配 1 张参考图；URL 需公网可访问。"
     rewrite_examples(doc)
     validate_public_doc(doc)
     return doc

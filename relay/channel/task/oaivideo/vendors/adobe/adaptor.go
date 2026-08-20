@@ -149,8 +149,8 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		if firstImage != "" || lastImage != "" {
 			return nil, fmt.Errorf("%s media references cannot be combined with first or last frames", modelName)
 		}
-		if len(referenceVideos)+len(referenceAudios) > 0 && len(images) == 0 {
-			return nil, fmt.Errorf("%s video or audio references require at least one image reference", modelName)
+		if len(referenceAudios) > 0 && len(images) == 0 {
+			return nil, fmt.Errorf("%s audio references require at least one image reference", modelName)
 		}
 	} else if mode == "asset" || mode == "image" || mode == "style" {
 		if mode == "style" && !contract.allowStyles || (mode != "style" && !contract.allowAssets) {

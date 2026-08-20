@@ -181,6 +181,18 @@ func TestSD5AllowsNineImagesAndThreeSourceMedia(t *testing.T) {
 	}
 }
 
+func TestSD5AllowsVideoReferenceWithoutImage(t *testing.T) {
+	payload, err := buildAdobeTestPayload(t, `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_videos":["v1"]}`, relaycommon.TaskSubmitReq{
+		Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceVideos: []string{"v1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload["reference_mode"] != "media" {
+		t.Fatalf("reference_mode = %#v", payload["reference_mode"])
+	}
+}
+
 func TestSD5ReferenceLimits(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -207,9 +219,9 @@ func TestSD5ReferenceLimits(t *testing.T) {
 			want:    "at most 12 total reference assets",
 		},
 		{
-			name:    "media without image",
-			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","reference_videos":["v1"]}`,
-			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceMode: "media", ReferenceVideos: []string{"v1"}},
+			name:    "audio without image",
+			body:    `{"model":"seedance-2.0","prompt":"test","duration":4,"reference_mode":"media","reference_audios":["a1"]}`,
+			request: relaycommon.TaskSubmitReq{Model: "seedance-2.0", Prompt: "test", Duration: 4, ReferenceMode: "media", ReferenceAudios: []string{"a1"}},
 			want:    "require at least one image",
 		},
 		{

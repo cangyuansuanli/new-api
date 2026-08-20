@@ -72,7 +72,7 @@ func TestNormalizeSD5SubmissionOnlyErrorsStayChannelScoped(t *testing.T) {
 		raw  string
 		want string
 	}{
-		{"Seedance media video/audio references require at least one image reference", "使用参考视频或音频时，至少需要同时提供 1 张参考图。"},
+		{"Seedance media audio references require at least one image reference", "使用参考音频时，至少需要同时提供 1 张参考图。"},
 		{"invalid request body: http: request body too large", "请求体超过 64 MB，请压缩或减少参考素材后重试。"},
 	}
 	for _, tt := range tests {
