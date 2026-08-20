@@ -249,6 +249,25 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 	require.Equal(t, buildChannelAffinityKeyHint(affinityValue), meta.KeyHint)
 }
 
+func TestClaudeAffinityCoversAllProtocolEntryPoints(t *testing.T) {
+	setting := operation_setting.GetChannelAffinitySetting()
+	require.NotNil(t, setting)
+
+	var claudeRule *operation_setting.ChannelAffinityRule
+	for i := range setting.Rules {
+		if strings.EqualFold(strings.TrimSpace(setting.Rules[i].Name), "claude cli trace") {
+			claudeRule = &setting.Rules[i]
+			break
+		}
+	}
+	require.NotNil(t, claudeRule)
+	require.ElementsMatch(t, []string{
+		"/v1/messages",
+		"/v1/chat/completions",
+		"/v1/responses",
+	}, claudeRule.PathRegex)
+}
+
 func TestClearCurrentChannelAffinityCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
