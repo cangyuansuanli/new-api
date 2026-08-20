@@ -567,6 +567,7 @@ func (m *Message) ParseContent() []MediaContent {
 		if !ok {
 			continue
 		}
+		contentStart := len(contentList)
 
 		switch contentType {
 		case ContentTypeText:
@@ -647,6 +648,14 @@ func (m *Message) ParseContent() []MediaContent {
 						Url: videoUrl,
 					},
 				})
+			}
+		}
+		if cacheControl, exists := contentItem["cache_control"]; exists {
+			cacheControlJSON, err := common.Marshal(cacheControl)
+			if err == nil {
+				for index := contentStart; index < len(contentList); index++ {
+					contentList[index].CacheControl = cacheControlJSON
+				}
 			}
 		}
 	}

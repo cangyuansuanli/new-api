@@ -1,7 +1,8 @@
 package claude
 
 import (
-	"encoding/json"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relay/reasonmap"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/service/openaicompat"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
 	"github.com/QuantumNous/new-api/types"
@@ -45,28 +47,23 @@ func maybeMarkClaudeRefusal(c *gin.Context, stopReason string) {
 }
 
 func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRequest) (*dto.ClaudeRequest, error) {
+	if len(textRequest.Functions) > 0 || len(textRequest.FunctionCall) > 0 {
+		return nil, errors.New("legacy functions/function_call is not supported; use tools/tool_choice")
+	}
 	claudeTools := make([]any, 0, len(textRequest.Tools))
 
 	for _, tool := range textRequest.Tools {
-		if params, ok := tool.Function.Parameters.(map[string]any); ok {
-			claudeTool := dto.Tool{
-				Name:        tool.Function.Name,
-				Description: tool.Function.Description,
-			}
-			claudeTool.InputSchema = make(map[string]interface{})
-			if params["type"] != nil {
-				claudeTool.InputSchema["type"] = params["type"].(string)
-			}
-			claudeTool.InputSchema["properties"] = params["properties"]
-			claudeTool.InputSchema["required"] = params["required"]
-			for s, a := range params {
-				if s == "type" || s == "properties" || s == "required" {
-					continue
-				}
-				claudeTool.InputSchema[s] = a
-			}
-			claudeTools = append(claudeTools, &claudeTool)
+		if tool.Type != "" && tool.Type != "function" {
+			return nil, fmt.Errorf("unsupported chat tool type %q", tool.Type)
 		}
+		if strings.TrimSpace(tool.Function.Name) == "" {
+			return nil, errors.New("function tool is missing name")
+		}
+		inputSchema, err := normalizeClaudeToolSchema(tool.Function.Parameters)
+		if err != nil {
+			return nil, fmt.Errorf("invalid schema for tool %q: %w", tool.Function.Name, err)
+		}
+		claudeTools = append(claudeTools, &dto.Tool{Name: tool.Function.Name, Description: tool.Function.Description, InputSchema: inputSchema})
 	}
 
 	// Web search tool
@@ -161,7 +158,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 		claudeRequest.Thinking = &dto.Thinking{
 			Type: "adaptive",
 		}
-		claudeRequest.OutputConfig = json.RawMessage(fmt.Sprintf(`{"effort":"%s"}`, effortLevel))
+		claudeRequest.OutputConfig = []byte(fmt.Sprintf(`{"effort":"%s"}`, effortLevel))
 		if strings.HasPrefix(baseModel, "claude-opus-4-7") ||
 			strings.HasPrefix(baseModel, "claude-opus-4-8") {
 			// Opus 4.7/4.8 reject non-default temperature/top_p/top_k with 400
@@ -182,7 +179,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 			strings.HasPrefix(trimmedModel, "claude-opus-4-8") {
 			// Opus 4.7/4.8 reject thinking.type="enabled"; use adaptive at high effort.
 			claudeRequest.Thinking = &dto.Thinking{Type: "adaptive", Display: "summarized"}
-			claudeRequest.OutputConfig = json.RawMessage(`{"effort":"high"}`)
+			claudeRequest.OutputConfig = []byte(`{"effort":"high"}`)
 			claudeRequest.Temperature = nil
 			claudeRequest.TopP = nil
 			claudeRequest.TopK = nil
@@ -208,21 +205,18 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 	}
 
 	if textRequest.ReasoningEffort != "" {
-		switch textRequest.ReasoningEffort {
-		case "low":
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: common.GetPointer[int](1280),
+		if strings.HasPrefix(claudeRequest.Model, "claude-opus-4-7") || strings.HasPrefix(claudeRequest.Model, "claude-opus-4-8") {
+			claudeRequest.Thinking = &dto.Thinking{Type: "adaptive", Display: "summarized"}
+			claudeRequest.Temperature = nil
+			claudeRequest.TopP = nil
+			claudeRequest.TopK = nil
+			if err := mergeClaudeOutputConfig(&claudeRequest, map[string]any{"effort": textRequest.ReasoningEffort}); err != nil {
+				return nil, err
 			}
-		case "medium":
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: common.GetPointer[int](2048),
-			}
-		case "high":
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: common.GetPointer[int](4096),
+		} else {
+			budgets := map[string]int{"low": 1280, "medium": 2048, "high": 4096}
+			if budget := budgets[textRequest.ReasoningEffort]; budget > 0 {
+				claudeRequest.Thinking = &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(budget)}
 			}
 		}
 	}
@@ -294,7 +288,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 	var systemMessages []dto.ClaudeMediaMessage
 
 	for _, message := range formatMessages {
-		if message.Role == "system" {
+		if message.Role == "system" || message.Role == "developer" {
 			// 根据Claude API规范，system字段使用数组格式更有通用性
 			if message.IsStringContent() {
 				if text := message.StringContent(); text != "" {
@@ -308,8 +302,9 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 				for _, ctx := range message.ParseContent() {
 					if ctx.Type == "text" && ctx.Text != "" {
 						systemMessages = append(systemMessages, dto.ClaudeMediaMessage{
-							Type: "text",
-							Text: common.GetPointer[string](ctx.Text),
+							Type:         "text",
+							Text:         common.GetPointer[string](ctx.Text),
+							CacheControl: ctx.CacheControl,
 						})
 					}
 					// 未来可以在这里扩展对图片等其他类型的支持
@@ -372,47 +367,18 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 			} else {
 				claudeMediaMessages := make([]dto.ClaudeMediaMessage, 0)
 				for _, mediaMessage := range message.ParseContent() {
-					switch mediaMessage.Type {
-					case "text":
-						if mediaMessage.Text != "" {
-							claudeMediaMessages = append(claudeMediaMessages, dto.ClaudeMediaMessage{
-								Type: "text",
-								Text: common.GetPointer[string](mediaMessage.Text),
-							})
-						}
-					default:
-						source := mediaMessage.ToFileSource()
-						if source == nil {
-							continue
-						}
-						base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
-						if err != nil {
-							return nil, fmt.Errorf("get file data failed: %s", err.Error())
-						}
-						claudeMediaMessage := dto.ClaudeMediaMessage{
-							Source: &dto.ClaudeMessageSource{
-								Type: "base64",
-							},
-						}
-						if strings.HasPrefix(mimeType, "application/pdf") {
-							claudeMediaMessage.Type = "document"
-						} else {
-							claudeMediaMessage.Type = "image"
-						}
-
-						claudeMediaMessage.Source.MediaType = mimeType
-						claudeMediaMessage.Source.Data = base64Data
-						claudeMediaMessages = append(claudeMediaMessages, claudeMediaMessage)
-						continue
+					converted, err := convertChatMediaToClaude(c, mediaMessage)
+					if err != nil {
+						return nil, err
 					}
+					claudeMediaMessages = append(claudeMediaMessages, converted...)
 				}
 
 				if message.ToolCalls != nil {
 					for _, toolCall := range message.ParseToolCalls() {
 						inputObj := make(map[string]any)
-						if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &inputObj); err != nil {
-							common.SysLog("tool call function arguments is not a map[string]any: " + fmt.Sprintf("%v", toolCall.Function.Arguments))
-							continue
+						if err := common.Unmarshal([]byte(toolCall.Function.Arguments), &inputObj); err != nil {
+							return nil, fmt.Errorf("invalid arguments for tool call %q: %w", toolCall.ID, err)
 						}
 						claudeMediaMessages = append(claudeMediaMessages, dto.ClaudeMediaMessage{
 							Type:  "tool_use",
@@ -432,10 +398,128 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 	if len(systemMessages) > 0 {
 		claudeRequest.System = systemMessages
 	}
+	if err := applyClaudeStructuredOutput(&claudeRequest, textRequest.ResponseFormat); err != nil {
+		return nil, err
+	}
 
 	claudeRequest.Prompt = ""
 	claudeRequest.Messages = claudeMessages
 	return &claudeRequest, nil
+}
+
+func convertChatMediaToClaude(c *gin.Context, media dto.MediaContent) ([]dto.ClaudeMediaMessage, error) {
+	if media.Type == dto.ContentTypeText {
+		if media.Text == "" {
+			return nil, nil
+		}
+		return []dto.ClaudeMediaMessage{{Type: "text", Text: common.GetPointer(media.Text), CacheControl: media.CacheControl}}, nil
+	}
+	if media.Type == dto.ContentTypeFile {
+		file := media.GetFile()
+		if file == nil || file.FileData == "" {
+			return nil, nil
+		}
+		lowerName := strings.ToLower(file.FileName)
+		if !isClaudeTextAttachment(lowerName) && !strings.HasSuffix(lowerName, ".pdf") && !strings.HasPrefix(file.FileData, "http://") && !strings.HasPrefix(file.FileData, "https://") && !strings.HasPrefix(file.FileData, "data:") {
+			return nil, nil
+		}
+	}
+	source := media.ToFileSource()
+	if source == nil {
+		return nil, nil
+	}
+	base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting media for Claude")
+	if err != nil {
+		return nil, fmt.Errorf("get file data failed: %s", err.Error())
+	}
+	messageType := "image"
+	if media.Type == dto.ContentTypeFile {
+		file := media.GetFile()
+		if strings.HasPrefix(mimeType, "text/") || (file != nil && isClaudeTextAttachment(strings.ToLower(file.FileName))) {
+			decoded, decodeErr := base64.StdEncoding.DecodeString(base64Data)
+			if decodeErr != nil {
+				return nil, fmt.Errorf("decode text attachment %q: %w", file.FileName, decodeErr)
+			}
+			text := string(decoded)
+			return []dto.ClaudeMediaMessage{{Type: "text", Text: &text, CacheControl: media.CacheControl}}, nil
+		}
+		if strings.HasPrefix(mimeType, "application/pdf") {
+			messageType = "document"
+		} else if file != nil && strings.HasSuffix(strings.ToLower(file.FileName), ".pdf") && (mimeType == "" || mimeType == "application/octet-stream") {
+			messageType = "document"
+			mimeType = "application/pdf"
+		} else {
+			return nil, nil
+		}
+	}
+	return []dto.ClaudeMediaMessage{{Type: messageType, Source: &dto.ClaudeMessageSource{Type: "base64", MediaType: mimeType, Data: base64Data}, CacheControl: media.CacheControl}}, nil
+}
+
+func isClaudeTextAttachment(lowerName string) bool {
+	return strings.HasSuffix(lowerName, ".txt") || strings.HasSuffix(lowerName, ".md") || strings.HasSuffix(lowerName, ".csv")
+}
+
+func normalizeClaudeToolSchema(parameters any) (map[string]any, error) {
+	if parameters == nil {
+		return map[string]any{"type": "object", "properties": map[string]any{}}, nil
+	}
+	data, err := common.Marshal(parameters)
+	if err != nil {
+		return nil, err
+	}
+	var schema map[string]any
+	if err := common.Unmarshal(data, &schema); err != nil {
+		return nil, err
+	}
+	if schema == nil {
+		schema = make(map[string]any)
+	}
+	if schema["type"] == nil {
+		schema["type"] = "object"
+	}
+	if schema["properties"] == nil {
+		schema["properties"] = map[string]any{}
+	}
+	return schema, nil
+}
+
+func applyClaudeStructuredOutput(request *dto.ClaudeRequest, format *dto.ResponseFormat) error {
+	if request == nil || format == nil || format.Type == "" || format.Type == "text" {
+		return nil
+	}
+	if format.Type != "json_schema" {
+		return fmt.Errorf("Claude messages compatibility does not support response_format type %q", format.Type)
+	}
+	var schemaConfig map[string]any
+	if err := common.Unmarshal(format.JsonSchema, &schemaConfig); err != nil {
+		return fmt.Errorf("invalid response_format.json_schema: %w", err)
+	}
+	if nested, ok := schemaConfig["json_schema"].(map[string]any); ok {
+		schemaConfig = nested
+	}
+	schema := schemaConfig["schema"]
+	if schema == nil {
+		return errors.New("response_format.json_schema.schema is required")
+	}
+	return mergeClaudeOutputConfig(request, map[string]any{"format": map[string]any{"type": "json_schema", "schema": schema}})
+}
+
+func mergeClaudeOutputConfig(request *dto.ClaudeRequest, values map[string]any) error {
+	outputConfig := make(map[string]any)
+	if len(request.OutputConfig) > 0 {
+		if err := common.Unmarshal(request.OutputConfig, &outputConfig); err != nil {
+			return fmt.Errorf("invalid Claude output_config: %w", err)
+		}
+	}
+	for key, value := range values {
+		outputConfig[key] = value
+	}
+	encoded, err := common.Marshal(outputConfig)
+	if err != nil {
+		return err
+	}
+	request.OutputConfig = encoded
+	return nil
 }
 
 func StreamResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.ChatCompletionsStreamResponse {
@@ -526,22 +610,15 @@ func ResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.OpenAITextRe
 		Object:  "chat.completion",
 		Created: common.GetTimestamp(),
 	}
-	var responseText string
-	var responseThinking string
-	if len(claudeResponse.Content) > 0 {
-		responseText = claudeResponse.Content[0].GetText()
-		if claudeResponse.Content[0].Thinking != nil {
-			responseThinking = *claudeResponse.Content[0].Thinking
-		}
-	}
+	var responseText strings.Builder
+	var responseThinking strings.Builder
 	tools := make([]dto.ToolCallResponse, 0)
-	thinkingContent := ""
 
 	fullTextResponse.Id = claudeResponse.Id
 	for _, message := range claudeResponse.Content {
 		switch message.Type {
 		case "tool_use":
-			args, _ := json.Marshal(message.Input)
+			args, _ := common.Marshal(message.Input)
 			tools = append(tools, dto.ToolCallResponse{
 				ID:   message.Id,
 				Type: "function", // compatible with other OpenAI derivative applications
@@ -553,10 +630,10 @@ func ResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.OpenAITextRe
 		case "thinking":
 			// 加密的不管， 只输出明文的推理过程
 			if message.Thinking != nil {
-				thinkingContent = *message.Thinking
+				responseThinking.WriteString(*message.Thinking)
 			}
 		case "text":
-			responseText = message.GetText()
+			responseText.WriteString(message.GetText())
 		}
 	}
 	choice := dto.OpenAITextResponseChoice{
@@ -566,15 +643,13 @@ func ResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.OpenAITextRe
 		},
 		FinishReason: stopReasonClaude2OpenAI(claudeResponse.StopReason),
 	}
-	choice.SetStringContent(responseText)
-	if len(responseThinking) > 0 {
-		choice.ReasoningContent = &responseThinking
+	choice.SetStringContent(responseText.String())
+	if responseThinking.Len() > 0 {
+		reasoning := responseThinking.String()
+		choice.ReasoningContent = &reasoning
 	}
 	if len(tools) > 0 {
 		choice.Message.SetToolCalls(tools)
-	}
-	if thinkingContent != "" {
-		choice.Message.ReasoningContent = &thinkingContent
 	}
 	fullTextResponse.Model = claudeResponse.Model
 	choices = append(choices, choice)
@@ -583,12 +658,13 @@ func ResponseClaude2OpenAI(claudeResponse *dto.ClaudeResponse) *dto.OpenAITextRe
 }
 
 type ClaudeResponseInfo struct {
-	ResponseId   string
-	Created      int64
-	Model        string
-	ResponseText strings.Builder
-	Usage        *dto.Usage
-	Done         bool
+	ResponseId     string
+	Created        int64
+	Model          string
+	ResponseText   strings.Builder
+	Usage          *dto.Usage
+	Done           bool
+	ResponsesState *openaicompat.ChatToResponsesStreamState
 }
 
 func cacheCreationTokensForOpenAIUsage(usage *dto.Usage) int {
@@ -816,16 +892,28 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 			}
 		}
 		helper.ClaudeChunkData(c, claudeResponse, data)
-	} else if info.RelayFormat == types.RelayFormatOpenAI {
+	} else if info.RelayFormat == types.RelayFormatOpenAI || info.RelayFormat == types.RelayFormatOpenAIResponses {
 		response := StreamResponseClaude2OpenAI(&claudeResponse)
 
 		if !FormatClaudeResponseInfo(&claudeResponse, response, claudeInfo) {
 			return nil
 		}
-
-		err = helper.ObjectData(c, response)
-		if err != nil {
-			logger.LogError(c, "send_stream_response_failed: "+err.Error())
+		if response == nil {
+			return nil
+		}
+		if info.RelayFormat == types.RelayFormatOpenAI {
+			err = helper.ObjectData(c, response)
+			if err != nil {
+				logger.LogError(c, "send_stream_response_failed: "+err.Error())
+			}
+		} else {
+			events, convertErr := openaicompat.ChatCompletionsStreamChunkToResponsesEvents(response, claudeInfo.ResponsesState)
+			if convertErr != nil {
+				return types.NewError(convertErr, types.ErrorCodeBadResponseBody)
+			}
+			if sendErr := sendClaudeResponsesEvents(c, events); sendErr != nil {
+				return types.NewError(sendErr, types.ErrorCodeBadResponseBody)
+			}
 		}
 	}
 	return nil
@@ -866,7 +954,25 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 			}
 		}
 		helper.Done(c)
+	} else if info.RelayFormat == types.RelayFormatOpenAIResponses {
+		openAIUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)
+		claudeInfo.ResponsesState.SetUsage(&openAIUsage)
+		if err := sendClaudeResponsesEvents(c, openaicompat.FinalizeChatCompletionsStreamToResponses(claudeInfo.ResponsesState)); err != nil {
+			common.SysLog("send final responses event failed: " + err.Error())
+		}
 	}
+}
+
+func sendClaudeResponsesEvents(c *gin.Context, events []openaicompat.ChatToResponsesStreamEvent) error {
+	for _, event := range events {
+		payload := service.PatchClientFacingModelObjectFromContext(c, event.Payload)
+		data, err := common.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		helper.ResponseChunkData(c, event.Payload, string(data))
+	}
+	return nil
 }
 
 func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.Usage, *types.NewAPIError) {
@@ -876,6 +982,10 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		Model:        info.UpstreamModelName,
 		ResponseText: strings.Builder{},
 		Usage:        &dto.Usage{},
+	}
+	if info.RelayFormat == types.RelayFormatOpenAIResponses {
+		claudeInfo.ResponsesState = openaicompat.NewChatToResponsesStreamState(claudeInfo.ResponseId, "")
+		claudeInfo.ResponsesState.Created = claudeInfo.Created
 	}
 	var err *types.NewAPIError
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
@@ -920,12 +1030,29 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	case types.RelayFormatOpenAI:
 		openaiResponse := ResponseClaude2OpenAI(&claudeResponse)
 		openaiResponse.Usage = buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)
-		responseData, err = json.Marshal(openaiResponse)
+		responseData, err = common.Marshal(openaiResponse)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+	case types.RelayFormatOpenAIResponses:
+		openaiResponse := ResponseClaude2OpenAI(&claudeResponse)
+		openaiResponse.Usage = buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)
+		responsesResponse, convertErr := openaicompat.ChatCompletionsResponseToResponsesResponse(openaiResponse, claudeInfo.ResponseId)
+		if convertErr != nil {
+			return types.NewError(convertErr, types.ErrorCodeBadResponseBody)
+		}
+		responseData, err = common.Marshal(responsesResponse)
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeBadResponseBody)
 		}
 	case types.RelayFormatClaude:
 		responseData = data
+	}
+	if info.RelayFormat != types.RelayFormatClaude {
+		responseData, err = service.PatchClientFacingModelJSONFromContext(c, responseData)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
 	}
 
 	if claudeResponse.Usage != nil && claudeResponse.Usage.ServerToolUse != nil && claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
