@@ -88,8 +88,8 @@ func patchYunfeiGPTImage4KBody(request *dto.ImageRequest) (RequestPatchResult, e
 	request.Quality = normalizeYunfeiGPTImageQuality(request.Quality)
 	stripYunfeiUnsupportedFields(request)
 	return RequestPatchResult{
-		OutboundBodyChanged: true,
-		SyncSizeToMultipart: true,
+		OutboundBodyChanged:    true,
+		SyncSizeToMultipart:    true,
 		SyncQualityToMultipart: true,
 	}, nil
 }
