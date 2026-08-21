@@ -1,12 +1,9 @@
 package gemini
 
-// Gemini Banana 向上适配（渠道 58/71：New API 系上游 api.0lll0.cn / 157.254.18.68）。
+// cy-yf-gemini-banana-* 向上适配：OpenAI Image 请求转为 generateContent body。
 //
-// 文生图 / 图生图（含 multipart 参考图）统一走：
-//   POST /v1beta/models/gemini-3-pro-image-preview:generateContent
-//
-// public 名 manju-gemini-banana-*，与 #70 Manju OpenAI 适配（adapt_manju_banana.go）对称，
-// 但上游协议为 Gemini generateContent + inlineData，而非 chat/completions。
+// 文生图 / 图生图统一走：
+//   POST /v1beta/models/{upstream}:generateContent
 
 import (
 	"errors"
@@ -23,12 +20,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// IsGeminiBananaUpstreamImage 判断是否走 Gemini Banana 向上适配（渠道 58/71）。
-func IsGeminiBananaUpstreamImage(info *relaycommon.RelayInfo) bool {
+// IsYunfeiGeminiBananaUpstreamImage 判断 cy-yf-gemini-banana-* 是否走 generateContent 出图。
+func IsYunfeiGeminiBananaUpstreamImage(info *relaycommon.RelayInfo) bool {
 	if info == nil || info.ChannelMeta == nil {
 		return false
 	}
-	if !imagevendor.IsManjuBananaOriginModel(info.OriginModelName) {
+	if !imagevendor.IsYunfeiBananaOriginModel(info.OriginModelName) {
 		return false
 	}
 	return model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName)

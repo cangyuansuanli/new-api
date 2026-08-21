@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/dto"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,17 +54,4 @@ func TestPatchGulieImageRequestAutoSize(t *testing.T) {
 	_, err := patchGulieImageRequest("gulie-gpt-image-2", request)
 	require.NoError(t, err)
 	require.Empty(t, request.Size)
-}
-
-func TestApplyRequestPatchKedaya(t *testing.T) {
-	request := &dto.ImageRequest{
-		Model:  "kedaya-gpt-image-2",
-		Prompt: "cat",
-		Size:   "800x600",
-	}
-	result, err := ApplyRequestPatch(&relaycommon.RelayInfo{OriginModelName: "kedaya-gpt-image-2"}, request)
-	require.NoError(t, err)
-	require.True(t, result.SuppressQualityLog)
-	require.Equal(t, "800x600", result.LogSize)
-	require.Contains(t, request.Prompt, "尺寸：800*600")
 }

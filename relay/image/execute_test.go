@@ -115,8 +115,8 @@ func TestCleanupTaskRequestContextRemovesMultipartTempFiles(t *testing.T) {
 	}
 }
 
-func TestNormalizeAsyncGenerationBodyUsesURLResponseFormatFor4K(t *testing.T) {
-	out, err := normalizeAsyncGenerationBody([]byte(`{"model":"geek2-gpt-image-2-4k","prompt":"test","async":true,"response_format":"b64_json"}`), true)
+func TestNormalizeAsyncGenerationBodyUsesURLResponseFormatForYunfei4K(t *testing.T) {
+	out, err := normalizeAsyncGenerationBody([]byte(`{"model":"cy-yf-gpt-image-2-4k","prompt":"test","async":true,"response_format":"b64_json"}`), true)
 	if err != nil {
 		t.Fatalf("normalizeAsyncGenerationBody: %v", err)
 	}
@@ -147,19 +147,19 @@ func TestNormalizeAsyncGenerationBodyKeepsB64ForNon4K(t *testing.T) {
 }
 
 func TestImageAsyncUsesURLResponseForRehostModels(t *testing.T) {
-	if !imageAsyncUsesURLResponse("geek2-gpt-image-2-4k") {
-		t.Fatal("expected 4k model to use url response")
-	}
-	if !imageAsyncUsesURLResponse("flux-pro-2") {
-		t.Fatal("expected flux-pro-2 to use url response")
+	if !imageAsyncUsesURLResponse("cy-yf-gpt-image-2-4k") {
+		t.Fatal("expected yunfei 4k model to use url response")
 	}
 	if !imageAsyncUsesURLResponse("Gulie-gpt-image-2") {
 		t.Fatal("gulie should use an internal upstream url before R2 rehost")
 	}
+	if imageAsyncUsesURLResponse("flux-pro-2") {
+		t.Fatal("flux without vendor registration should not use url response")
+	}
 }
 
-func TestNormalizeAsyncGenerationBodyUsesURLResponseFormatForFlux(t *testing.T) {
-	out, err := normalizeAsyncGenerationBody([]byte(`{"model":"flux-pro-2","prompt":"test","async":true,"response_format":"b64_json"}`), true)
+func TestNormalizeAsyncGenerationBodyUsesURLResponseFormatForAdobeFirefly(t *testing.T) {
+	out, err := normalizeAsyncGenerationBody([]byte(`{"model":"adobe-firefly-gpt-image-2-4k","prompt":"test","async":true,"response_format":"b64_json"}`), true)
 	if err != nil {
 		t.Fatalf("normalizeAsyncGenerationBody: %v", err)
 	}

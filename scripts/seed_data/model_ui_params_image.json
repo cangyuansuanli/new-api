@@ -2529,6 +2529,140 @@
                     "enabled": false
                 }
             }
+        },
+        {
+            "id": "image-tpl-cy-yf-gpt-image-2-4k",
+            "api_mode": "images-json-async",
+            "match_mode": "exact",
+            "match": [
+                "cy-yf-gpt-image-2-4k"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "medium", "label": "中（默认）"},
+                        {"value": "high", "label": "高"}
+                    ]
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "1:1", "label": "1:1", "size": "1:1", "width": 1, "height": 1, "icon": "square"},
+                        {"value": "5:4", "label": "5:4", "size": "5:4", "width": 5, "height": 4, "icon": "landscape"},
+                        {"value": "7:6", "label": "7:6", "size": "7:6", "width": 7, "height": 6, "icon": "landscape"},
+                        {"value": "9:16", "label": "9:16", "size": "9:16", "width": 9, "height": 16, "icon": "portrait"},
+                        {"value": "21:9", "label": "21:9", "size": "21:9", "width": 21, "height": 9, "icon": "landscape"},
+                        {"value": "16:9", "label": "16:9", "size": "16:9", "width": 16, "height": 9, "icon": "landscape"},
+                        {"value": "3:2", "label": "3:2", "size": "3:2", "width": 3, "height": 2, "icon": "landscape"},
+                        {"value": "4:3", "label": "4:3", "size": "4:3", "width": 4, "height": 3, "icon": "landscape"},
+                        {"value": "4:5", "label": "4:5", "size": "4:5", "width": 4, "height": 5, "icon": "portrait"},
+                        {"value": "3:4", "label": "3:4", "size": "3:4", "width": 3, "height": 4, "icon": "portrait"},
+                        {"value": "2:3", "label": "2:3", "size": "2:3", "width": 2, "height": 3, "icon": "portrait"}
+                    ]
+                },
+                "customDimensions": {"enabled": true},
+                "count": {"enabled": true, "min": 1, "max": 1, "quickCount": 1},
+                "background": {"enabled": false},
+                "outputFormat": {"enabled": false},
+                "outputCompression": {"enabled": false},
+                "moderation": {"enabled": false}
+            },
+            "hints": [
+                {"text": "GPT Image 2 4K 固定档位；n 固定为 1；quality 默认 medium，可选 high；画幅提交 API 字段 size。"}
+            ]
+        },
+        {
+            "id": "image-tpl-cy-yf-banana-pro",
+            "api_mode": "images-sync-json",
+            "match_mode": "exact",
+            "match": [
+                "cy-yf-gemini-banana-pro"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "auto", "label": "自动"},
+                        {"value": "low", "label": "1K"},
+                        {"value": "medium", "label": "2K"},
+                        {"value": "high", "label": "4K"}
+                    ]
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "1:1", "label": "1:1", "size": "1:1", "width": 1, "height": 1, "icon": "square"},
+                        {"value": "16:9", "label": "16:9", "size": "16:9", "width": 16, "height": 9, "icon": "landscape"},
+                        {"value": "9:16", "label": "9:16", "size": "9:16", "width": 9, "height": 16, "icon": "portrait"},
+                        {"value": "4:3", "label": "4:3", "size": "4:3", "width": 4, "height": 3, "icon": "landscape"},
+                        {"value": "3:4", "label": "3:4", "size": "3:4", "width": 3, "height": 4, "icon": "portrait"},
+                        {"value": "3:2", "label": "3:2", "size": "3:2", "width": 3, "height": 2, "icon": "landscape"},
+                        {"value": "2:3", "label": "2:3", "size": "2:3", "width": 2, "height": 3, "icon": "portrait"},
+                        {"value": "5:4", "label": "5:4", "size": "5:4", "width": 5, "height": 4, "icon": "landscape"},
+                        {"value": "4:5", "label": "4:5", "size": "4:5", "width": 4, "height": 5, "icon": "portrait"},
+                        {"value": "21:9", "label": "21:9", "size": "21:9", "width": 21, "height": 9, "icon": "landscape"},
+                        {"value": "auto", "label": "自动", "width": 0, "height": 0, "icon": "auto"}
+                    ]
+                },
+                "customDimensions": {"enabled": false},
+                "count": {"enabled": true, "min": 1, "max": 1, "quickCount": 1},
+                "background": {"enabled": false},
+                "outputFormat": {"enabled": false},
+                "outputCompression": {"enabled": false},
+                "moderation": {"enabled": false}
+            },
+            "hints": [
+                {"text": "Gemini Banana Pro：quality 映射 1K / 2K / 4K；画幅提交 API 字段 size。"}
+            ]
+        },
+        {
+            "id": "image-tpl-cy-yf-banana-flash",
+            "api_mode": "images-sync-json",
+            "match_mode": "exact",
+            "match": [
+                "cy-yf-gemini-banana-flash"
+            ],
+            "params": {
+                "quality": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "auto", "label": "自动"},
+                        {"value": "low", "label": "1K"},
+                        {"value": "medium", "label": "2K"},
+                        {"value": "high", "label": "4K"}
+                    ]
+                },
+                "aspectRatio": {
+                    "enabled": true,
+                    "options": [
+                        {"value": "1:1", "label": "1:1", "size": "1:1", "width": 1, "height": 1, "icon": "square"},
+                        {"value": "16:9", "label": "16:9", "size": "16:9", "width": 16, "height": 9, "icon": "landscape"},
+                        {"value": "9:16", "label": "9:16", "size": "9:16", "width": 9, "height": 16, "icon": "portrait"},
+                        {"value": "4:3", "label": "4:3", "size": "4:3", "width": 4, "height": 3, "icon": "landscape"},
+                        {"value": "3:4", "label": "3:4", "size": "3:4", "width": 3, "height": 4, "icon": "portrait"},
+                        {"value": "3:2", "label": "3:2", "size": "3:2", "width": 3, "height": 2, "icon": "landscape"},
+                        {"value": "2:3", "label": "2:3", "size": "2:3", "width": 2, "height": 3, "icon": "portrait"},
+                        {"value": "5:4", "label": "5:4", "size": "5:4", "width": 5, "height": 4, "icon": "landscape"},
+                        {"value": "4:5", "label": "4:5", "size": "4:5", "width": 4, "height": 5, "icon": "portrait"},
+                        {"value": "21:9", "label": "21:9", "size": "21:9", "width": 21, "height": 9, "icon": "landscape"},
+                        {"value": "8:1", "label": "8:1", "size": "8:1", "width": 8, "height": 1, "icon": "landscape"},
+                        {"value": "4:1", "label": "4:1", "size": "4:1", "width": 4, "height": 1, "icon": "landscape"},
+                        {"value": "1:4", "label": "1:4", "size": "1:4", "width": 1, "height": 4, "icon": "portrait"},
+                        {"value": "1:8", "label": "1:8", "size": "1:8", "width": 1, "height": 8, "icon": "portrait"},
+                        {"value": "auto", "label": "自动", "width": 0, "height": 0, "icon": "auto"}
+                    ]
+                },
+                "customDimensions": {"enabled": false},
+                "count": {"enabled": true, "min": 1, "max": 1, "quickCount": 1},
+                "background": {"enabled": false},
+                "outputFormat": {"enabled": false},
+                "outputCompression": {"enabled": false},
+                "moderation": {"enabled": false}
+            },
+            "hints": [
+                {"text": "Gemini Banana Flash：quality 映射 1K / 2K / 4K；额外支持 8:1、4:1、1:4、1:8 超宽比例；画幅提交 API 字段 size。"}
+            ]
         }
     ]
 }

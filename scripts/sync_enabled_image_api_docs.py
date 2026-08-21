@@ -57,6 +57,9 @@ SPECS = (
     ModelDocSpec("manju-gemini-banana-flash-lite", "manju-gemini-banana-flash-lite", "image-tpl-banana-chat-flash-lite", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Flash Lite 1K 同步模型。", "支持模型面板列出的比例或 auto。", "仅支持 auto、low（1K）。"),
     ModelDocSpec("manju-gemini-banana-pro-1/2k", "manju-gemini-banana-pro-1/2k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Pro 1K/2K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium。"),
     ModelDocSpec("manju-gemini-banana-pro-4k", "manju-gemini-banana-pro-4k", "image-tpl-banana-chat", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Pro 4K 同步模型。", "支持模型面板列出的比例或 auto。", "支持 low、medium、high。"),
+    ModelDocSpec("cy-yf-gpt-image-2-4k", "gpt-image-2-4k", "image-tpl-cy-yf-gpt-image-2-4k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 4K 固定计费档位。", "支持比例或精确像素；4K 档位按像素预算计算。", "默认 medium，可选 high；n 固定为 1。"),
+    ModelDocSpec("cy-yf-gemini-banana-pro", "gemini-banana-pro", "image-tpl-cy-yf-banana-pro", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Pro 同步模型。", "支持 1:1、16:9、9:16、4:3、3:4、3:2、2:3、5:4、4:5、21:9。", "quality 映射 1K / 2K / 4K。"),
+    ModelDocSpec("cy-yf-gemini-banana-flash", "gemini-banana-flash", "image-tpl-cy-yf-banana-flash", "sync", ("size", "quality", "n", "response_format", "images"), "Gemini Banana Flash 同步模型。", "支持常规定比例及 8:1、4:1、1:4、1:8。", "quality 映射 1K / 2K / 4K。"),
 )
 
 

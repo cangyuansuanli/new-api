@@ -20,18 +20,18 @@ func TestResolveRehostPolicyGulie(t *testing.T) {
 		t.Fatal("gulie should not prefer upstream b64 response")
 	}
 	policy2k := ResolveRehostPolicy("cy-img2-gpt-image-2-2k")
-	if !policy2k.AcceptUpstreamURL || !policy2k.AsyncPreferURLResponse {
-		t.Fatalf("gulie 2k policy = %+v", policy2k)
+	if policy2k.AcceptUpstreamURL || policy2k.AsyncPreferURLResponse {
+		t.Fatalf("retired cy-img2 2k should use default policy, got %+v", policy2k)
 	}
 }
 
-func TestResolveRehostPolicy4K(t *testing.T) {
-	policy := ResolveRehostPolicy("geek2-gpt-image-2-4k")
+func TestResolveRehostPolicyYunfeiGPTImage4K(t *testing.T) {
+	policy := ResolveRehostPolicy("cy-yf-gpt-image-2-4k")
 	if !policy.AcceptUpstreamURL || !policy.AsyncPreferURLResponse {
-		t.Fatalf("4k policy = %+v", policy)
+		t.Fatalf("yunfei 4k policy = %+v", policy)
 	}
 	if policy.PreferUpstreamB64JSON {
-		t.Fatal("4k should not prefer upstream b64")
+		t.Fatal("yunfei 4k should not prefer upstream b64")
 	}
 }
 
@@ -39,21 +39,15 @@ func TestResolveRehostPolicyManjuBanana(t *testing.T) {
 	for _, model := range []string{
 		"manju-gemini-banana-pro-1/2k",
 		"manju-gemini-banana-flash-lite",
+		"manju-gemini-banana-pro-4k",
 	} {
 		policy := ResolveRehostPolicy(model)
 		if !policy.AcceptUpstreamURL {
 			t.Fatalf("%s: expected AcceptUpstreamURL", model)
 		}
 		if policy.PreferUpstreamB64JSON || policy.AsyncPreferURLResponse {
-			t.Fatalf("%s: policy should be url-only rehost, got %+v", model, policy)
+			t.Fatalf("%s: policy should be sync url rehost only, got %+v", model, policy)
 		}
-	}
-}
-
-func TestResolveRehostPolicyManjuBanana4KUsesLargeURLRule(t *testing.T) {
-	policy := ResolveRehostPolicy("manju-gemini-banana-pro-4k")
-	if !policy.AcceptUpstreamURL || !policy.AsyncPreferURLResponse {
-		t.Fatalf("manju 4k should match large-url rule, got %+v", policy)
 	}
 }
 
@@ -73,27 +67,33 @@ func TestResolveRehostPolicyAdobeFirefly(t *testing.T) {
 }
 
 func TestResolveRehostPolicyDefault(t *testing.T) {
-	policy := ResolveRehostPolicy("go2api-gpt-image-2-1k")
-	if policy.AcceptUpstreamURL || policy.PreferUpstreamB64JSON || policy.AsyncPreferURLResponse {
-		t.Fatalf("internal model should use default policy, got %+v", policy)
+	for _, model := range []string{
+		"go2api-gpt-image-2-1k",
+		"geek2-gpt-image-2-4k",
+		"flux-pro-2",
+	} {
+		policy := ResolveRehostPolicy(model)
+		if policy.AcceptUpstreamURL || policy.PreferUpstreamB64JSON || policy.AsyncPreferURLResponse {
+			t.Fatalf("%s should use default policy, got %+v", model, policy)
+		}
 	}
 }
 
 func TestImageModelUsesURLRehost(t *testing.T) {
-	if !ImageModelUsesURLRehost("geek2-gpt-image-2-4k") {
-		t.Fatal("expected 4k model to need url rehost")
-	}
-	if !ImageModelUsesURLRehost("flux-pro-2") {
-		t.Fatal("expected flux-pro-2 to need url rehost")
+	if !ImageModelUsesURLRehost("cy-yf-gpt-image-2-4k") {
+		t.Fatal("expected yunfei 4k model to need url rehost")
 	}
 	if !ImageModelUsesURLRehost("Gulie-gpt-image-2") {
 		t.Fatal("gulie should prefer upstream url for internal R2 transfer")
 	}
+	if ImageModelUsesURLRehost("geek2-gpt-image-2-4k") {
+		t.Fatal("retired catch-all models should not use url rehost")
+	}
 }
 
 func TestImageAsyncAcceptsUpstreamURL(t *testing.T) {
-	if !ImageAsyncAcceptsUpstreamURL("geek2-gpt-image-2-4k") {
-		t.Fatal("expected 4k async to accept upstream url")
+	if !ImageAsyncAcceptsUpstreamURL("cy-yf-gpt-image-2-4k") {
+		t.Fatal("expected yunfei 4k async to accept upstream url")
 	}
 	if !ImageAsyncAcceptsUpstreamURL("cy-img1-gpt-image-2") {
 		t.Fatal("expected gulie async to accept upstream url")
@@ -110,14 +110,17 @@ func TestImageAsyncAcceptsUpstreamURL(t *testing.T) {
 	if ImageAsyncAcceptsUpstreamURL("go2api-gpt-image-2-1k") {
 		t.Fatal("internal prefixed model should still require b64_json in async worker")
 	}
+	if ImageAsyncAcceptsUpstreamURL("flux-pro-2") {
+		t.Fatal("flux without vendor registration should not accept upstream url")
+	}
 }
 
 func TestImageSyncPreferUpstreamB64JSON(t *testing.T) {
 	if ImageSyncPreferUpstreamB64JSON("cy-img1-gpt-image-2") {
 		t.Fatal("gulie should keep upstream url internal and rehost it to R2")
 	}
-	if ImageSyncPreferUpstreamB64JSON("geek2-gpt-image-2-4k") {
-		t.Fatal("4k should not prefer upstream b64")
+	if ImageSyncPreferUpstreamB64JSON("cy-yf-gpt-image-2-4k") {
+		t.Fatal("yunfei 4k should not prefer upstream b64")
 	}
 	if ImageSyncPreferUpstreamB64JSON("manju-gemini-banana-pro-4k") {
 		t.Fatal("manju banana should not prefer upstream b64")

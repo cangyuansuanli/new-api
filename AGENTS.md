@@ -112,7 +112,7 @@ When implementing a new channel:
 
 ### Rule 4b: Image vendor registry (`relay/imagevendor/`)
 
-**One file per vendor family** (`vendor_<name>.go`). Register in `init()` via internal `register()`. Order matters: more specific rules first (e.g. Gulie before large-url `-4k` suffix).
+**One file per vendor family** (`vendor_<name>.go`). Register in `init()` via internal `register()`. Order matters: more specific rules first when multiple descriptors could match.
 
 Each [`Descriptor`](relay/imagevendor/descriptor.go) defines:
 

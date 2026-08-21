@@ -26,7 +26,7 @@ func TestApplySyncImageUpstreamURLRehostPolicy(t *testing.T) {
 		t.Fatalf("response_format = %q, want url", request.ResponseFormat)
 	}
 
-	info2 := &relaycommon.RelayInfo{OriginModelName: "geek2-gpt-image-2-4k"}
+	info2 := &relaycommon.RelayInfo{OriginModelName: "cy-yf-gpt-image-2-4k"}
 	request2 := &dto.ImageRequest{ResponseFormat: "url"}
 	applySyncImageUpstreamB64Override(c, info2, request2)
 	if !info2.ImageClientWantsURL {
