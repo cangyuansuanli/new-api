@@ -85,12 +85,23 @@ func patchYunfeiGPTImage4KBody(request *dto.ImageRequest) (RequestPatchResult, e
 	request.Size = size
 	request.N = common.GetPointer(uint(1))
 	request.Stream = common.GetPointer(false)
+	request.Quality = normalizeYunfeiGPTImageQuality(request.Quality)
 	stripYunfeiUnsupportedFields(request)
 	return RequestPatchResult{
 		OutboundBodyChanged: true,
 		SyncSizeToMultipart: true,
-		SuppressQualityLog:  true,
+		SyncQualityToMultipart: true,
 	}, nil
+}
+
+func normalizeYunfeiGPTImageQuality(quality string) string {
+	switch strings.ToLower(strings.TrimSpace(quality)) {
+	case "high", "hd", "4k":
+		return "high"
+	default:
+		// Yunfei upstream defaults to medium when quality is omitted.
+		return "medium"
+	}
 }
 
 func resolveYunfeiGPTImage4KSize(size string) (string, error) {

@@ -17,17 +17,28 @@ func TestIsYunfeiBananaOriginModel(t *testing.T) {
 
 func TestPatchYunfeiGPTImage4KRequest(t *testing.T) {
 	request := &dto.ImageRequest{
-		Prompt: "test",
-		Size:   "16:9",
-		N:      uintPtr(2),
+		Prompt:  "test",
+		Size:    "16:9",
+		Quality: "high",
+		N:       uintPtr(2),
 	}
 	result, err := patchYunfeiGPTImage4KRequest(yunfeiGPTImage4KOrigin, request)
 	require.NoError(t, err)
 	require.True(t, result.OutboundBodyChanged)
+	require.True(t, result.SyncQualityToMultipart)
 	require.NotNil(t, request.N)
 	require.Equal(t, uint(1), *request.N)
+	require.Equal(t, "high", request.Quality)
 	require.NotEmpty(t, request.Size)
 	require.NotContains(t, request.Size, ":")
+}
+
+func TestPatchYunfeiGPTImage4KRequestDefaultsQualityToMedium(t *testing.T) {
+	request := &dto.ImageRequest{Prompt: "test", Size: "1:1"}
+	result, err := patchYunfeiGPTImage4KRequest(yunfeiGPTImage4KOrigin, request)
+	require.NoError(t, err)
+	require.True(t, result.OutboundBodyChanged)
+	require.Equal(t, "medium", request.Quality)
 }
 
 func TestPatchYunfeiGPTImage4KRequestSkipsOtherModels(t *testing.T) {

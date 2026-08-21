@@ -31,6 +31,8 @@ type RequestPatchResult struct {
 	OutboundBodyChanged bool
 	// SyncSizeToMultipart copies a patched Size into an already-parsed edit form.
 	SyncSizeToMultipart bool
+	// SyncQualityToMultipart copies a patched Quality into an already-parsed edit form.
+	SyncQualityToMultipart bool
 }
 
 // PatchRequestFunc 在发往上游前就地修改 ImageRequest；可按 originModel 决定是否生效。

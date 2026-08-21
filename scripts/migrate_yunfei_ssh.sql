@@ -17,13 +17,21 @@ ON CONFLICT (prefix) DO UPDATE SET
 
 INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
 VALUES
+    ('cy-yf-gpt-image-2-4k', 'gpt-image-2-4k', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-yf-gemini-banana-pro', 'gemini-banana-pro', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-yf-gemini-banana-flash', 'gemini-banana-flash', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
 ON CONFLICT (internal_name) DO UPDATE SET
     public_name = EXCLUDED.public_name,
-    updated_time = EXCLUDED.updated_time;
+    updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT;
 
--- gpt-image-2-4k 展示名由 adobe-firefly-gpt-image-2-4k 占用；Yunfei 切换走 model_routing_aliases。
+-- 与 Adobe 共用 gpt-image-2-4k 展示名时，隐藏 Adobe 侧避免模型广场冲突（需先跑 migrate_public_alias_shared_name_ssh.sql）。
+UPDATE model_public_aliases
+SET hidden_from_marketplace = TRUE,
+    updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT
+WHERE deleted_at IS NULL
+  AND internal_name = 'adobe-firefly-gpt-image-2-4k';
+
+-- 中性 API 路由：客户仍可用 gpt-image-2-4k 入站。
 INSERT INTO model_routing_aliases (public_name, internal_name, note, created_time, updated_time)
 VALUES (
     'gpt-image-2-4k',
