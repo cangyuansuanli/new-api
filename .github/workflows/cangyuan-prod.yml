@@ -51,7 +51,7 @@ jobs:
             relay/image/sync.go relay/imagevendor/resolution_validation.go \
             relay/imagevendor/vendor_adobe_firefly.go \
             relay/imagevendor/vendor_adobe_firefly_resolution_test.go \
-            relay/imagevendor/vendor_yunfei.go relay/imagevendor/vendor_yunfei_test.go \
+            relay/imagevendor/vendor_greek2api.go relay/imagevendor/vendor_greek2api_test.go \
             relay/channel/openai/adapt_adobe2api.go \
             relay/channel/openai/adapt_adobe2api_test.go)"
           test -z "$unformatted" || { echo "gofmt required:"; echo "$unformatted"; exit 1; }
