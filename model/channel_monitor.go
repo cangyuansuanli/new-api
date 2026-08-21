@@ -37,8 +37,8 @@ type ChannelMonitor struct {
 	PrimaryModel    string `json:"primary_model" gorm:"type:varchar(191);not null"`
 	ExtraModelsJSON string `json:"-" gorm:"column:extra_models;type:text"`
 	ProbeKind       string `json:"probe_kind" gorm:"type:varchar(32);not null;default:'text_active'"`
-	IntervalSeconds int    `json:"interval_seconds" gorm:"not null;default:300"`
-	JitterSeconds   int    `json:"jitter_seconds" gorm:"not null;default:30"`
+	IntervalSeconds int    `json:"interval_seconds" gorm:"not null;default:1800"`
+	JitterSeconds   int    `json:"jitter_seconds" gorm:"not null;default:120"`
 	Enabled         bool   `json:"enabled" gorm:"not null;index"`
 	Visible         bool   `json:"visible" gorm:"not null;index"`
 	NextProbeAt     int64  `json:"-" gorm:"not null;default:0;index"`
