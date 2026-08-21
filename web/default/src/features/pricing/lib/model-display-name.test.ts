@@ -6,6 +6,34 @@ import {
   groupPricingModelsByDisplayName,
 } from './model-display-name'
 
+describe('Public model names', () => {
+  test('marketplace display uses pricing public names without stripping prefixes', () => {
+    const models = [
+      {
+        model_name: 'nano-banana-pro',
+        display_name: 'nano-banana-pro',
+      },
+    ] as PricingModel[]
+
+    assert.deepEqual(groupPricingModelsByDisplayName(models), [
+      {
+        ...models[0],
+        display_name: 'nano-banana-pro',
+        model_aliases: ['nano-banana-pro'],
+        enable_groups: [],
+      },
+    ])
+  })
+})
+
+describe('Nano Banana public names', () => {
+  test('keeps nano- prefix in marketplace display names', () => {
+    assert.equal(formatModelDisplayName('nano-banana-pro'), 'nano-banana-pro')
+    assert.equal(formatModelDisplayName('nano-banana'), 'nano-banana')
+    assert.equal(formatModelDisplayName('nano-banana-pro-4k'), 'nano-banana-pro-4k')
+  })
+})
+
 describe('Happy House marketplace names', () => {
   test('keeps the model family in public names', () => {
     assert.equal(formatModelDisplayName('happyhouse-1.0'), 'happyhouse-1.0')

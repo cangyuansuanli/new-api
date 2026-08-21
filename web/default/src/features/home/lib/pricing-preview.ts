@@ -102,11 +102,11 @@ export function classifyHomePricingModel(
 
 /** Human-readable model name for the home pricing table (drops date / snapshot suffixes). */
 export function formatHomeModelDisplayName(modelName: string): string {
-  return stripModelDateSuffix(stripModelVendorPrefix(modelName))
+  return stripModelDateSuffix(modelName.trim())
 }
 
 export function getHomeModelDisplayName(model: PricingModel): string {
-  return model.display_name || formatHomeModelDisplayName(model.model_name)
+  return model.display_name?.trim() || formatHomeModelDisplayName(model.model_name)
 }
 
 function getMinGroupRatio(

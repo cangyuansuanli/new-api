@@ -11,8 +11,10 @@ import type { PricingModel } from '../types'
 import { getPricingSignature } from './price'
 
 /**
- * 官方模型名首段（`-` 前）。若首段属于此集合，则视为模型本名而非渠道别名前缀。
- * 渠道注册名形如 `{渠道}-{模型}`；首段不在此集合时去掉渠道前缀。
+ * `/api/pricing` 已返回 public 模型名；`enrichPricingModels` 会设 `display_name = model_name`。
+ * 模型广场直接展示 public 名，不再做前端前缀剔除。
+ *
+ * `stripModelVendorPrefix` 仅保留给 api_doc 文案里残留的 internal 注册名替换，不用于广场展示。
  */
 const MODEL_FAMILY_FIRST_SEGMENTS = new Set([
   'gpt',
@@ -89,7 +91,7 @@ const MODEL_FAMILY_FIRST_SEGMENTS = new Set([
   'meta',
 ])
 
-/** public 路由前缀：sd1 / sd4 / sd99 等，保留完整展示名，不与 seedance-2.0 合并。 */
+/** public 路由前缀：sd1 / sd4 / sd99 等。 */
 const PUBLIC_ROUTE_PREFIX_PATTERN = /^sd\d+$/i
 
 function isPublicRoutePrefixSegment(segment: string): boolean {
@@ -111,13 +113,14 @@ export function isModelFamilyFirstSegment(segment: string): boolean {
   )
 }
 
-/** 是否带有渠道注册前缀（首段不是官方模型族名）。 */
+/** 是否带有渠道注册前缀（首段不是官方模型族名）。仅用于 api_doc 文案替换等遗留场景。 */
 export function hasChannelRegistrationPrefix(modelName: string): boolean {
   const first = getNameFirstSegment(modelName)
   if (!first) return false
   return !isModelFamilyFirstSegment(first)
 }
 
+/** @deprecated 模型广场勿用；仅 api_doc 内 internal 注册名 → public 名替换。 */
 export function stripModelVendorPrefix(modelName: string): string {
   const trimmed = modelName.trim()
   if (!hasChannelRegistrationPrefix(trimmed)) return trimmed
@@ -125,14 +128,21 @@ export function stripModelVendorPrefix(modelName: string): string {
   return trimmed.slice(dash + 1).trim()
 }
 
-export function formatModelDisplayName(modelName: string) {
-  return stripModelVendorPrefix(modelName.trim())
+export function resolvePricingDisplayName(
+  model: Pick<PricingModel, 'model_name' | 'display_name'>
+): string {
+  return (model.display_name?.trim() || model.model_name.trim())
+}
+
+/** public 模型名原样返回；不再剔除前缀。 */
+export function formatModelDisplayName(modelName: string): string {
+  return modelName.trim()
 }
 
 export function getModelDisplayName(
   model: Pick<PricingModel, 'model_name' | 'display_name'>
-) {
-  return model.display_name || formatModelDisplayName(model.model_name)
+): string {
+  return resolvePricingDisplayName(model)
 }
 
 function mergeEnableGroups(variants: PricingModel[]): string[] {
@@ -176,14 +186,14 @@ function pickPrimaryVariant(variants: PricingModel[]): PricingModel {
   })[0]
 }
 
-/** 模型广场：按展示名合并多渠道别名，减少重复条目。画布/生成台不调用此函数。 */
+/** 模型广场：按 public 展示名合并同名的多渠道条目。画布/生成台不调用此函数。 */
 export function groupPricingModelsByDisplayName(
   models: PricingModel[]
 ): PricingModel[] {
   const groups = new Map<string, PricingModel[]>()
 
   for (const model of models) {
-    const key = formatModelDisplayName(model.model_name).toLowerCase()
+    const key = resolvePricingDisplayName(model).toLowerCase()
     const bucket = groups.get(key) ?? []
     bucket.push(model)
     groups.set(key, bucket)
@@ -196,7 +206,7 @@ export function groupPricingModelsByDisplayName(
       a.model_name.localeCompare(b.model_name)
     )
     const primary = pickPrimaryVariant(sorted)
-    const displayName = formatModelDisplayName(primary.model_name)
+    const displayName = resolvePricingDisplayName(primary)
     const signatures = new Set(sorted.map(getPricingSignature))
     const hasVariantPricing = signatures.size > 1
 
