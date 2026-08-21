@@ -93,61 +93,6 @@ func TestConvertAiclubImageRequestRejectsTooManyReferences(t *testing.T) {
 	}
 }
 
-func TestConvertAiclubImageRequestKeepsReferenceURLs(t *testing.T) {
-	imagesRaw := json.RawMessage(`["https://cdn.example.com/ref.png"]`)
-	bodyAny, err := ConvertAiclubImageRequest(nil, &relaycommon.RelayInfo{
-		OriginModelName: "cy-ac-gpt-image-2-2k",
-		RelayMode:       relayconstant.RelayModeImagesEdits,
-		ChannelMeta: &relaycommon.ChannelMeta{
-			UpstreamModelName: "gpt-image2-2k-high",
-		},
-	}, dto.ImageRequest{
-		Model:  "gpt-image2-2k-high",
-		Prompt: "edit",
-		Images: imagesRaw,
-	})
-	if err != nil {
-		t.Fatalf("ConvertAiclubImageRequest: %v", err)
-	}
-	body := bodyAny.(map[string]any)
-	refs := body["images"].([]string)
-	if len(refs) != 1 || refs[0] != "https://cdn.example.com/ref.png" {
-		t.Fatalf("images = %#v", refs)
-	}
-}
-
-func TestConvertAiclubImageRequestAllowsHTTPReferenceURLs(t *testing.T) {
-	bodyAny, err := ConvertAiclubImageRequest(nil, &relaycommon.RelayInfo{
-		OriginModelName: "cy-ac-gpt-image-2-2k",
-		RelayMode:       relayconstant.RelayModeImagesEdits,
-		ChannelMeta:     &relaycommon.ChannelMeta{UpstreamModelName: "gpt-image2-2k-high"},
-	}, dto.ImageRequest{Model: "gpt-image2-2k-high", Prompt: "edit", Images: json.RawMessage(`["http://cdn.example.com/ref.png"]`)})
-	if err != nil {
-		t.Fatalf("ConvertAiclubImageRequest: %v", err)
-	}
-	if got := bodyAny.(map[string]any)["images"].([]string)[0]; got != "http://cdn.example.com/ref.png" {
-		t.Fatalf("images = %#v", got)
-	}
-}
-
-func TestConvertAiclubImageRequestRejectsBase64References(t *testing.T) {
-	imagesRaw := json.RawMessage(`["data:image/png;base64,Zm9v"]`)
-	_, err := ConvertAiclubImageRequest(nil, &relaycommon.RelayInfo{
-		OriginModelName: "cy-ac-gpt-image-2-2k",
-		RelayMode:       relayconstant.RelayModeImagesEdits,
-		ChannelMeta: &relaycommon.ChannelMeta{
-			UpstreamModelName: "gpt-image2-2k-high",
-		},
-	}, dto.ImageRequest{
-		Model:  "gpt-image2-2k-high",
-		Prompt: "edit",
-		Images: imagesRaw,
-	})
-	if err == nil || !strings.Contains(err.Error(), "base64 data URIs") {
-		t.Fatalf("expected base64 rejection, got %v", err)
-	}
-}
-
 func TestAdaptAiclubImageResponsePollsUntilCompleted(t *testing.T) {
 	var polls int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,19 +168,6 @@ func TestAiclubGetRequestURLUsesVideosEndpoint(t *testing.T) {
 	}
 	if url != "https://api.aiclub.cv/v1/videos" {
 		t.Fatalf("url = %q", url)
-	}
-}
-
-func TestAiclubGetRequestURLRejectsChatCompletions(t *testing.T) {
-	adaptor := &Adaptor{}
-	_, err := adaptor.GetRequestURL(&relaycommon.RelayInfo{
-		OriginModelName: "cy-ac-gpt-image-2-1k",
-		RelayMode:       relayconstant.RelayModeChatCompletions,
-		RequestURLPath:  "/v1/chat/completions",
-		ChannelMeta:     &relaycommon.ChannelMeta{ChannelType: 1},
-	})
-	if err == nil || !strings.Contains(err.Error(), "chat/completions is not supported") {
-		t.Fatalf("expected chat endpoint rejection, got %v", err)
 	}
 }
 

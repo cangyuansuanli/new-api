@@ -208,6 +208,8 @@ type RelayInfo struct {
 	RehostedImageURLs []string
 	// Adobe2APIImageEditMultipart 为 true 时，图生图走上游 POST /v1/images/edits（multipart，重复 image 字段）。
 	Adobe2APIImageEditMultipart bool
+	// AiclubImageMultipart 为 true 时，Aiclub 生图走上游 POST /v1/videos（multipart）。
+	AiclubImageMultipart bool
 }
 
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {

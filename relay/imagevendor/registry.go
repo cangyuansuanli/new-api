@@ -39,18 +39,6 @@ func ImageAsyncAcceptsUpstreamURL(originModel string) bool {
 	return ResolveRehostPolicy(originModel).AcceptUpstreamURL
 }
 
-func ImageReferenceInputTransport(originModel string) ReferenceInputTransport {
-	for _, d := range descriptors {
-		if d.Match != nil && d.Match(originModel) {
-			if d.ReferenceInput != "" {
-				return d.ReferenceInput
-			}
-			break
-		}
-	}
-	return ReferenceInputMultipart
-}
-
 // ValidateRequest runs channel-aware validation after distribution and before billing.
 func ValidateRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest) error {
 	for _, d := range descriptors {

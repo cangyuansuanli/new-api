@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +16,6 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	openai "github.com/QuantumNous/new-api/relay/channel/openai"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
@@ -76,39 +74,6 @@ func TestQueuedEditHTTPSReferencesPassThroughWithoutR2Upload(t *testing.T) {
 	}
 	if len(replayed.MultipartForm.File) != 0 {
 		t.Fatalf("URL references should not become files: %#v", replayed.MultipartForm.File)
-	}
-}
-
-func TestAiclubQueuedEditReplaysAsJSONURLs(t *testing.T) {
-	snapshot, err := NewEditRequestSnapshot(EditPayload{
-		Fields: map[string]string{"model": "gpt-image-2", "prompt": "edit"},
-		Files:  []EditFile{{Field: "image", URL: "https://cdn.example.com/input.png"}, {Field: "mask", URL: "https://cdn.example.com/mask.png"}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	task := &model.Task{Properties: model.Properties{OriginModelName: "cy-ac-gpt-image-2-1k"}, PrivateData: model.TaskPrivateData{RequestSnapshot: snapshot, RequestPath: "/v1/images/edits"}}
-	replayed, mode, err := buildHTTPRequestForImageTask(context.Background(), task)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer replayed.Body.Close()
-	if mode != relayconstant.RelayModeImagesEdits || replayed.Header.Get("Content-Type") != "application/json" {
-		t.Fatalf("mode/content type = %d/%q", mode, replayed.Header.Get("Content-Type"))
-	}
-	body, err := io.ReadAll(replayed.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var decoded map[string]any
-	if err := common.Unmarshal(body, &decoded); err != nil {
-		t.Fatal(err)
-	}
-	if got := decoded["images"].([]any); len(got) != 1 || got[0] != "https://cdn.example.com/input.png" {
-		t.Fatalf("images = %#v", decoded["images"])
-	}
-	if decoded["mask"] != "https://cdn.example.com/mask.png" {
-		t.Fatalf("mask = %#v", decoded["mask"])
 	}
 }
 
