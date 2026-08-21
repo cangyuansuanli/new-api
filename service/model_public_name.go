@@ -27,14 +27,15 @@ import (
 //   - 域内逻辑（relay/service/imagevendor）只应使用 OriginModelName（internal），不得再解析 public 名
 
 type modelPublicRegistry struct {
-	internalSet             map[string]struct{}
-	publicToInternals       map[string][]string
-	internalToPublic        map[string]string
-	internalPublicVisible   map[string]bool
-	publicNameVisible       map[string]bool
-	routingPublicToInternal map[string]string
-	collisions              map[string][]string
-	missingExplicitAliases  []string
+	internalSet               map[string]struct{}
+	publicToInternals         map[string][]string
+	internalToPublic          map[string]string
+	internalPublicVisible     map[string]bool
+	publicNameVisible         map[string]bool
+	marketplaceActiveInternal map[string]bool
+	routingPublicToInternal   map[string]string
+	collisions                map[string][]string
+	missingExplicitAliases    []string
 }
 
 var (
@@ -86,6 +87,7 @@ func RefreshModelPublicNameRegistry() error {
 
 	overrideByInternal := make(map[string]string, len(aliases))
 	visibilityByInternal := make(map[string]bool, len(aliases))
+	aliasByInternal := make(map[string]model.ModelPublicAlias, len(aliases))
 	for _, alias := range aliases {
 		internal := strings.TrimSpace(alias.InternalName)
 		public := strings.TrimSpace(alias.PublicName)
@@ -94,6 +96,12 @@ func RefreshModelPublicNameRegistry() error {
 		}
 		overrideByInternal[internal] = public
 		visibilityByInternal[internal] = !alias.HiddenFromMarketplace
+		aliasByInternal[internal] = alias
+	}
+
+	modelStatuses, err := model.GetModelStatusByNames(append([]string(nil), models...))
+	if err != nil {
+		return err
 	}
 
 	internalSet := make(map[string]struct{}, len(models))
@@ -101,6 +109,7 @@ func RefreshModelPublicNameRegistry() error {
 	internalToPublic := make(map[string]string, len(models))
 	internalPublicVisible := make(map[string]bool, len(models))
 	publicNameVisible := make(map[string]bool, len(aliases))
+	marketplaceActiveInternal := make(map[string]bool, len(aliases))
 	collisions := make(map[string][]string)
 	missingExplicitAliases := make([]string, 0)
 
@@ -122,14 +131,33 @@ func RefreshModelPublicNameRegistry() error {
 		internalToPublic[internal] = public
 		visible, explicitlyConfigured := visibilityByInternal[internal]
 		internalPublicVisible[internal] = !explicitlyConfigured || visible
-		publicNameVisible[public] = !explicitlyConfigured || visible
+		if visible && modelStatuses[internal] == 1 {
+			marketplaceActiveInternal[internal] = true
+		}
+		if !explicitlyConfigured || visible {
+			publicNameVisible[public] = true
+		}
 		publicToInternals[public] = append(publicToInternals[public], internal)
 	}
 	sort.Strings(missingExplicitAliases)
 
 	for public, internals := range publicToInternals {
-		if len(internals) > 1 {
-			collisions[public] = append([]string(nil), internals...)
+		active := make([]string, 0, len(internals))
+		for _, internal := range internals {
+			alias, ok := aliasByInternal[internal]
+			if !ok {
+				continue
+			}
+			if alias.HiddenFromMarketplace {
+				continue
+			}
+			if modelStatuses[internal] != 1 {
+				continue
+			}
+			active = append(active, internal)
+		}
+		if len(active) > 1 {
+			collisions[public] = append([]string(nil), active...)
 		}
 	}
 
@@ -146,14 +174,15 @@ func RefreshModelPublicNameRegistry() error {
 	modelPublicRegistryMu.Lock()
 	defer modelPublicRegistryMu.Unlock()
 	modelPublicRegistryData = modelPublicRegistry{
-		internalSet:             internalSet,
-		publicToInternals:       publicToInternals,
-		internalToPublic:        internalToPublic,
-		internalPublicVisible:   internalPublicVisible,
-		publicNameVisible:       publicNameVisible,
-		routingPublicToInternal: routingPublicToInternal,
-		collisions:              collisions,
-		missingExplicitAliases:  missingExplicitAliases,
+		internalSet:               internalSet,
+		publicToInternals:         publicToInternals,
+		internalToPublic:          internalToPublic,
+		internalPublicVisible:     internalPublicVisible,
+		publicNameVisible:         publicNameVisible,
+		marketplaceActiveInternal: marketplaceActiveInternal,
+		routingPublicToInternal:   routingPublicToInternal,
+		collisions:                collisions,
+		missingExplicitAliases:    missingExplicitAliases,
 	}
 	modelPublicRegistryReady = true
 	return nil
@@ -230,10 +259,34 @@ func ResolveInternalModelName(publicOrInternal string) (internal string, clientP
 	if !ok || len(internals) == 0 {
 		return "", "", fmt.Errorf("model %s not found", name)
 	}
-	if len(internals) > 1 {
-		return "", "", fmt.Errorf("ambiguous public model name %s", name)
+	if len(internals) == 1 {
+		return internals[0], name, nil
 	}
-	return internals[0], name, nil
+	if resolved, ok := resolveUniqueMarketplacePublicInternal(name, internals, registry); ok {
+		return resolved, name, nil
+	}
+	return "", "", fmt.Errorf("ambiguous public model name %s", name)
+}
+
+func resolveUniqueMarketplacePublicInternal(publicName string, internals []string, registry modelPublicRegistry) (string, bool) {
+	active := make([]string, 0, len(internals))
+	for _, internal := range internals {
+		if registry.marketplaceActiveInternal[internal] {
+			active = append(active, internal)
+		}
+	}
+	switch len(active) {
+	case 1:
+		return active[0], true
+	case 0:
+		if len(internals) == 1 {
+			return internals[0], true
+		}
+		return "", false
+	default:
+		_ = publicName
+		return "", false
+	}
 }
 
 func PublicModelNamesFromInternals(internals []string) []string {

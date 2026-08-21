@@ -282,3 +282,18 @@ func ListModels(keyword string, vendor string, status string, syncOfficial strin
 	}
 	return models, total, nil
 }
+
+func GetModelStatusByNames(names []string) (map[string]int, error) {
+	statuses := make(map[string]int, len(names))
+	if len(names) == 0 {
+		return statuses, nil
+	}
+	var rows []Model
+	if err := DB.Select("model_name", "status").Where("model_name IN ?", names).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		statuses[row.ModelName] = row.Status
+	}
+	return statuses, nil
+}

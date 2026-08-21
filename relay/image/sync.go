@@ -49,6 +49,9 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 	if imagePatch.SyncSizeToMultipart {
 		syncImageSizeToForm(c, request.Size)
 	}
+	if imagePatch.SyncQualityToMultipart {
+		syncImageQualityToForm(c, request.Quality)
+	}
 	applySyncImageUpstreamB64Override(c, info, request)
 	syncImageRequestStreamToForm(c, request)
 
@@ -257,4 +260,17 @@ func syncImageSizeToForm(c *gin.Context, size string) {
 		c.Request.PostForm = url.Values{}
 	}
 	c.Request.PostForm.Set("size", size)
+}
+
+func syncImageQualityToForm(c *gin.Context, quality string) {
+	if c == nil || c.Request == nil || strings.TrimSpace(quality) == "" {
+		return
+	}
+	if c.Request.MultipartForm != nil {
+		c.Request.MultipartForm.Value["quality"] = []string{quality}
+	}
+	if c.Request.PostForm == nil {
+		c.Request.PostForm = url.Values{}
+	}
+	c.Request.PostForm.Set("quality", quality)
 }

@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 
@@ -11,7 +12,7 @@ import (
 type ModelPublicAlias struct {
 	Id                    int            `json:"id" gorm:"primaryKey;autoIncrement"`
 	InternalName          string         `json:"internal_name" gorm:"size:255;not null;uniqueIndex:uk_model_public_alias_internal"`
-	PublicName            string         `json:"public_name" gorm:"size:255;not null;uniqueIndex:uk_model_public_alias_public"`
+	PublicName            string         `json:"public_name" gorm:"size:255;not null;index:idx_model_public_alias_public"`
 	HiddenFromMarketplace bool           `json:"hidden_from_marketplace" gorm:"default:false"`
 	CreatedTime           int64          `json:"created_time" gorm:"bigint"`
 	UpdatedTime           int64          `json:"updated_time" gorm:"bigint"`
@@ -65,6 +66,67 @@ func IsModelPublicAliasDuplicated(id int, internalName, publicName string) (bool
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// IsModelMarketplaceEnabled reports whether the internal model is enabled in the
+// models catalog (status=1).
+func IsModelMarketplaceEnabled(internalName string) (bool, error) {
+	internalName = strings.TrimSpace(internalName)
+	if internalName == "" {
+		return false, nil
+	}
+	var status int
+	err := DB.Model(&Model{}).Where("model_name = ?", internalName).Select("status").Scan(&status).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return status == 1, nil
+}
+
+// IsPublicAliasMarketplaceActive reports whether an alias is visible in the
+// marketplace and backed by an enabled internal model.
+func IsPublicAliasMarketplaceActive(alias ModelPublicAlias) (bool, error) {
+	if alias.HiddenFromMarketplace {
+		return false, nil
+	}
+	return IsModelMarketplaceEnabled(alias.InternalName)
+}
+
+// IsPublicAliasMarketplaceConflict reports whether assigning publicName to
+// internalName would collide with another visible, enabled alias.
+func IsPublicAliasMarketplaceConflict(id int, internalName, publicName string, hiddenFromMarketplace bool) (bool, error) {
+	publicName = strings.TrimSpace(publicName)
+	internalName = strings.TrimSpace(internalName)
+	if publicName == "" {
+		return false, nil
+	}
+	candidate := ModelPublicAlias{
+		InternalName:          internalName,
+		PublicName:            publicName,
+		HiddenFromMarketplace: hiddenFromMarketplace,
+	}
+	active, err := IsPublicAliasMarketplaceActive(candidate)
+	if err != nil || !active {
+		return false, err
+	}
+
+	var aliases []ModelPublicAlias
+	if err := DB.Where("public_name = ? AND id <> ?", publicName, id).Find(&aliases).Error; err != nil {
+		return false, err
+	}
+	for _, alias := range aliases {
+		active, err := IsPublicAliasMarketplaceActive(alias)
+		if err != nil {
+			return false, err
+		}
+		if active {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func DeleteModelPublicAlias(id int) error {
