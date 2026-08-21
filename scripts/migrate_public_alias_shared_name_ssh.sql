@@ -4,6 +4,8 @@
 BEGIN;
 
 DROP INDEX IF EXISTS uk_model_public_alias_public;
+ALTER TABLE model_public_aliases DROP CONSTRAINT IF EXISTS idx_model_public_aliases_public_name;
+DROP INDEX IF EXISTS idx_model_public_aliases_public_name;
 CREATE INDEX IF NOT EXISTS idx_model_public_alias_public ON model_public_aliases (public_name);
 
 COMMIT;
