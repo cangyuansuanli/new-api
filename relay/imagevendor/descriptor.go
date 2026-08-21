@@ -47,6 +47,13 @@ type ValidateRelayRequestFunc func(c *gin.Context, info *relaycommon.RelayInfo, 
 // PatchRelayRequestFunc mutates the outbound request for one selected channel.
 type PatchRelayRequestFunc func(info *relaycommon.RelayInfo, request *dto.ImageRequest) (RequestPatchResult, error)
 
+type ReferenceInputTransport string
+
+const (
+	ReferenceInputMultipart ReferenceInputTransport = "multipart"
+	ReferenceInputURLJSON   ReferenceInputTransport = "url_json"
+)
+
 // Descriptor 描述一类 image 渠道族：模型匹配、R2 转存策略、可选请求补丁。
 // 协议级转换见 relay/channel/openai（如 Manju Image API body）。
 type Descriptor struct {
@@ -57,4 +64,5 @@ type Descriptor struct {
 	ValidateRequest   ValidateRelayRequestFunc
 	PatchRelayRequest PatchRelayRequestFunc
 	PatchRequest      PatchRequestFunc
+	ReferenceInput    ReferenceInputTransport
 }

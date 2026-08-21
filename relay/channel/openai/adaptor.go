@@ -166,6 +166,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		url = strings.Replace(url, "{model}", info.UpstreamModelName, -1)
 		return url, nil
 	default:
+		if IsAiclubImageRelay(info) && info.RelayMode == relayconstant.RelayModeChatCompletions {
+			return "", fmt.Errorf("Aiclub image models require the image generations or edits endpoint; chat/completions is not supported")
+		}
 		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
 			IsAiclubImageRelay(info) {
 			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/videos", info.ChannelType), nil
@@ -799,7 +802,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	if IsAiclubImageRelay(info) {
-		return aiclubImageDoRequest(a, c, info, requestBody)
+		return channel.DoApiRequest(a, c, info, requestBody)
 	}
 	if IsAdobe2APIImageRelay(info) {
 		if info.Adobe2APIImageEditMultipart {

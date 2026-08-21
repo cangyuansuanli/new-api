@@ -159,6 +159,15 @@ func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.
 
 	if snapshot.Kind == RequestSnapshotEditMultipart {
 		payload := *snapshot.Multipart
+		if imagevendor.ImageReferenceInputTransport(task.Properties.OriginModelName) == imagevendor.ReferenceInputURLJSON {
+			body, err := buildURLJSONEditBody(payload, task.Properties.OriginModelName)
+			if err != nil {
+				return nil, 0, err
+			}
+			req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			return req, relayconstant.RelayModeImagesEdits, nil
+		}
 		useURLResponse := imageAsyncUsesURLResponse(task.Properties.OriginModelName)
 		body, err := os.CreateTemp("", "new-api-image-edit-replay-*")
 		if err != nil {
@@ -237,6 +246,46 @@ func buildHTTPRequestForImageTask(ctx context.Context, task *model.Task) (*http.
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(normalized))
 	req.Header.Set("Content-Type", "application/json")
 	return req, relayMode, nil
+}
+
+func buildURLJSONEditBody(payload EditPayload, originModel string) ([]byte, error) {
+	body := make(map[string]any, len(payload.Fields)+2)
+	for key, value := range payload.Fields {
+		if key == "async" || key == "stream" || key == "response_format" {
+			continue
+		}
+		body[key] = value
+	}
+	model, ok := body["model"].(string)
+	if !ok || strings.TrimSpace(model) == "" {
+		return nil, fmt.Errorf("URL JSON edit snapshot is missing model")
+	}
+	images := make([]string, 0)
+	for _, file := range payload.Files {
+		url := strings.TrimSpace(file.URL)
+		if url == "" {
+			return nil, fmt.Errorf("URL JSON edit snapshot requires HTTP or HTTPS references; binary replay is disabled")
+		}
+		lowerURL := strings.ToLower(url)
+		if !strings.HasPrefix(lowerURL, "http://") && !strings.HasPrefix(lowerURL, "https://") {
+			return nil, fmt.Errorf("reference images must be HTTP or HTTPS URLs")
+		}
+		if file.Field == "mask" {
+			body["mask"] = url
+		} else {
+			images = append(images, url)
+		}
+	}
+	if len(images) > 0 {
+		body["images"] = images
+	}
+	body["stream"] = false
+	if imageAsyncUsesURLResponse(originModel) {
+		body["response_format"] = "url"
+	} else {
+		body["response_format"] = "b64_json"
+	}
+	return common.Marshal(body)
 }
 
 func createQueuedEditFormFile(writer *multipart.Writer, file EditFile) (io.Writer, error) {
@@ -436,6 +485,7 @@ func SnapshotEditRequest(c *gin.Context, taskID string) ([]byte, error) {
 				Field:       field,
 				Filename:    fh.Filename,
 				ContentType: fh.Header.Get("Content-Type"),
+				URL:         uploaded.PublicURL,
 				ObjectKey:   uploaded.ObjectKey,
 			})
 			fileIndex++
@@ -451,7 +501,8 @@ func SnapshotEditRequest(c *gin.Context, taskID string) ([]byte, error) {
 func isQueuedEditURLField(field, value string) bool {
 	switch strings.TrimSuffix(strings.TrimSpace(field), "[]") {
 	case "image", "mask":
-		return strings.HasPrefix(strings.ToLower(value), "https://")
+		lowerValue := strings.ToLower(value)
+		return strings.HasPrefix(lowerValue, "http://") || strings.HasPrefix(lowerValue, "https://")
 	default:
 		return false
 	}

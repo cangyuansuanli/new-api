@@ -16,6 +16,7 @@ func init() {
 			AcceptUpstreamURL:      true,
 			AsyncPreferURLResponse: true,
 		},
+		ReferenceInput:  ReferenceInputURLJSON,
 		ValidateRequest: validateAiclubRequest,
 	})
 }
