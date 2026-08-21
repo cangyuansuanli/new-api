@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,9 +14,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
@@ -63,6 +60,9 @@ func ValidateAiclubImageInputs(c *gin.Context, info *relaycommon.RelayInfo, requ
 		return err
 	}
 	refs := aiclubReferenceImageValuesForValidation(c, request)
+	if err := validateAiclubReferenceURLs(refs); err != nil {
+		return err
+	}
 	if len(files)+len(refs) > aiclubMaxInputImages {
 		return fmt.Errorf("too many images, max %d", aiclubMaxInputImages)
 	}
@@ -88,12 +88,6 @@ func ConvertAiclubImageRequest(c *gin.Context, info *relaycommon.RelayInfo, requ
 			return nil, err
 		}
 	}
-	if info != nil &&
-		info.RelayMode == relayconstant.RelayModeImagesEdits &&
-		hasAdobe2APIMultipartImageFiles(c, request) {
-		return buildAiclubImageMultipart(c, info, request)
-	}
-
 	modelName := resolveAiclubUpstreamModel(info, request.Model)
 	if modelName == "" {
 		return nil, fmt.Errorf("model is required")
@@ -118,64 +112,24 @@ func ConvertAiclubImageRequest(c *gin.Context, info *relaycommon.RelayInfo, requ
 	if err != nil {
 		return nil, err
 	}
+	if err := validateAiclubReferenceURLs(refs); err != nil {
+		return nil, err
+	}
 	if len(refs) > 0 {
 		body["images"] = refs
 	}
 	return body, nil
 }
 
-func buildAiclubImageMultipart(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (*bytes.Buffer, error) {
-	if info != nil {
-		info.AiclubImageMultipart = true
-	}
-	imageFiles, err := collectAdobe2APIMultipartImageFiles(c)
-	if err != nil {
-		return nil, err
-	}
-	if len(imageFiles) == 0 {
-		return nil, fmt.Errorf("image is required")
-	}
-	if len(imageFiles) > aiclubMaxInputImages {
-		return nil, fmt.Errorf("too many images, max %d", aiclubMaxInputImages)
-	}
-
-	modelName := resolveAiclubUpstreamModel(info, request.Model)
-	if modelName == "" {
-		return nil, fmt.Errorf("model is required")
-	}
-
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
-	_ = writer.WriteField("model", modelName)
-	if prompt := strings.TrimSpace(request.Prompt); prompt != "" {
-		_ = writer.WriteField("prompt", prompt)
-	}
-	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
-		if isAiclubGPTImageModelName(modelName) {
-			if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
-				_ = writer.Close()
-				return nil, err
-			}
-		} else if info != nil {
-			if err := imagevendor.ValidateAdobeBananaAspectRatio(info.OriginModelName, aspectRatio); err != nil {
-				_ = writer.Close()
-				return nil, err
-			}
-		}
-		_ = writer.WriteField("aspect_ratio", aspectRatio)
-	}
-	for i, fileHeader := range imageFiles {
-		if err := writeAdobe2APIMultipartFile(writer, "image", fileHeader); err != nil {
-			return nil, fmt.Errorf("write image file %d: %w", i, err)
+func validateAiclubReferenceURLs(refs []string) error {
+	for _, ref := range refs {
+		ref = strings.TrimSpace(ref)
+		lowerRef := strings.ToLower(ref)
+		if !strings.HasPrefix(lowerRef, "http://") && !strings.HasPrefix(lowerRef, "https://") {
+			return fmt.Errorf("Aiclub reference images must be HTTP or HTTPS URLs; base64 data URIs are not supported")
 		}
 	}
-	if err := writer.Close(); err != nil {
-		return nil, err
-	}
-	if c != nil && c.Request != nil {
-		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
-	}
-	return &requestBody, nil
+	return nil
 }
 
 func OpenaiAiclubImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -406,11 +360,4 @@ func fetchAiclubPollURL(ctx context.Context, info *relaycommon.RelayInfo, pollUR
 		return nil, fmt.Errorf("aiclub poll HTTP %d: %s", resp.StatusCode, string(body))
 	}
 	return body, nil
-}
-
-func aiclubImageDoRequest(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
-	if info != nil && info.AiclubImageMultipart {
-		return channel.DoFormRequest(a, c, info, requestBody)
-	}
-	return channel.DoApiRequest(a, c, info, requestBody)
 }

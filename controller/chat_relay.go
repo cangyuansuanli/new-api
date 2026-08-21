@@ -23,6 +23,16 @@ func RelayOpenAIChatCompletions(c *gin.Context) {
 		})
 		return
 	}
+	if openai.IsAiclubChatRequest(c) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"message": "该模型是生图模型，不支持 /v1/chat/completions。请使用 POST /v1/images/generations；图生图请使用 POST /v1/images/edits。异步提交后请使用返回的 task id 查询结果。",
+				"type":    "invalid_request_error",
+				"code":    "image_model_use_images_api",
+			},
+		})
+		return
+	}
 	if openai.IsAsyncChatImageRequest(c) {
 		openai.SetChatImageDeprecationHeaders(c)
 		c.Set("relay_mode", relayconstant.RelayModeChatCompletions)

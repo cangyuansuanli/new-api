@@ -423,6 +423,28 @@ func IsLegacyChatImageRequest(c *gin.Context) bool {
 	return IsChatImageModel(probe.Model)
 }
 
+// IsAiclubChatRequest detects an Aiclub image model sent to the unsupported chat endpoint.
+func IsAiclubChatRequest(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.Method != http.MethodPost || !strings.HasSuffix(c.Request.URL.Path, "/chat/completions") {
+		return false
+	}
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return false
+	}
+	body, err := storage.Bytes()
+	if err != nil || len(body) == 0 {
+		return false
+	}
+	var probe struct {
+		Model string `json:"model"`
+	}
+	if err := common.Unmarshal(body, &probe); err != nil {
+		return false
+	}
+	return imagevendor.IsAiclubOriginModel(probe.Model)
+}
+
 // IsAsyncChatImageRequest 兼容期：POST /chat/completions + async 的 chat 出图请求。
 func IsAsyncChatImageRequest(c *gin.Context) bool {
 	if c == nil || c.Request == nil || c.Request.Method != http.MethodPost {
