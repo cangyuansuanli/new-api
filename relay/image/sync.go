@@ -65,7 +65,7 @@ func Helper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.New
 
 	jsonEditRequiresAdaptation := info.RelayMode == relayconstant.RelayModeImagesEdits && strings.HasPrefix(strings.ToLower(c.GetHeader("Content-Type")), "application/json")
 	passThroughEnabled := (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) && !imagePatch.OutboundBodyChanged && !jsonEditRequiresAdaptation
-	if passThroughEnabled && !openai.IsAdobe2APIImageRelay(info) {
+	if passThroughEnabled && !openai.IsAdobe2APIImageRelay(info) && !openai.IsAiclubImageRelay(info) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())

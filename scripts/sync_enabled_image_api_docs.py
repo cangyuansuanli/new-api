@@ -18,7 +18,7 @@ CANONICAL_FIELDS = {
 FORBIDDEN_TEXT = (
     "multipart", "data uri", "data:image", "aspect_ratio", "image_size",
     "output_resolution", "reference_images", "imageurls", "image_urls",
-    "image_refs", "chat/completions",
+    "image_refs", "chat/completions", "aiclub", "备用线", "上游",
 )
 
 
@@ -60,6 +60,18 @@ SPECS = (
     ModelDocSpec("cy-yf-gpt-image-2-4k", "gpt-image-2-4k", "image-tpl-cy-yf-gpt-image-2-4k", "async", ("size", "n", "response_format", "images", "mask", "async"), "GPT Image 2 4K 固定计费档位。", "支持比例或精确像素；4K 档位按像素预算计算。", "4K 分组固定 medium，不支持 quality 参数；n 固定为 1。"),
     ModelDocSpec("cy-yf-gemini-banana-pro", "nano-banana-pro", "image-tpl-cy-yf-banana-pro", "sync", ("size", "quality", "n", "response_format", "images"), "Yunfei Gemini Banana Pro 同步模型。", "支持 1:1、16:9、9:16、4:3、3:4、3:2、2:3、5:4、4:5、21:9。", "quality 映射 1K / 2K / 4K。"),
     ModelDocSpec("cy-yf-gemini-banana-flash", "nano-banana", "image-tpl-cy-yf-banana-flash", "sync", ("size", "quality", "n", "response_format", "images"), "Yunfei Gemini Banana Flash 同步模型。", "支持常规定比例及 8:1、4:1、1:4、1:8。", "quality 映射 1K / 2K / 4K。"),
+    ModelDocSpec("cy-ac-gpt-image-2-1k", "gpt-image-2-1k", "image-tpl-adobe2api-1k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 1K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–1048576。", "支持 low、medium、high；不改变 1K 计费档位。", max_images=6),
+    ModelDocSpec("cy-ac-gpt-image-2-2k", "gpt-image-2-2k", "image-tpl-adobe2api-2k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 2K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–4194304。", "支持 low、medium、high；不改变 2K 计费档位。", max_images=6),
+    ModelDocSpec("cy-ac-gpt-image-2-4k", "gpt-image-2-4k", "image-tpl-adobe2api-4k", "async", ("size", "quality", "n", "response_format", "images", "mask", "async"), "GPT Image 2 4K 固定计费档位。", "支持比例或 16px 对齐的精确尺寸；总像素 655360–8294400。", "支持 low、medium、high；不改变 4K 计费档位。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana-pro-1k", "nano-banana-pro-1k", "image-tpl-adobe2api-1k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana Pro 1K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana-pro-2k", "nano-banana-pro-2k", "image-tpl-adobe2api-2k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana Pro 2K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana-pro-4k", "nano-banana-pro-4k", "image-tpl-adobe2api-4k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana Pro 4K 固定档位。", "支持 1:1、5:4、9:16、21:9、16:9、3:2、4:3、4:5、3:4、2:3。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana-1k", "nano-banana-1k", "image-tpl-adobe2api-1k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 1K 固定档位。", "支持模型面板列出的比例。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana-2k", "nano-banana-2k", "image-tpl-adobe2api-2k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2K 固定档位。", "支持模型面板列出的比例。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana-4k", "nano-banana-4k", "image-tpl-adobe2api-4k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 4K 固定档位。", "支持模型面板列出的比例。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana2-1k", "nano-banana2-1k", "image-tpl-adobe2api-1k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2 1K 固定档位。", "支持模型面板列出的比例。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana2-2k", "nano-banana2-2k", "image-tpl-adobe2api-2k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2 2K 固定档位。", "支持模型面板列出的比例。", max_images=6),
+    ModelDocSpec("cy-ac-nano-banana2-4k", "nano-banana2-4k", "image-tpl-adobe2api-4k", "async", ("size", "n", "response_format", "images", "async"), "Nano Banana 2 4K 固定档位。", "支持模型面板列出的比例。", max_images=6),
 )
 
 
