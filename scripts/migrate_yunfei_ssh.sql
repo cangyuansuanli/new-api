@@ -15,11 +15,12 @@ ON CONFLICT (prefix) DO UPDATE SET
     enabled = TRUE,
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT;
 
+-- Banana 展示名以源站运营配置为准（当前：nano-banana-pro / nano-banana）；勿在未经确认时改回 gemini-banana-*。
 INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
 VALUES
     ('cy-yf-gpt-image-2-4k', 'gpt-image-2-4k', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
-    ('cy-yf-gemini-banana-pro', 'gemini-banana-pro', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
-    ('cy-yf-gemini-banana-flash', 'gemini-banana-flash', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
+    ('cy-yf-gemini-banana-pro', 'nano-banana-pro', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('cy-yf-gemini-banana-flash', 'nano-banana', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
 ON CONFLICT (internal_name) DO UPDATE SET
     public_name = EXCLUDED.public_name,
     updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT;
