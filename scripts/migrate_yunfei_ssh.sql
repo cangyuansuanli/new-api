@@ -17,12 +17,26 @@ ON CONFLICT (prefix) DO UPDATE SET
 
 INSERT INTO model_public_aliases (internal_name, public_name, created_time, updated_time)
 VALUES
-    ('cy-yf-gpt-image-2-4k', 'gpt-image-2-4k', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-yf-gemini-banana-pro', 'gemini-banana-pro', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
     ('cy-yf-gemini-banana-flash', 'gemini-banana-flash', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
 ON CONFLICT (internal_name) DO UPDATE SET
     public_name = EXCLUDED.public_name,
     updated_time = EXCLUDED.updated_time;
+
+-- gpt-image-2-4k 展示名由 adobe-firefly-gpt-image-2-4k 占用；Yunfei 切换走 model_routing_aliases。
+INSERT INTO model_routing_aliases (public_name, internal_name, note, created_time, updated_time)
+VALUES (
+    'gpt-image-2-4k',
+    'cy-yf-gpt-image-2-4k',
+    'Neutral API route -> Yunfei GPT Image 2 4K（切换时覆盖 Adobe 指向）',
+    EXTRACT(EPOCH FROM NOW())::BIGINT,
+    EXTRACT(EPOCH FROM NOW())::BIGINT
+)
+ON CONFLICT (public_name) DO UPDATE SET
+    internal_name = EXCLUDED.internal_name,
+    note = EXCLUDED.note,
+    deleted_at = NULL,
+    updated_time = EXTRACT(EPOCH FROM NOW())::BIGINT;
 
 INSERT INTO models (
     model_name, description, tags, vendor_id, endpoints, status,
