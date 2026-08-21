@@ -36,23 +36,28 @@ func TestResolveInternalModelNamePrefersSingleMarketplaceActiveAlias(t *testing.
 	require.Equal(t, "gpt-image-2-4k", clientPublic)
 }
 
-func TestResolveInternalModelNameRoutingAliasWinsOverSharedPublicAlias(t *testing.T) {
+func TestResolveInternalModelNamePublicAliasWinsOverRoutingAlias(t *testing.T) {
 	modelPublicRegistryMu.Lock()
 	modelPublicRegistryData = modelPublicRegistry{
 		internalSet: map[string]struct{}{
-			"cy-yf-gpt-image-2-4k": {},
+			"adobe-firefly-gpt-image-2-4k": {},
+			"cy-yf-gpt-image-2-4k":         {},
 		},
 		internalToPublic: map[string]string{
-			"cy-yf-gpt-image-2-4k": "gpt-image-2-4k",
+			"adobe-firefly-gpt-image-2-4k": "gpt-image-2-4k",
+			"cy-yf-gpt-image-2-4k":         "gpt-image-2-4k",
 		},
 		publicToInternals: map[string][]string{
-			"gpt-image-2-4k": {"cy-yf-gpt-image-2-4k"},
+			"gpt-image-2-4k": {
+				"adobe-firefly-gpt-image-2-4k",
+				"cy-yf-gpt-image-2-4k",
+			},
 		},
 		routingPublicToInternal: map[string]string{
 			"gpt-image-2-4k": "cy-yf-gpt-image-2-4k",
 		},
 		marketplaceActiveInternal: map[string]bool{
-			"cy-yf-gpt-image-2-4k": true,
+			"adobe-firefly-gpt-image-2-4k": true,
 		},
 	}
 	modelPublicRegistryReady = true
@@ -60,6 +65,6 @@ func TestResolveInternalModelNameRoutingAliasWinsOverSharedPublicAlias(t *testin
 
 	internal, clientPublic, err := ResolveInternalModelName("gpt-image-2-4k")
 	require.NoError(t, err)
-	require.Equal(t, "cy-yf-gpt-image-2-4k", internal)
+	require.Equal(t, "adobe-firefly-gpt-image-2-4k", internal)
 	require.Equal(t, "gpt-image-2-4k", clientPublic)
 }

@@ -181,6 +181,41 @@ BEGIN
     CROSS JOIN (VALUES ('IMAGE'), ('全模型-无claude/gpt')) AS g(grp);
 END $$;
 
+-- 稳定 API 路由（model_routing_aliases）：后台「模型命名与路由」可见
+INSERT INTO model_routing_aliases (public_name, internal_name, note, created_time, updated_time)
+VALUES
+    ('gpt-image-2-1k', 'cy-ac-gpt-image-2-1k', 'Neutral API route -> Aiclub GPT Image 2 1K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('gpt-image-2-2k', 'cy-ac-gpt-image-2-2k', 'Neutral API route -> Aiclub GPT Image 2 2K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana-pro-1k', 'cy-ac-nano-banana-pro-1k', 'Neutral API route -> Aiclub Nano Banana Pro 1K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana-pro-2k', 'cy-ac-nano-banana-pro-2k', 'Neutral API route -> Aiclub Nano Banana Pro 2K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana-pro-4k', 'cy-ac-nano-banana-pro-4k', 'Neutral API route -> Aiclub Nano Banana Pro 4K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana-1k', 'cy-ac-nano-banana-1k', 'Neutral API route -> Aiclub Nano Banana 1K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana-2k', 'cy-ac-nano-banana-2k', 'Neutral API route -> Aiclub Nano Banana 2K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana-4k', 'cy-ac-nano-banana-4k', 'Neutral API route -> Aiclub Nano Banana 4K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana2-1k', 'cy-ac-nano-banana2-1k', 'Neutral API route -> Aiclub Nano Banana 2 1K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana2-2k', 'cy-ac-nano-banana2-2k', 'Neutral API route -> Aiclub Nano Banana 2 2K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT),
+    ('nano-banana2-4k', 'cy-ac-nano-banana2-4k', 'Neutral API route -> Aiclub Nano Banana 2 4K', EXTRACT(EPOCH FROM NOW())::BIGINT, EXTRACT(EPOCH FROM NOW())::BIGINT)
+ON CONFLICT (public_name) DO UPDATE SET
+    internal_name = EXCLUDED.internal_name,
+    note = EXCLUDED.note,
+    deleted_at = NULL,
+    updated_time = EXCLUDED.updated_time;
+
+-- gpt-image-2-4k 中性名已被 Yunfei 占用；4K 备用线用 internal 名或单独路由
+INSERT INTO model_routing_aliases (public_name, internal_name, note, created_time, updated_time)
+VALUES (
+    'cy-ac-gpt-image-2-4k',
+    'cy-ac-gpt-image-2-4k',
+    'Direct internal route alias -> Aiclub GPT Image 2 4K',
+    EXTRACT(EPOCH FROM NOW())::BIGINT,
+    EXTRACT(EPOCH FROM NOW())::BIGINT
+)
+ON CONFLICT (public_name) DO UPDATE SET
+    internal_name = EXCLUDED.internal_name,
+    note = EXCLUDED.note,
+    deleted_at = NULL,
+    updated_time = EXCLUDED.updated_time;
+
 COMMIT;
 
 SELECT model_name, image_profile_id, status FROM models

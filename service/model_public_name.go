@@ -251,21 +251,24 @@ func ResolveInternalModelName(publicOrInternal string) (internal string, clientP
 		return name, public, nil
 	}
 
+	if internals, ok := registry.publicToInternals[name]; ok && len(internals) > 0 {
+		if resolved, ok := resolveUniqueMarketplacePublicInternal(name, internals, registry); ok {
+			return resolved, name, nil
+		}
+		if internal, ok := registry.routingPublicToInternal[name]; ok {
+			return internal, name, nil
+		}
+		if len(internals) == 1 {
+			return internals[0], name, nil
+		}
+		return "", "", fmt.Errorf("ambiguous public model name %s", name)
+	}
+
 	if internal, ok := registry.routingPublicToInternal[name]; ok {
 		return internal, name, nil
 	}
 
-	internals, ok := registry.publicToInternals[name]
-	if !ok || len(internals) == 0 {
-		return "", "", fmt.Errorf("model %s not found", name)
-	}
-	if len(internals) == 1 {
-		return internals[0], name, nil
-	}
-	if resolved, ok := resolveUniqueMarketplacePublicInternal(name, internals, registry); ok {
-		return resolved, name, nil
-	}
-	return "", "", fmt.Errorf("ambiguous public model name %s", name)
+	return "", "", fmt.Errorf("model %s not found", name)
 }
 
 func resolveUniqueMarketplacePublicInternal(publicName string, internals []string, registry modelPublicRegistry) (string, bool) {

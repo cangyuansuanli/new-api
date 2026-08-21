@@ -24,20 +24,20 @@ AICLUB_INTERNALS = (
     "cy-ac-nano-banana2-4k",
 )
 
-# 与 Adobe 主线路对齐的默认定价，可按运营调整。
+# 与 adobe-firefly-* 同 SKU 定价对齐（源站 ModelPrice 一一对应）。
 PRICES = {
-    "cy-ac-gpt-image-2-1k": 0.04,
-    "cy-ac-gpt-image-2-2k": 0.06,
-    "cy-ac-gpt-image-2-4k": 0.12,
-    "cy-ac-nano-banana-pro-1k": 0.05,
-    "cy-ac-nano-banana-pro-2k": 0.08,
-    "cy-ac-nano-banana-pro-4k": 0.15,
-    "cy-ac-nano-banana-1k": 0.04,
-    "cy-ac-nano-banana-2k": 0.06,
-    "cy-ac-nano-banana-4k": 0.12,
-    "cy-ac-nano-banana2-1k": 0.04,
-    "cy-ac-nano-banana2-2k": 0.06,
-    "cy-ac-nano-banana2-4k": 0.12,
+    "cy-ac-gpt-image-2-1k": 0.045,
+    "cy-ac-gpt-image-2-2k": 0.065,
+    "cy-ac-gpt-image-2-4k": 0.095,
+    "cy-ac-nano-banana-pro-1k": 0.09,
+    "cy-ac-nano-banana-pro-2k": 0.13,
+    "cy-ac-nano-banana-pro-4k": 0.19,
+    "cy-ac-nano-banana-1k": 0.075,
+    "cy-ac-nano-banana-2k": 0.11,
+    "cy-ac-nano-banana-4k": 0.145,
+    "cy-ac-nano-banana2-1k": 0.075,
+    "cy-ac-nano-banana2-2k": 0.11,
+    "cy-ac-nano-banana2-4k": 0.145,
 }
 
 AICLUB_SPECS = {spec.internal: spec for spec in SPECS if spec.internal in AICLUB_INTERNALS}

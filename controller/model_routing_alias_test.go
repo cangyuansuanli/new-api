@@ -61,7 +61,7 @@ func TestCreateModelRoutingAliasValidatesAndRefreshesRegistry(t *testing.T) {
 	require.Equal(t, "legacy-video", clientPublic)
 }
 
-func TestCreateModelRoutingAliasRejectsInvalidNames(t *testing.T) {
+func TestCreateModelRoutingAliasAllowsSharedPublicNameWithPublicAlias(t *testing.T) {
 	db := setupModelListControllerTestDB(t)
 	require.NoError(t, db.Create(&model.Ability{
 		Group: "default", Model: "internal-video", ChannelId: 1, Enabled: true,
@@ -70,15 +70,19 @@ func TestCreateModelRoutingAliasRejectsInvalidNames(t *testing.T) {
 		InternalName: "internal-video", PublicName: "marketplace-video",
 	}).Error)
 
-	conflict := performModelRoutingAliasRequest(
+	response := performModelRoutingAliasRequest(
 		t,
 		http.MethodPost,
 		"/api/model_routing_aliases/",
-		`{"public_name":"marketplace-video","internal_name":"internal-video"}`,
+		`{"public_name":"marketplace-video","internal_name":"internal-video","note":"fallback"}`,
 		CreateModelRoutingAlias,
 	)
-	require.False(t, conflict.Success)
-	require.Equal(t, "public_name conflicts with a model public alias", conflict.Message)
+	require.True(t, response.Success)
+	require.Equal(t, "marketplace-video", response.Data.PublicName)
+}
+
+func TestCreateModelRoutingAliasRejectsMissingTarget(t *testing.T) {
+	setupModelListControllerTestDB(t)
 
 	missingTarget := performModelRoutingAliasRequest(
 		t,
@@ -91,8 +95,14 @@ func TestCreateModelRoutingAliasRejectsInvalidNames(t *testing.T) {
 	require.Equal(t, "internal_name does not exist in abilities", missingTarget.Message)
 }
 
-func TestCreateModelPublicAliasRejectsRoutingName(t *testing.T) {
+func TestCreateModelPublicAliasAllowsSharedPublicNameWithRoutingAlias(t *testing.T) {
 	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "internal-one", ChannelId: 1, Enabled: true,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "internal-two", ChannelId: 1, Enabled: true,
+	}).Error)
 	require.NoError(t, db.Create(&model.ModelRoutingAlias{
 		PublicName: "shared-name", InternalName: "internal-one",
 	}).Error)
@@ -101,11 +111,11 @@ func TestCreateModelPublicAliasRejectsRoutingName(t *testing.T) {
 		t,
 		http.MethodPost,
 		"/api/model_public_aliases/",
-		`{"internal_name":"internal-two","public_name":"shared-name"}`,
+		`{"internal_name":"internal-two","public_name":"shared-name","hidden_from_marketplace":true}`,
 		CreateModelPublicAlias,
 	)
-	require.False(t, response.Success)
-	require.Equal(t, "public_name conflicts with a model routing alias", response.Message)
+	require.True(t, response.Success)
+	require.Equal(t, "shared-name", response.Data.PublicName)
 }
 
 func TestUpdateModelPublicAliasVisibility(t *testing.T) {
@@ -137,6 +147,48 @@ func TestUpdateModelPublicAliasVisibility(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, alias.InternalName, internal)
 	require.Equal(t, alias.PublicName, clientName)
+}
+
+func TestUpdateModelPublicAliasActivatesExclusiveRoute(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "cy-ac-gpt-image-2-1k", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "adobe-firefly-gpt-image-2-1k", ChannelId: 1, Enabled: true},
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Model{
+		{ModelName: "cy-ac-gpt-image-2-1k", Status: 1},
+		{ModelName: "adobe-firefly-gpt-image-2-1k", Status: 1},
+	}).Error)
+
+	backup := model.ModelPublicAlias{
+		InternalName:          "adobe-firefly-gpt-image-2-1k",
+		PublicName:            "gpt-image-2-1k",
+		HiddenFromMarketplace: false,
+	}
+	require.NoError(t, backup.Insert())
+	primary := model.ModelPublicAlias{
+		InternalName:          "cy-ac-gpt-image-2-1k",
+		PublicName:            "gpt-image-2-1k",
+		HiddenFromMarketplace: true,
+	}
+	require.NoError(t, primary.Insert())
+
+	response := performModelRoutingAliasRequest(
+		t,
+		http.MethodPut,
+		"/api/model_public_aliases/",
+		`{"id":`+strconv.Itoa(primary.Id)+`,"internal_name":"cy-ac-gpt-image-2-1k","public_name":"gpt-image-2-1k","hidden_from_marketplace":false}`,
+		UpdateModelPublicAlias,
+	)
+	require.True(t, response.Success)
+
+	storedPrimary, err := model.GetModelPublicAliasByID(primary.Id)
+	require.NoError(t, err)
+	require.False(t, storedPrimary.HiddenFromMarketplace)
+
+	storedBackup, err := model.GetModelPublicAliasByID(backup.Id)
+	require.NoError(t, err)
+	require.True(t, storedBackup.HiddenFromMarketplace)
 }
 
 func TestUpdateAndDeleteModelRoutingAlias(t *testing.T) {

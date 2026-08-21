@@ -139,3 +139,21 @@ func DeleteModelPublicAlias(id int) error {
 	}
 	return nil
 }
+
+// DeactivateSiblingPublicAliases hides every other alias that shares the same
+// public name so only one internal route stays active at a time.
+func DeactivateSiblingPublicAliases(excludeID int, publicName string) error {
+	publicName = strings.TrimSpace(publicName)
+	if publicName == "" {
+		return nil
+	}
+	now := common.GetTimestamp()
+	tx := DB.Model(&ModelPublicAlias{}).Where("public_name = ?", publicName)
+	if excludeID > 0 {
+		tx = tx.Where("id <> ?", excludeID)
+	}
+	return tx.Updates(map[string]interface{}{
+		"hidden_from_marketplace": true,
+		"updated_time":            now,
+	}).Error
+}
