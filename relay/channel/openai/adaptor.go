@@ -167,6 +167,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		return url, nil
 	default:
 		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
+			IsAiclubImageRelay(info) {
+			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/videos", info.ChannelType), nil
+		}
+		if (info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) &&
 			IsAdobe2APIImageRelay(info) {
 			path := "/v1/images/generations"
 			if info.RelayMode == relayconstant.RelayModeImagesEdits && info.Adobe2APIImageEditMultipart {
@@ -455,6 +459,10 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if IsAiclubImageRelay(info) &&
+		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
+		return ConvertAiclubImageRequest(c, info, request)
+	}
 	if IsAdobe2APIImageRelay(info) &&
 		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
 		return ConvertAdobe2APIImageRequest(c, info, request)
@@ -790,6 +798,9 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	if IsAiclubImageRelay(info) {
+		return aiclubImageDoRequest(a, c, info, requestBody)
+	}
 	if IsAdobe2APIImageRelay(info) {
 		if info.Adobe2APIImageEditMultipart {
 			return channel.DoFormRequest(a, c, info, requestBody)
@@ -830,6 +841,13 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	case relayconstant.RelayModeAudioTranscription:
 		err, usage = OpenaiSTTHandler(c, resp, info, a.ResponseFormat)
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
+		if IsAiclubImageRelay(info) {
+			if info.IsStream {
+				return nil, types.NewOpenAIError(fmt.Errorf("aiclub image models do not support stream"), types.ErrorCodeInvalidRequest, http.StatusBadRequest)
+			}
+			usage, err = OpenaiAiclubImageHandler(c, info, resp)
+			break
+		}
 		if IsAdobe2APIImageRelay(info) {
 			if info.IsStream {
 				usage, err = OpenaiImageStreamHandler(c, info, resp)

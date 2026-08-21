@@ -171,6 +171,10 @@ func RelayImageTaskSubmit(c *gin.Context) {
 				taskErr = service.TaskErrorWrapperLocal(validateErr, "invalid_request", http.StatusBadRequest)
 				break
 			}
+			if validateErr := openai.ValidateAiclubImageInputs(c, relayInfo, *imageReq); validateErr != nil {
+				taskErr = service.TaskErrorWrapperLocal(validateErr, "invalid_request", http.StatusBadRequest)
+				break
+			}
 		}
 		if admissionErr := enforceImageTaskAdmission(c, userId, channel.Id); admissionErr != nil {
 			taskErr = admissionErr
