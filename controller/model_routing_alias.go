@@ -37,16 +37,6 @@ func validateModelRoutingAlias(c *gin.Context, alias *model.ModelRoutingAlias) b
 		return false
 	}
 
-	duplicated, err = model.IsModelPublicAliasDuplicated(0, "", alias.PublicName)
-	if err != nil {
-		common.ApiError(c, err)
-		return false
-	}
-	if duplicated {
-		common.ApiErrorMsg(c, "public_name conflicts with a model public alias")
-		return false
-	}
-
 	targetExists, err := model.ModelRoutingAliasTargetExists(alias.InternalName)
 	if err != nil {
 		common.ApiError(c, err)

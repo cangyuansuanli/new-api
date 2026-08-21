@@ -154,7 +154,7 @@ export function RoutingAliasesCard() {
           <CardTitle>{t('API inbound routes')}</CardTitle>
           <p className='text-muted-foreground mt-1 text-sm'>
             {t(
-              'Primary customer-facing model names shown in the marketplace and model list. Change the target to switch the default channel.'
+              'Fallback routes used when no public mapping switch is on. Active public mappings take priority at runtime.'
             )}
           </p>
         </div>

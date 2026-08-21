@@ -79,7 +79,7 @@ function NamingModelGuide() {
         <h2 className='text-base font-semibold'>{t('How model names work')}</h2>
         <p className='text-muted-foreground mt-1 text-sm'>
           {t(
-            'Customers use stable API routes by default, or a channel-specific name when they need to select a channel.'
+            'Multiple internal abilities may share one public name for failover. Turn on exactly one switch to choose the active route and marketplace entry.'
           )}
         </p>
       </div>
@@ -101,12 +101,12 @@ function NamingModelGuide() {
           <Store className='size-4 shrink-0 text-emerald-600' />
           <div className='min-w-0'>
             <p className='text-xs font-medium text-emerald-700 dark:text-emerald-400'>
-              {t('Optional: select a channel')}
+              {t('Shared public name')}
             </p>
             <div className='mt-1 flex flex-wrap items-center gap-2 font-mono text-xs sm:text-sm'>
-              <span>{t('Channel-specific name')}</span>
+              <span>{t('Public name')}</span>
               <ArrowRight className='text-muted-foreground size-3.5' />
-              <span>{t('Internal ability')}</span>
+              <span>{t('Active internal ability')}</span>
             </div>
           </div>
         </div>
@@ -289,10 +289,10 @@ export function ModelNamingSection() {
       <Card>
         <CardHeader className='flex flex-col items-start justify-between gap-3 space-y-0 sm:flex-row sm:items-center'>
           <div>
-            <CardTitle>{t('Channel-specific names')}</CardTitle>
+            <CardTitle>{t('Public route mappings')}</CardTitle>
             <p className='text-muted-foreground mt-1 text-sm'>
               {t(
-                'Direct API names for selecting a specific channel. Visibility only controls the marketplace and model list.'
+                'Map internal abilities to a shared public name. Only one switch may stay on for each public name.'
               )}
             </p>
           </div>
@@ -306,8 +306,8 @@ export function ModelNamingSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('Internal ability')}</TableHead>
-                <TableHead>{t('Channel-specific name')}</TableHead>
-                <TableHead>{t('Visible')}</TableHead>
+                <TableHead>{t('Public name')}</TableHead>
+                <TableHead>{t('Active route')}</TableHead>
                 <TableHead className='w-[100px]'>{t('Actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -337,7 +337,7 @@ export function ModelNamingSection() {
                       <Switch
                         checked={!alias.hidden_from_marketplace}
                         disabled={visibilityMutation.isPending}
-                        aria-label={t('Show in marketplace')}
+                        aria-label={t('Activate route')}
                         onCheckedChange={() => visibilityMutation.mutate(alias)}
                       />
                     </TableCell>

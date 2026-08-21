@@ -40,6 +40,12 @@ func CreateModelPublicAlias(c *gin.Context) {
 		common.ApiErrorMsg(c, "internal_name already exists")
 		return
 	}
+	if !alias.HiddenFromMarketplace {
+		if err := model.DeactivateSiblingPublicAliases(0, alias.PublicName); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	dup, err = model.IsPublicAliasMarketplaceConflict(0, alias.InternalName, alias.PublicName, alias.HiddenFromMarketplace)
 	if err != nil {
 		common.ApiError(c, err)
@@ -47,15 +53,6 @@ func CreateModelPublicAlias(c *gin.Context) {
 	}
 	if dup {
 		common.ApiErrorMsg(c, "public_name already used by another visible enabled model")
-		return
-	}
-	dup, err = model.IsModelRoutingAliasDuplicated(0, alias.PublicName)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if dup {
-		common.ApiErrorMsg(c, "public_name conflicts with a model routing alias")
 		return
 	}
 	if err := alias.Insert(); err != nil {
@@ -94,6 +91,12 @@ func UpdateModelPublicAlias(c *gin.Context) {
 		common.ApiErrorMsg(c, "internal_name already exists")
 		return
 	}
+	if !alias.HiddenFromMarketplace {
+		if err := model.DeactivateSiblingPublicAliases(alias.Id, alias.PublicName); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	dup, err = model.IsPublicAliasMarketplaceConflict(alias.Id, alias.InternalName, alias.PublicName, alias.HiddenFromMarketplace)
 	if err != nil {
 		common.ApiError(c, err)
@@ -101,15 +104,6 @@ func UpdateModelPublicAlias(c *gin.Context) {
 	}
 	if dup {
 		common.ApiErrorMsg(c, "public_name already used by another visible enabled model")
-		return
-	}
-	dup, err = model.IsModelRoutingAliasDuplicated(0, alias.PublicName)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if dup {
-		common.ApiErrorMsg(c, "public_name conflicts with a model routing alias")
 		return
 	}
 	if err := alias.Update(); err != nil {
