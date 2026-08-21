@@ -808,7 +808,7 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 		size := "1024x1024"
 		if strings.Contains(strings.ToLower(model), "gulie") ||
 			strings.Contains(model, "cy-img1-") ||
-			strings.Contains(model, "cy-img2-gpt-image-2-2k") {
+			strings.Contains(model, "cy-yf-gpt-image-2-4k") {
 			size = "1:1"
 		}
 		return &dto.ImageRequest{

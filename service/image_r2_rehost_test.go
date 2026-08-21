@@ -32,7 +32,7 @@ func TestRehostSyncImageResponseBodySkipsInternalPrefixModel(t *testing.T) {
 
 func TestRehostSyncImageResponseBodyNeverPublishesGeneratedUpstreamURL(t *testing.T) {
 	body := []byte(`{"created":1,"data":[{"url":"https://public.example.com/generated/a.png"}]}`)
-	_, err := RehostSyncImageResponseBody(context.Background(), 1, "cy-img2-gpt-image-2-4k", "http://45.67.221.45:6001", body, false)
+	_, err := RehostSyncImageResponseBody(context.Background(), 1, "cy-yf-gpt-image-2-4k", "http://45.67.221.45:6001", body, false)
 	if err == nil || !strings.Contains(err.Error(), "R2 not configured") {
 		t.Fatalf("expected mandatory R2 rehost, got %v", err)
 	}
@@ -40,7 +40,7 @@ func TestRehostSyncImageResponseBodyNeverPublishesGeneratedUpstreamURL(t *testin
 
 func TestRehostImageDataURLsRequiresR2ForGeneratedURL(t *testing.T) {
 	images := []dto.ImageData{{Url: "https://public.example.com/generated/a.png"}}
-	_, err := RehostImageDataURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "cy-img2-gpt-image-2-4k", images)
+	_, err := RehostImageDataURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "cy-yf-gpt-image-2-4k", images)
 	if err == nil || !strings.Contains(err.Error(), "R2 not configured") {
 		t.Fatalf("expected mandatory R2 rehost, got %v", err)
 	}
@@ -48,7 +48,7 @@ func TestRehostImageDataURLsRequiresR2ForGeneratedURL(t *testing.T) {
 
 func TestRehostImageDataURLsRequiresR2ForUpstreamURL(t *testing.T) {
 	images := []dto.ImageData{{Url: "https://upstream.example/a.png"}}
-	for _, model := range []string{"geek2-gpt-image-2-4k", "flux-pro-2", "cy-img1-gpt-image-2", "manju-gemini-banana-pro-1/2k"} {
+	for _, model := range []string{"cy-yf-gpt-image-2-4k", "cy-img1-gpt-image-2", "manju-gemini-banana-pro-1/2k"} {
 		_, err := RehostImageDataURLs(context.Background(), 1, "task_test", "https://api.example.com", model, images)
 		if err == nil || !strings.Contains(err.Error(), "R2 not configured") {
 			t.Fatalf("model %s: expected R2 not configured error, got %v", model, err)
@@ -93,7 +93,7 @@ func TestRehostImageDataForClientDecodesDataURIBeforeUpload(t *testing.T) {
 	t.Setenv("R2_USER_PUBLIC_BASE_URL", "https://example.com")
 
 	images := []dto.ImageData{{Url: "data:image/png;base64,%%%"}}
-	_, err := RehostImageDataForClient(context.Background(), 1, "task_test", "https://api.example.com", "cy-img2-gpt-image-2-4k", images, false)
+	_, err := RehostImageDataForClient(context.Background(), 1, "task_test", "https://api.example.com", "cy-yf-gpt-image-2-4k", images, false)
 	if err == nil || !strings.Contains(err.Error(), "decode upstream image data uri") {
 		t.Fatalf("expected data URI decode error, got %v", err)
 	}
@@ -128,7 +128,7 @@ func TestRehostTaskImageResultURLsRequiresR2ForAcceptedURL(t *testing.T) {
 
 func TestRehostTaskImageResultURLsNeverPublishesGeneratedUpstreamURL(t *testing.T) {
 	images := []dto.ImageData{{Url: "https://public.example.com/generated/a.png"}}
-	_, err := RehostTaskImageResultURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "cy-img2-gpt-image-2-4k", images)
+	_, err := RehostTaskImageResultURLs(context.Background(), 1, "task_test", "http://45.67.221.45:6001", "cy-yf-gpt-image-2-4k", images)
 	if err == nil || !strings.Contains(err.Error(), "R2 not configured") {
 		t.Fatalf("expected mandatory R2 rehost, got %v", err)
 	}

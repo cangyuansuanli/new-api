@@ -276,7 +276,7 @@ func writeQueuedEditFile(ctx context.Context, dst io.Writer, file EditFile) erro
 	return nil
 }
 
-// imageAsyncUsesURLResponse：4K / Geek2 FLUX 等走 url 响应，避免超大 b64_json 被上游截断。
+// imageAsyncUsesURLResponse：已注册 vendor 声明 AsyncPreferURLResponse 的模型走 url 响应，避免超大 b64_json 被上游截断。
 func imageAsyncUsesURLResponse(originModel string) bool {
 	return imagevendor.ImageModelUsesURLRehost(originModel)
 }

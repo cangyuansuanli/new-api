@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/imagevendor"
 	"github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
@@ -61,7 +62,8 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	if model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
+	if imagevendor.IsYunfeiBananaOriginModel(info.OriginModelName) &&
+		model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
 		return ConvertGeminiBananaImageRequest(c, request)
 	}
 	if !strings.HasPrefix(info.UpstreamModelName, "imagen") {
@@ -270,7 +272,8 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	}
 
 	if info.RelayMode == constant.RelayModeImagesGenerations || info.RelayMode == constant.RelayModeImagesEdits {
-		if model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
+		if imagevendor.IsYunfeiBananaOriginModel(info.OriginModelName) &&
+			model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
 			if info.IsStream {
 				return nil, types.NewOpenAIError(fmt.Errorf("gemini generateContent image models do not support stream"), types.ErrorCodeInvalidRequest, http.StatusBadRequest)
 			}

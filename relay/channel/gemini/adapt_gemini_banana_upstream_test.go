@@ -16,18 +16,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsGeminiBananaUpstreamImage(t *testing.T) {
+func TestIsYunfeiGeminiBananaUpstreamImage(t *testing.T) {
 	info := &relaycommon.RelayInfo{
-		OriginModelName: "manju-gemini-banana-pro-4k",
+		OriginModelName: "cy-yf-gemini-banana-pro",
 		ChannelMeta: &relaycommon.ChannelMeta{
 			UpstreamModelName: "gemini-3-pro-image-preview",
 		},
 	}
-	if !IsGeminiBananaUpstreamImage(info) {
-		t.Fatal("expected true for manju banana on gemini imagine model")
+	if !IsYunfeiGeminiBananaUpstreamImage(info) {
+		t.Fatal("expected true for cy-yf banana on gemini imagine model")
+	}
+	info.OriginModelName = "manju-gemini-banana-pro-4k"
+	if IsYunfeiGeminiBananaUpstreamImage(info) {
+		t.Fatal("expected false for legacy manju banana model")
 	}
 	info.OriginModelName = "gpt-image-1"
-	if IsGeminiBananaUpstreamImage(info) {
+	if IsYunfeiGeminiBananaUpstreamImage(info) {
 		t.Fatal("expected false for non-banana model")
 	}
 }
