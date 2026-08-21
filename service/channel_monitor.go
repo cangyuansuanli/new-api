@@ -22,22 +22,23 @@ import (
 )
 
 const (
-	channelMonitorMinIntervalSeconds  = 60
-	channelMonitorMaxIntervalSeconds  = 86400
-	channelMonitorHistoryDays         = 45
-	channelMonitorWorkerConcurrency   = 4
-	channelMonitorImageFreshness      = 30 * time.Minute
-	channelMonitorVideoFreshness      = 24 * time.Hour
-	channelMonitorPassiveQueryLimit   = 100
-	channelMonitorPublicTimelineLimit = 48
-	channelMonitorPublicBucketSize    = 30 * time.Minute
-	channelMonitorCarryLookback       = 24 * time.Hour
-	channelMonitorPublicTextRefresh   = 5 * time.Minute
-	channelMonitorPublicRefresh       = 30 * time.Minute
-	channelMonitorPublicCacheTTL      = 2 * time.Hour
-	channelMonitorPublicCacheNS       = "new-api:channel_monitor_public:v4"
-	channelMonitorMediaCacheTTL       = 49 * time.Hour
-	channelMonitorMediaCacheNS        = "new-api:channel_monitor_media:v1"
+	channelMonitorMinIntervalSeconds   = 60
+	channelMonitorMaxIntervalSeconds   = 86400
+	channelMonitorHistoryDays          = 45
+	channelMonitorWorkerConcurrency    = 4
+	channelMonitorMaxTextProbeAttempts = 2
+	channelMonitorImageFreshness       = 30 * time.Minute
+	channelMonitorVideoFreshness       = 24 * time.Hour
+	channelMonitorPassiveQueryLimit    = 100
+	channelMonitorPublicTimelineLimit  = 48
+	channelMonitorPublicBucketSize     = 30 * time.Minute
+	channelMonitorCarryLookback        = 24 * time.Hour
+	channelMonitorPublicTextRefresh    = 5 * time.Minute
+	channelMonitorPublicRefresh        = 30 * time.Minute
+	channelMonitorPublicCacheTTL       = 2 * time.Hour
+	channelMonitorPublicCacheNS        = "new-api:channel_monitor_public:v4"
+	channelMonitorMediaCacheTTL        = 49 * time.Hour
+	channelMonitorMediaCacheNS         = "new-api:channel_monitor_media:v1"
 )
 
 var ErrChannelMonitorMediaProbeDisabled = errors.New("billable media probes are disabled")
@@ -811,13 +812,18 @@ func runTextGroupChannelMonitor(ctx context.Context, monitor *model.ChannelMonit
 	targetGroup := resolveTextMonitorTargetGroup(monitor)
 	results := make([]*model.ChannelMonitorResult, 0)
 	roundCheckedAt := time.Now().Unix()
+	attempts := 0
 	for _, channel := range channels {
 		if !channelSupportsMonitorGroup(channel, targetGroup) || !channelSupportsMonitorModel(channel, monitor.PrimaryModel) {
 			continue
 		}
+		if attempts >= channelMonitorMaxTextProbeAttempts {
+			break
+		}
 		if err := ctx.Err(); err != nil {
 			return results, err
 		}
+		attempts++
 		outcome := probe(ctx, monitor, channel, monitor.PrimaryModel)
 		if outcome.Status == "" {
 			outcome.Status = model.ChannelMonitorStatusUnknown

@@ -311,6 +311,39 @@ func TestTextGroupMonitorStopsAfterFirstOperationalChannel(t *testing.T) {
 	assert.Equal(t, 1, view.Primary.Observed)
 }
 
+func TestTextGroupMonitorCapsFailedChannelAttempts(t *testing.T) {
+	setupChannelMonitorTest(t)
+	channels := []*model.Channel{
+		{Name: "first", Type: constant.ChannelTypeOpenAI, Key: "first-key", Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro"},
+		{Name: "second", Type: constant.ChannelTypeOpenAI, Key: "second-key", Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro"},
+		{Name: "third", Type: constant.ChannelTypeOpenAI, Key: "third-key", Status: common.ChannelStatusEnabled, Models: "gpt-5.6-sol", Group: "LLM-GPT-pro"},
+	}
+	for _, channel := range channels {
+		require.NoError(t, model.DB.Create(channel).Error)
+	}
+	monitor := &model.ChannelMonitor{
+		Scope: model.ChannelMonitorScopeText, Target: "LLM-GPT-pro", Name: "GPT pro",
+		PrimaryModel: "gpt-5.6-sol", ExtraModelsJSON: "[]", ProbeKind: model.ChannelMonitorProbeTextActive,
+		IntervalSeconds: 1800, JitterSeconds: 120, Enabled: true, Visible: true,
+	}
+	require.NoError(t, model.CreateChannelMonitor(monitor))
+	probeCalls := 0
+
+	results, err := RunChannelMonitor(context.Background(), monitor.ID, func(
+		_ context.Context,
+		_ *model.ChannelMonitor,
+		_ *model.Channel,
+		_ string,
+	) ChannelMonitorProbeOutcome {
+		probeCalls++
+		return ChannelMonitorProbeOutcome{Status: model.ChannelMonitorStatusUnavailable}
+	})
+
+	require.NoError(t, err)
+	require.Len(t, results, channelMonitorMaxTextProbeAttempts)
+	assert.Equal(t, channelMonitorMaxTextProbeAttempts, probeCalls)
+}
+
 func TestMediaAggregationExcludesUnlistedModelsAcrossEnabledChannels(t *testing.T) {
 	setupChannelMonitorTest(t)
 	enabled := &model.Channel{

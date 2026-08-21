@@ -42,8 +42,8 @@ const emptyInput: ChannelMonitorInput = {
   name: '',
   primary_model: '',
   extra_models: [],
-  interval_seconds: 300,
-  jitter_seconds: 30,
+  interval_seconds: 1800,
+  jitter_seconds: 120,
   enabled: true,
   visible: true,
 }
@@ -115,8 +115,8 @@ function MonitorFormDialog(props: {
                     target: '',
                     primary_model: '',
                     interval_seconds:
-                      event.target.value === 'text' ? 300 : 1800,
-                    jitter_seconds: event.target.value === 'text' ? 30 : 0,
+                      event.target.value === 'text' ? 1800 : 1800,
+                    jitter_seconds: event.target.value === 'text' ? 120 : 0,
                   }))
                 }
               >
@@ -337,9 +337,8 @@ export function AdminMonitorPanel() {
                 <div className='text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs'>
                   <span>
                     {t('Refresh cycle')}:{' '}
-                    {monitor.scope === 'text'
-                      ? t('5 minutes')
-                      : t('30 minutes')}
+                    {Math.max(1, Math.round(monitor.interval_seconds / 60))}{' '}
+                    min
                   </span>
                   <span>{monitor.enabled ? t('Enabled') : t('Disabled')}</span>
                   <span>{monitor.visible ? t('Visible') : t('Hidden')}</span>

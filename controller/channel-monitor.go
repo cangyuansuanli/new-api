@@ -113,10 +113,10 @@ func applyChannelMonitorRequest(monitor *model.ChannelMonitor, request *channelM
 	monitor.JitterSeconds = request.JitterSeconds
 	if creating {
 		if monitor.IntervalSeconds == 0 {
-			monitor.IntervalSeconds = 300
+			monitor.IntervalSeconds = 1800
 		}
 		if monitor.JitterSeconds == 0 {
-			monitor.JitterSeconds = 30
+			monitor.JitterSeconds = 120
 		}
 		monitor.Enabled = true
 		monitor.Visible = true
