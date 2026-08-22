@@ -70,6 +70,56 @@ func TestConvertAiclubImageRequestMapsBananaBody(t *testing.T) {
 	}
 }
 
+func TestConvertAiclubImageRequestRenamesSizeToAspectRatio(t *testing.T) {
+	bodyAny, err := ConvertAiclubImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "cy-ac-gpt-image-2-2k",
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gpt-image2-2k-high",
+		},
+	}, dto.ImageRequest{
+		Model:  "gpt-image2-2k-high",
+		Prompt: "portrait",
+		Size:   "1536x2048",
+	})
+	if err != nil {
+		t.Fatalf("ConvertAiclubImageRequest: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	if body["aspect_ratio"] != "1536x2048" {
+		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
+	}
+	if _, ok := body["size"]; ok {
+		t.Fatalf("size must not be forwarded: %#v", body)
+	}
+}
+
+func TestConvertAiclubImageRequestPrefersExplicitAspectRatio(t *testing.T) {
+	bodyAny, err := ConvertAiclubImageRequest(nil, &relaycommon.RelayInfo{
+		OriginModelName: "cy-ac-gpt-image-2-2k",
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gpt-image2-2k-high",
+		},
+	}, dto.ImageRequest{
+		Model:  "gpt-image2-2k-high",
+		Prompt: "portrait",
+		Extra: map[string]json.RawMessage{
+			"aspect_ratio": json.RawMessage(`"9:16"`),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ConvertAiclubImageRequest: %v", err)
+	}
+	body := bodyAny.(map[string]any)
+	if body["aspect_ratio"] != "9:16" {
+		t.Fatalf("aspect_ratio = %v", body["aspect_ratio"])
+	}
+	if _, ok := body["size"]; ok {
+		t.Fatalf("size must not be forwarded when aspect_ratio is explicit: %#v", body)
+	}
+}
+
 func TestConvertAiclubImageRequestRejectsTooManyReferences(t *testing.T) {
 	images := make([]string, 7)
 	for i := range images {

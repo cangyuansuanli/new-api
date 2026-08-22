@@ -47,16 +47,8 @@ func ValidateAiclubImageInputs(c *gin.Context, info *relaycommon.RelayInfo, requ
 		return err
 	}
 	modelName := resolveAiclubUpstreamModel(info, request.Model)
-	if isAiclubGPTImageModelName(modelName) {
-		if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
-			if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
-				return err
-			}
-		}
-	} else {
-		if err := imagevendor.ValidateAdobeBananaAspectRatio(info.OriginModelName, aiclubAspectRatio(request)); err != nil {
-			return err
-		}
+	if err := validateAiclubAspectRatio(info, modelName, aiclubAspectRatio(request)); err != nil {
+		return err
 	}
 	files, err := collectAdobe2APIMultipartImageFiles(c)
 	if err != nil {
@@ -102,17 +94,8 @@ func ConvertAiclubImageRequest(c *gin.Context, info *relaycommon.RelayInfo, requ
 		"model":  modelName,
 		"prompt": request.Prompt,
 	}
-	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
-		if isAiclubGPTImageModelName(modelName) {
-			if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
-				return nil, err
-			}
-		} else if info != nil {
-			if err := imagevendor.ValidateAdobeBananaAspectRatio(info.OriginModelName, aspectRatio); err != nil {
-				return nil, err
-			}
-		}
-		body["aspect_ratio"] = aspectRatio
+	if err := applyAiclubImageRatioFields(body, request, modelName, info); err != nil {
+		return nil, err
 	}
 	refs, err := aiclubReferenceImages(c, request)
 	if err != nil {
@@ -150,19 +133,9 @@ func buildAiclubImageMultipart(c *gin.Context, info *relaycommon.RelayInfo, requ
 	if prompt := strings.TrimSpace(request.Prompt); prompt != "" {
 		_ = writer.WriteField("prompt", prompt)
 	}
-	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
-		if isAiclubGPTImageModelName(modelName) {
-			if err := imagevendor.ValidateGPTImageAspectRatio(aspectRatio); err != nil {
-				_ = writer.Close()
-				return nil, err
-			}
-		} else if info != nil {
-			if err := imagevendor.ValidateAdobeBananaAspectRatio(info.OriginModelName, aspectRatio); err != nil {
-				_ = writer.Close()
-				return nil, err
-			}
-		}
-		_ = writer.WriteField("aspect_ratio", aspectRatio)
+	if err := writeAiclubImageRatioFields(writer, request, modelName, info); err != nil {
+		_ = writer.Close()
+		return nil, err
 	}
 	for i, fileHeader := range imageFiles {
 		if err := writeAdobe2APIMultipartFile(writer, "image", fileHeader); err != nil {
@@ -256,8 +229,46 @@ func isAiclubGPTImageModelName(modelName string) bool {
 	return strings.HasPrefix(name, "gpt-image")
 }
 
+// aiclubAspectRatio maps public Image API size/aspect_ratio to upstream aspect_ratio only.
+// No local pixel↔ratio mapping — explicit aspect_ratio wins, otherwise size is renamed.
 func aiclubAspectRatio(request dto.ImageRequest) string {
-	return adobe2APIAspectRatio(request)
+	if value := adobe2APIImageOptionString(request, "aspect_ratio", "aspectRatio", "ratio"); value != "" {
+		return strings.TrimSpace(value)
+	}
+	return strings.TrimSpace(request.Size)
+}
+
+func validateAiclubAspectRatio(info *relaycommon.RelayInfo, modelName, aspectRatio string) error {
+	if aspectRatio == "" || !strings.Contains(aspectRatio, ":") {
+		return nil
+	}
+	if isAiclubGPTImageModelName(modelName) {
+		return imagevendor.ValidateGPTImageAspectRatio(aspectRatio)
+	}
+	if info != nil {
+		return imagevendor.ValidateAdobeBananaAspectRatio(info.OriginModelName, aspectRatio)
+	}
+	return nil
+}
+
+func applyAiclubImageRatioFields(body map[string]any, request dto.ImageRequest, modelName string, info *relaycommon.RelayInfo) error {
+	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
+		if err := validateAiclubAspectRatio(info, modelName, aspectRatio); err != nil {
+			return err
+		}
+		body["aspect_ratio"] = aspectRatio
+	}
+	return nil
+}
+
+func writeAiclubImageRatioFields(writer *multipart.Writer, request dto.ImageRequest, modelName string, info *relaycommon.RelayInfo) error {
+	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
+		if err := validateAiclubAspectRatio(info, modelName, aspectRatio); err != nil {
+			return err
+		}
+		return writer.WriteField("aspect_ratio", aspectRatio)
+	}
+	return nil
 }
 
 func aiclubReferenceImages(c *gin.Context, request dto.ImageRequest) ([]string, error) {
