@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -47,7 +48,7 @@ func ValidateAiclubImageInputs(c *gin.Context, info *relaycommon.RelayInfo, requ
 		return err
 	}
 	modelName := resolveAiclubUpstreamModel(info, request.Model)
-	if err := validateAiclubAspectRatio(info, modelName, aiclubAspectRatio(request)); err != nil {
+	if err := validateAiclubAspectRatio(info, modelName, aiclubAspectRatio(request, modelName, info)); err != nil {
 		return err
 	}
 	files, err := collectAdobe2APIMultipartImageFiles(c)
@@ -226,16 +227,129 @@ func resolveAiclubUpstreamModel(info *relaycommon.RelayInfo, fallback string) st
 
 func isAiclubGPTImageModelName(modelName string) bool {
 	name := strings.ToLower(strings.TrimSpace(modelName))
-	return strings.HasPrefix(name, "gpt-image")
+	return strings.Contains(name, "gpt-image")
 }
 
-// aiclubAspectRatio maps public Image API size/aspect_ratio to upstream aspect_ratio only.
-// No local pixel↔ratio mapping — explicit aspect_ratio wins, otherwise size is renamed.
-func aiclubAspectRatio(request dto.ImageRequest) string {
+// Aiclub GPT Image 2 ratios from upstream docs section 11.2.
+var aiclubGPTImageRatios = []string{
+	"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "21:9",
+}
+
+// aiclubExactSizeRatios maps documented WIDTHxHEIGHT values to aspect_ratio.
+// Includes the size-inference table plus GPT Image 2 / Nano-Banana output grids,
+// because some official pixels (e.g. 5504x3072) do not gcd to 16:9.
+var aiclubExactSizeRatios = map[string]string{
+	"1024x1024": "1:1", "1536x1536": "1:1", "2048x2048": "1:1", "2880x2880": "1:1", "4096x4096": "1:1",
+	"1024x1792": "9:16", "1536x2752": "9:16", "720x1280": "9:16", "1440x2560": "9:16", "2160x3840": "9:16",
+	"768x1360": "9:16", "3072x5504": "9:16",
+	"1792x1024": "16:9", "2752x1536": "16:9", "1280x720": "16:9", "2560x1440": "16:9", "3840x2160": "16:9",
+	"1360x768": "16:9", "5504x3072": "16:9",
+	"2048x1536": "4:3", "1152x864": "4:3", "2304x1728": "4:3", "3264x2448": "4:3", "4096x3072": "4:3",
+	"1536x2048": "3:4", "864x1152": "3:4", "1728x2304": "3:4", "2448x3264": "3:4", "3072x4096": "3:4",
+	"1248x832": "3:2", "2496x1664": "3:2", "3504x2336": "3:2",
+	"832x1248": "2:3", "1664x2496": "2:3", "2336x3504": "2:3",
+	"1120x896": "5:4", "2240x1792": "5:4", "3200x2560": "5:4",
+	"896x1120": "4:5", "1792x2240": "4:5", "2560x3200": "4:5",
+	"1456x624": "21:9", "3024x1296": "21:9", "3696x1584": "21:9",
+	"512x2048": "1:4", "1024x4096": "1:4", "2048x8192": "1:4",
+	"2048x512": "4:1", "4096x1024": "4:1", "8192x2048": "4:1",
+	"384x3072": "1:8", "768x6144": "1:8", "1536x12288": "1:8",
+	"3072x384": "8:1", "6144x768": "8:1", "12288x1536": "8:1",
+}
+
+// aiclubAspectRatio maps public Image API size/aspect_ratio to upstream aspect_ratio.
+// Pixel sizes are inferred to a ratio; Aiclub does not accept WIDTHxHEIGHT as output size.
+func aiclubAspectRatio(request dto.ImageRequest, modelName string, info *relaycommon.RelayInfo) string {
 	if value := adobe2APIImageOptionString(request, "aspect_ratio", "aspectRatio", "ratio"); value != "" {
-		return strings.TrimSpace(value)
+		if ratio := normalizePureAspectRatio(value); ratio != "" {
+			return ratio
+		}
 	}
-	return strings.TrimSpace(request.Size)
+	size := strings.TrimSpace(request.Size)
+	if ratio := normalizePureAspectRatio(size); ratio != "" {
+		return ratio
+	}
+	ratio := aiclubRatioFromSize(size)
+	if ratio == "" {
+		return ""
+	}
+	return snapAiclubRatioForModel(ratio, modelName, info)
+}
+
+func aiclubRatioFromSize(size string) string {
+	key := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(size), " ", ""))
+	if ratio, ok := aiclubExactSizeRatios[key]; ok {
+		return ratio
+	}
+	return aspectRatioFromImageDimensions(size)
+}
+
+func snapAiclubRatioForModel(ratio, modelName string, info *relaycommon.RelayInfo) string {
+	if ratio == "" || !strings.Contains(ratio, ":") {
+		return ratio
+	}
+	var allowed []string
+	if isAiclubGPTImageModelName(modelName) || (info != nil && isAiclubGPTImageModelName(info.OriginModelName)) {
+		allowed = aiclubGPTImageRatios
+	} else if info != nil {
+		allowed = aiclubBananaAllowedRatios(info.OriginModelName)
+	}
+	if len(allowed) == 0 {
+		return ratio
+	}
+	for _, candidate := range allowed {
+		if ratio == candidate {
+			return ratio
+		}
+	}
+	return snapToNearestAspectRatio(ratio, allowed)
+}
+
+func aiclubBananaAllowedRatios(originModel string) []string {
+	name := strings.ToLower(originModel)
+	allowed := []string{"1:1", "16:9", "9:16", "4:3", "3:4"}
+	if strings.Contains(name, "nano-banana2") {
+		return append(allowed, "1:4", "4:1", "1:8", "8:1")
+	}
+	if strings.Contains(name, "nano-banana-pro") {
+		return append(allowed, "3:2", "2:3", "5:4", "4:5", "21:9")
+	}
+	return allowed
+}
+
+func snapToNearestAspectRatio(ratio string, allowed []string) string {
+	width, height, ok := parseColonRatio(ratio)
+	if !ok || len(allowed) == 0 {
+		return ratio
+	}
+	target := float64(width) / float64(height)
+	best := allowed[0]
+	bestDiff := math.MaxFloat64
+	for _, candidate := range allowed {
+		cw, ch, cok := parseColonRatio(candidate)
+		if !cok {
+			continue
+		}
+		diff := math.Abs(target - float64(cw)/float64(ch))
+		if diff < bestDiff {
+			bestDiff = diff
+			best = candidate
+		}
+	}
+	return best
+}
+
+func parseColonRatio(ratio string) (int, int, bool) {
+	parts := strings.Split(strings.TrimSpace(ratio), ":")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	width, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || width <= 0 || height <= 0 {
+		return 0, 0, false
+	}
+	return width, height, true
 }
 
 func validateAiclubAspectRatio(info *relaycommon.RelayInfo, modelName, aspectRatio string) error {
@@ -252,7 +366,7 @@ func validateAiclubAspectRatio(info *relaycommon.RelayInfo, modelName, aspectRat
 }
 
 func applyAiclubImageRatioFields(body map[string]any, request dto.ImageRequest, modelName string, info *relaycommon.RelayInfo) error {
-	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
+	if aspectRatio := aiclubAspectRatio(request, modelName, info); aspectRatio != "" {
 		if err := validateAiclubAspectRatio(info, modelName, aspectRatio); err != nil {
 			return err
 		}
@@ -262,7 +376,7 @@ func applyAiclubImageRatioFields(body map[string]any, request dto.ImageRequest, 
 }
 
 func writeAiclubImageRatioFields(writer *multipart.Writer, request dto.ImageRequest, modelName string, info *relaycommon.RelayInfo) error {
-	if aspectRatio := aiclubAspectRatio(request); aspectRatio != "" {
+	if aspectRatio := aiclubAspectRatio(request, modelName, info); aspectRatio != "" {
 		if err := validateAiclubAspectRatio(info, modelName, aspectRatio); err != nil {
 			return err
 		}
